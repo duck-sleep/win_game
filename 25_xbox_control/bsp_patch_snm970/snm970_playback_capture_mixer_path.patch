@@ -1,0 +1,37 @@
+--- AudioPolicyManager.cpp.snm970.orig	2026-09-04 11:08:48.452120438 +0800
++++ AudioPolicyManager.cpp	2026-09-04 11:08:59.453084835 +0800
+@@ -1845,7 +1845,25 @@
+             property_get_bool("vendor.audio.offload.track.enable", true /* default_value */);
+     const bool offloadDisable =
+             property_get_bool("audio.offload.disable", false /* default_value */);
+-    if (trackDirectPCM && !offloadDisable && stream == AUDIO_STREAM_MUSIC) {
++    // SNM970-HapticX: when a playback capture (loopback render policy mix) is
++    // registered, media/game tracks must stay on the normal mixer path so that
++    // AudioFlinger can mirror them to the REMOTE_SUBMIX output (secondary
++    // outputs / tee patches). Forcing DIRECT (pcm offload) or DEEP_BUFFER
++    // bypasses the mixer and makes playback capture silent.
++    bool playbackCaptureActive = false;
++    for (size_t i = 0; i < mPolicyMixes.size(); i++) {
++        if (is_mix_loopback_render(mPolicyMixes.itemAt(i)->mRouteFlags)) {
++            playbackCaptureActive = true;
++            break;
++        }
++    }
++    if (playbackCaptureActive && trackDirectPCM && !offloadDisable
++            && stream == AUDIO_STREAM_MUSIC) {
++        ALOGD("%s: playback capture active, keep stream %d on mixer path",
++                __func__, stream);
++    }
++    if (trackDirectPCM && !offloadDisable && !playbackCaptureActive
++            && stream == AUDIO_STREAM_MUSIC) {
+        if ((*flags == AUDIO_OUTPUT_FLAG_NONE) &&
+             (config->offload_info.usage == AUDIO_USAGE_MEDIA ||
+              config->offload_info.usage == AUDIO_USAGE_GAME)) {
+@@ -1864,6 +1882,7 @@
+         *flags = (audio_output_flags_t)(*flags &~AUDIO_OUTPUT_FLAG_DEEP_BUFFER);
+     } else if ((*flags == AUDIO_OUTPUT_FLAG_NONE || *flags == AUDIO_OUTPUT_FLAG_DIRECT ||
+                 (*flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)) && !isInCall() &&
++                !playbackCaptureActive &&
+                 property_get_bool("audio.deep_buffer.media", true /* default_value */)) {
+         // use DEEP_BUFFER as default output for music stream type
+         forceDeepBuffer = true;

@@ -1,0 +1,6 @@
+obj-$(CONFIG_JOYSTICK_XONE_WIRED) += xone-wired.o
+xone-wired-y := transport/wired.o
+
+obj-$(CONFIG_JOYSTICK_XONE_WIRED_INPUT) += xone-gip.o xone-gip-gamepad.o
+xone-gip-y := bus/bus.o bus/protocol.o auth/auth.o auth/crypto.o driver/common.o
+xone-gip-gamepad-y := driver/gamepad.o

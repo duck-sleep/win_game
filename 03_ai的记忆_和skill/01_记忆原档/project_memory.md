@@ -1,0 +1,105 @@
+## Hard Constraints
+- When modifying kernel DT or .ko files, must delete `device/qcom/kalama-kernel/Image` to force kp-dtbs refresh during incremental compilation
+- Device tree overlay files with identical board-id will be selected by UEFI in the order they appear in dtbo.img
+- Both `kalamap-hdk-overlay.dts` (main overlay) and `kalamap-hdk-overlay-gpiotest.dts` (factory test overlay) must be modified to ensure SSD enumeration works in all boot modes
+- QCS8550 has two independent PCIe Root Complexes (RC0 and RC1), where RC0 is used for WiFi and RC1 for M.2 NVMe SSD
+- PCIe controllers in QCS8550 use on-demand link training; RC1 requires a client driver to trigger enumeration
+- GPIO46 must be configured with `gpio-hog output-high` in device tree to provide 3.3V power to M.2 SSD slot
+- `pcie1` node in device tree must set `qcom,boot-option = <0x0>` to enable automatic RC1 enumeration at boot
+- `/vendor/etc/fstab.qcom` must include `voldmanaged=nvme:auto` entry to enable automatic mounting of M.2 NVMe SSD as portable storage
+- Code changes must be submitted via Pull Request (PR) on Gitea; verbal notification alone is insufficient
+- PRs should target merging feature branches into the `master` branch
+- Local feature branches should not be deleted until PR is merged and verified in `master`
+- Gitea PRs must include clear title/description matching the commit message
+- Gitea account 981637988 is used for repository access and PR creation
+- PRs require approval and merging by team member xfding
+- 记忆必须同步到项目备份目录：每次存了新记忆后，把 `c:\Users\123456\.trae-cn\memory\projects\-d-win-game-project--p2-ea3144bba63d4aa9444e\`（project_memory.md + 按日期文件夹）和 `user_profile.md` 镜像拷贝到 `D:\win_game_project\03_ai的记忆_和skill\01_记忆原档\` 对应位置；重大进展还要更新 `02_知识库_整理版.md` 的当前状态章节
+- SNM970掌机需插蓝牙天线才能使A2DP正常出声；不插天线时虽显示连接但无声音
+- 安卓雷云项目中音频输出必须使用蓝牙音箱，3.5mm耳机口物理不通
+- MediaProjection授权需选择"整个屏幕"（Entire screen）选项
+- 播放音频文件需通过 `adb shell am start -a android.intent.action.VIEW -d file:///mnt/media_rw/7FEE-F970/GAMES/jade-garden-serenade.mp3 -t audio/mpeg` 命令，配合 `adb shell input keyevent 126` 触发播放
+- 安卓雷云项目中不应拦截app数据，应拦截AudioFlinger层数据
+- 需恢复高通配置中被注释的蓝牙独立通道（a2dp独立HAL模块）
+- 恢复蓝牙独立通道后，继续拦截AudioFlinger层数据
+- 文档13（13_雷云AI交接分析文档.md）需合并到文档11（11_安卓雷云技术.md）中
+- 流程图需添加到文档中以展示出声路径及通断状态，便于同事了解进展
+- 输出为空时可能卡在首次连接新IP的host key确认，需重试并加上自动接受host key的参数
+- 文档中需包含防摸鱼清单，列出已完成的实际工作内容
+- 文档结构需包含30秒速览、事实表、架构背景、卡点精确描述、候选方案、已排除死路、核心问题等章节
+- 关键证据（如死锁现场、轨道冻结、崩溃日志等）需内嵌摘录到文档中
+- 文档需为单文件自包含，方便直接喂给强AI分析
+- 文档中需新增"一图流"章节，包含出声路径全景、捕获链路、问题原因、下一步计划等图示
+- 文档需紧跟30秒速览放置关键图示，确保同事打开第一屏即可看到
+- 文档需同步更新项目备份目录及知识库整理版中的当前状态章节
+- 文档需包含自动测试工具（如HapticX一键自测）的使用方法及参数
+- 文档需明确标注已验证的固件事实，防止分析时在已确认问题上浪费时间
+- 文档需列出候选方案的优先级，如恢复a2dp独立HAL模块为第一优先
+- 文档需包含已排除的死路，防止重复建议无效方案
+- 文档需明确核心问题，如AF层是否存在不依赖输出线程的取数点
+- 文档需包含技术交接的关键信息，如APM补丁位置、测试音轨播放命令等
+- 文档需确保记忆同步到位，包括project_memory.md新增内容及知识库当前状态更新
+- 文档需验证镜像备份一致性，确保记忆同步无误
+- 文档需根据强AI分析结论调整后续推进计划，目前第一优先为恢复a2dp独立HAL模块
+- 文档需包含音频捕获路线的详细描述，如蓝牙A2DP出声配合AudioFlinger per-track hook
+- 文档需明确取数硬前提，如蓝牙A2DP混音线程正常循环
+- 文档需包含崩溃诊断方法，如区分camera provider与audioserver的SIGABRT
+- 文档需包含logcat配置方法，如测试前执行`logcat -G 16M`防止日志被冲掉
+- 文档需包含MediaProjection授权UI自动化路径，如弹窗操作步骤及横屏处理方法
+- 文档需包含APM补丁bug修复内容，如删除`!playbackCaptureActive`条件
+- 文档需包含死锁终审结论，如PAL的PCM→A2DP路径必挂
+- 文档需包含关键新线索，如独立a2dp HAL模块的存在及恢复方案
+- 文档需包含零代码备胎方案，如USB声卡走usb模块独立HAL
+- 文档需包含设备固件事实，如tinyALSA/PAL层损坏、AudioFlinger框架层正常
+- 文档需包含镜像机制实测结果，如源轨冻结导致镜像轨被移除
+- 文档需包含ADSP状态信息，如remoteproc1 state=running
+- 文档需包含捕获激活时AOSP行为，如MEDIA轨从offload退到deep_buffer
+- 文档需包含下一步优先级更新，如插蓝牙天线后PCM测试音实测可听
+- 文档需包含Gitea API使用方法，如程序化转换PR状态
+- 文档需包含Windows PowerShell调用API注意事项，如使用`curl.exe`及临时文件避免转义
+- 文档需包含账号权限信息，如981637988对仓库有push权限
+- 文档需包含PR状态查询方法，如API返回字段draft/state/mergeable/title
+- 文档需包含掌机OTG供电问题，如pmic_glink/充电栈残缺导致手柄无法枚举
+- 文档需包含中文WiFi SSID连接方法，如使用`connect-network -x`参数传入UTF-8 hex编码
+- 文档需包含增量编译注意事项，如audioflinger/audiopolicy模块通过`build_apm.sh`脚本实现
+- 文档需包含设备实际加载的音频策略配置文件路径，如`/vendor/etc/audio/sku_kalama_qssi/audio_policy_configuration.xml`
+- 文档需包含Git提交规范，如设备树修改精确添加.dts文件，避免`git add -A`
+- 文档需包含分支命名规范，如使用描述性名称（e.g., `ssd-m2-nvme`）
+- 文档需包含本地分支设置方法，如`git branch -u gitea/[branch-name]`设置上游跟踪
+- 文档需包含PR创建注意事项，如默认可勾选"以草稿形式创建"导致状态冲突
+- 文档需包含WIP、Draft、Open状态区别，如WIP仅标题前缀，Draft为真状态
+- 文档需包含固件恢复方法，如09-05晚修改版audio_policy_configuration.xml的回滚操作
+- 文档需包含测试音轨播放命令，如HapticX自播测试音走DIRECT线程→A2DP
+- 文档需包含信号功率信息，如测试音信号功率-11.7dB，240000帧完整流动
+- 文档需包含AUTOTEST SUMMARY/RESULT打印时间，如14.5s
+- 文档需包含免弹窗授权命令，如`adb shell appops set com.meig.hapticx PROJECT_MEDIA allow`
+- 文档需包含自动测试启动命令，如`am start -n com.meig.hapticx/.MainActivity --ez auto_test true`
+- 文档需包含APM补丁位置，如VM上的`frameworks/av/services/audiopolicy/managerdefault/AudioPolicyManager.cpp`
+- 文档需包含APM补丁定位方法，如grep `SNM970APM`
+- 文档需包含per-track hook涉及源码，如`frameworks/av/services/audioflinger/Tracks.cpp`（`getNextBuffer`）、`Threads.cpp`（`MixerThread::threadLoop`）
+- 文档需包含技术方案+根因分析文档路径，如`D:\win_game_project\12_win_上机跑\11_安卓雷云技术.md`（09-06更新版）
+- 文档需包含项目知识库路径，如`D:\win_game_project\03_ai的记忆_和skill\02_知识库_整理版.md`
+- 文档需包含实测证据路径，如`.workbuddy\tmp_apmcheck\af_fix1.txt`、`lc_full2.txt`、`af_at3.txt`
+- 文档需包含核心问题列表，如PCM输出线程双挂死时AF层取数点、恢复a2dp独立HAL风险和可行性、压缩域hook解压分析价值
+- 文档需包含5个候选方案，如恢复a2dp独立HAL、per-track hook、压缩域hook、USB声卡、修PAL
+- 文档需包含6条防摸鱼清单，如排除法做完、唯一活路验证、APM补丁部署、一键自测工具、根因闭环到固件、方案排队
+- 文档需包含4张图示，如图1出声路径全景（5条路线实测结果）、图2捕获链路（游戏音轨→镜像轨→采集→马达）、图3问题原因（框架把音轨从唯一活路踢进死路）、图4下一步（恢复a2dp独立HAL绕开PAL死锁）
+- 文档需包含0.5节“一图流”紧跟30秒速览，确保同事打开第一屏可见
+- 文档需包含11条实测确认的固件事实，如SPEAKER HAL write永久阻塞、PAL PCM→A2DP挂死、offload→A2DP可通、a2dp独立模块被注释等
+- 文档需包含两条路线架构背景，如官方捕获API（AF镜像轨）vs同事的per-track hook（Track::getNextBuffer抄数据）
+- 文档需包含卡点精确描述，如reroute成功→PAL PCM→A2DP挂死→TimeCheck 10s→SIGABRT完整链条
+- 文档需包含已排除死路，防止对方重复建议
+- 文档需包含交接文档路径，如`D:\win_game_project\12_win_上机跑\13_雷云AI交接分析文档.md`（09-07已全文合并进11_安卓雷云技术.md「📌 终审档案」章节，13现为指向说明）
+- 文档需包含记忆同步验证，如project_memory.md新增7条、知识库当前状态章节更新、镜像备份验证一致
+- 文档需包含后续推进计划，如按强AI分析结论继续，目前第一优先恢复a2dp独立HAL模块
+- ★09-07深夜大捷：蓝牙独立通道打通+官方捕获API复活（auto_test PASS: blocks=708 nonZero=512 peak=0.3662 maxMotor=0.235，音频成功驱动马达）
+- 蓝牙卡点最终根因=三张互不相通的session表：audio.bluetooth.default.so(AOSP)查libbluetooth_audio_session_aidl.so孤儿表（永远空）；QTI provider工厂(android.hardware.bluetooth.audio-impl-qti.so)写libbluetooth_audio_session_aidl_qti.so表；audio.bluetooth_qti.default.so(QTI)与工厂同表（Android.bp证实shared_libs同时含impl-qti和aidl_qti）
+- 蓝牙最终修复两步（均已生效）：①`setprop persist.bluetooth.a2dp_offload.disabled true`让BT栈起软编码session 1；②A2DP端口从primary移到bluetooth_qti模块（该模块由/vendor/etc/bluetooth_qti_hearing_aid_audio_policy_configuration.xml定义，原本只服务hearing aid）
+- 现役配置两份：apc_btq.xml（主配置=原版+注释primary的3个A2DP devicePort+3条route，不再加bluetooth模块）+ ha_btq.xml（hearing aid配置=原版+bluetooth_qti模块加a2dp output mixPort和3个A2DP devicePort/route）；生成脚本make_apc_btq.py可从原版一键再生；原版备份apc_device.xml+ha_orig.xml
+- 修复后PCM出声无死锁：AudioOut_A5(MIXER)绑定BLUETOOTH_A2DP，44100Hz/PCM16/stereo，writes=174/framesWritten=155904干净进standby（之前deep_buffer PCM→A2DP必死锁）
+- 配置生效流程：push两份配置→`pkill audioserver; pkill -f 'android.hardware.audio.service'`（注意pkill -f别匹配自己命令行）→`svc bluetooth disable/enable`重启BT栈起session→音箱自动重连
+- 恢复出厂/重刷后两份配置+persist属性全丢，需用make_apc_btq.py+setprop重做
+- 任务3(AF per-track hook)前提已被推翻（捕获API复活），是否仍执行待与同事复核；建议先官方API跑通产品流程，遇"游戏app禁止捕获"或"系统音污染"再上hook
+- VM编译机IP已变：宿主机重启后ens34=192.168.64.130（常用）、ens33=192.168.234.140（NAT），SSH均可
+- PAL的A2DP offload路(session 2)已废弃不用——音乐统一PCM软编码走bluetooth_qti，对捕获有利（全部声音都在可镜像的PCM路上）
+- 09-07最终确认：PCM全通路打通=打游戏蓝牙音箱有声音（游戏PCM轨与已实测的mp3/测试音同类，走同一条 bluetooth_qti→AAC软编码→音箱 通路）；两个硬前提：蓝牙天线必须插、音箱必须已连接（未连蓝牙游戏轨回落SPEAKER无声）
+- 下一步第一优先：游戏实测（SSD里的PS模拟器游戏）+开着HapticX捕获验证游戏音频驱动马达——若都动则产品主流程全通

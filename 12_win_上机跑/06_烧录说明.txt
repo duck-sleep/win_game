@@ -1,0 +1,44 @@
+###### 解压   C:\Users\123456\Desktop\win_game_project\20_burn_tool\Qualcomm
+
+###### 打开烧录应用
+C:\Users\123456\Desktop\win_game_project\20_burn_tool\Qualcomm\QPST\bin\QFIL.exe
+
+
+#### 数据包准备
+
+1 之前有个已经编译好的在  C:\Users\123456\Desktop\win_game_project\22_burn_data\SNM970_EQ000_2774.6747F315C4D.2CE6A329345.91E892303_260704_100_V01_T01
+2 data里面  替换 uefi.elf
+
+
+
+##### QFIL 进行烧录
+开关方向对准自己  板子打到右边burn模式
+电池上电  烧录口上电
+
+1 .FLAT build  选择高通设备
+2. programmer 选择xbl_s_devprg_ns.melf
+
+3选择xml
+rawprogram0_split.xml
+这时候还要选个patch记得点
+4 注意烧录的介质是ufs
+
+
+
+
+
+##### 开机运行
+
+烧录完成开关打到左边 重新上电 
+按一下power 进行启动
+
+
+
+####待办项:
+usb mtp不同  拷贝数据不行
+在 vold里面打通ssd  sd插上去后自动识别或者格式化
+
+#### 网盘中转站
+http://106.52.24.80:3005/
+账号: 981637988
+密码: LTWLTW200057

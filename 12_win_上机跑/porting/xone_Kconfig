@@ -1,0 +1,19 @@
+config JOYSTICK_XONE_WIRED
+    bool "Xbox One GIP wired controller support (xone)"
+    depends on USB_ARCH_HAS_HCD
+    select USB
+    select INPUT_FF_MEMLESS
+    select CRYPTO_ECDSA
+    select CRYPTO_ECDH
+    select CRYPTO_SHA256
+    select LEDS_CLASS
+    help
+      This driver supports Xbox One controllers via GIP protocol on the wired endpoint.
+      Includes Razer Wolverine V3 Pro and other compatible gamepads.
+
+config JOYSTICK_XONE_WIRED_INPUT
+    bool "Xbox One input + FF + LEDs"
+    depends on JOYSTICK_XONE_WIRED
+    select INPUT_FF_MEMLESS
+    help
+      Enable force feedback and LED support for Xbox One compatible controllers.

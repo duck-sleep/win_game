@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HapticX</string>
+    <string name="start">开始捕获</string>
+    <string name="stop">停止</string>
+</resources>

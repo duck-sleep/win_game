@@ -1,0 +1,222 @@
+Mixer name: 'kalama-qrd-snd-card'
+Number of controls: 218
+ctl	type	num	name                                     value
+
+0	BOOL	1	TX_AIF1_CAP Mixer DEC0                   Off
+1	BOOL	1	TX_AIF1_CAP Mixer DEC1                   Off
+2	BOOL	1	TX_AIF1_CAP Mixer DEC2                   Off
+3	BOOL	1	TX_AIF1_CAP Mixer DEC3                   Off
+4	BOOL	1	TX_AIF1_CAP Mixer DEC4                   Off
+5	BOOL	1	TX_AIF1_CAP Mixer DEC5                   Off
+6	BOOL	1	TX_AIF1_CAP Mixer DEC6                   Off
+7	BOOL	1	TX_AIF1_CAP Mixer DEC7                   Off
+8	BOOL	1	TX_AIF2_CAP Mixer DEC0                   Off
+9	BOOL	1	TX_AIF2_CAP Mixer DEC1                   Off
+10	BOOL	1	TX_AIF2_CAP Mixer DEC2                   Off
+11	BOOL	1	TX_AIF2_CAP Mixer DEC3                   Off
+12	BOOL	1	TX_AIF2_CAP Mixer DEC4                   Off
+13	BOOL	1	TX_AIF2_CAP Mixer DEC5                   Off
+14	BOOL	1	TX_AIF2_CAP Mixer DEC6                   Off
+15	BOOL	1	TX_AIF2_CAP Mixer DEC7                   Off
+16	BOOL	1	TX_AIF3_CAP Mixer DEC0                   Off
+17	BOOL	1	TX_AIF3_CAP Mixer DEC1                   Off
+18	BOOL	1	TX_AIF3_CAP Mixer DEC2                   Off
+19	BOOL	1	TX_AIF3_CAP Mixer DEC3                   Off
+20	BOOL	1	TX_AIF3_CAP Mixer DEC4                   Off
+21	BOOL	1	TX_AIF3_CAP Mixer DEC5                   Off
+22	BOOL	1	TX_AIF3_CAP Mixer DEC6                   Off
+23	BOOL	1	TX_AIF3_CAP Mixer DEC7                   Off
+24	ENUM	1	TX DMIC MUX0                             ZERO
+25	ENUM	1	TX DMIC MUX1                             ZERO
+26	ENUM	1	TX DMIC MUX2                             ZERO
+27	ENUM	1	TX DMIC MUX3                             ZERO
+28	ENUM	1	TX DMIC MUX4                             ZERO
+29	ENUM	1	TX DMIC MUX5                             ZERO
+30	ENUM	1	TX DMIC MUX6                             ZERO
+31	ENUM	1	TX DMIC MUX7                             ZERO
+32	ENUM	1	TX SMIC MUX0                             ZERO
+33	ENUM	1	TX SMIC MUX1                             ZERO
+34	ENUM	1	TX SMIC MUX2                             ZERO
+35	ENUM	1	TX SMIC MUX3                             ZERO
+36	ENUM	1	TX SMIC MUX4                             ZERO
+37	ENUM	1	TX SMIC MUX5                             ZERO
+38	ENUM	1	TX SMIC MUX6                             ZERO
+39	ENUM	1	TX SMIC MUX7                             ZERO
+40	ENUM	1	TX DEC0 MUX                              MSM_DMIC
+41	ENUM	1	TX DEC1 MUX                              MSM_DMIC
+42	ENUM	1	TX DEC2 MUX                              MSM_DMIC
+43	ENUM	1	TX DEC3 MUX                              MSM_DMIC
+44	ENUM	1	TX DEC4 MUX                              MSM_DMIC
+45	ENUM	1	TX DEC5 MUX                              MSM_DMIC
+46	ENUM	1	TX DEC6 MUX                              MSM_DMIC
+47	ENUM	1	TX DEC7 MUX                              MSM_DMIC
+48	INT	1	TX_DEC0 Volume                           102
+49	INT	1	TX_DEC1 Volume                           114
+50	INT	1	TX_DEC2 Volume                           114
+51	INT	1	TX_DEC3 Volume                           114
+52	INT	1	TX_DEC4 Volume                           84
+53	INT	1	TX_DEC5 Volume                           84
+54	INT	1	TX_DEC6 Volume                           84
+55	INT	1	TX_DEC7 Volume                           84
+56	ENUM	1	DEC0 MODE                                ADC_DEFAULT
+57	ENUM	1	DEC1 MODE                                ADC_DEFAULT
+58	ENUM	1	DEC2 MODE                                ADC_DEFAULT
+59	ENUM	1	DEC3 MODE                                ADC_DEFAULT
+60	ENUM	1	DEC4 MODE                                ADC_DEFAULT
+61	ENUM	1	DEC5 MODE                                ADC_DEFAULT
+62	ENUM	1	DEC6 MODE                                ADC_DEFAULT
+63	ENUM	1	DEC7 MODE                                ADC_DEFAULT
+64	ENUM	1	TX0 HPF cut off                          CF_NEG_3DB_4HZ
+65	ENUM	1	TX1 HPF cut off                          CF_NEG_3DB_4HZ
+66	ENUM	1	TX2 HPF cut off                          CF_NEG_3DB_4HZ
+67	ENUM	1	TX3 HPF cut off                          CF_NEG_3DB_4HZ
+68	ENUM	1	TX4 HPF cut off                          CF_NEG_3DB_4HZ
+69	ENUM	1	TX5 HPF cut off                          CF_NEG_3DB_4HZ
+70	ENUM	1	TX6 HPF cut off                          CF_NEG_3DB_4HZ
+71	ENUM	1	TX7 HPF cut off                          CF_NEG_3DB_4HZ
+72	BOOL	1	DEC0_BCS Switch                          Off
+73	BOOL	1	TX_SWR_DMIC Enable                       Off
+74	ENUM	1	BCS Channel                              CH0
+75	ENUM	1	BCS CH_SEL                               SWR_MIC6
+76	ENUM	1	RX_MACRO RX0 MUX                         AIF1_PB
+77	ENUM	1	RX_MACRO RX1 MUX                         AIF1_PB
+78	ENUM	1	RX_MACRO RX2 MUX                         ZERO
+79	ENUM	1	RX_MACRO RX3 MUX                         ZERO
+80	ENUM	1	RX_MACRO RX4 MUX                         ZERO
+81	ENUM	1	RX_MACRO RX5 MUX                         ZERO
+82	ENUM	1	IIR0 INP0 MUX                            ZERO
+83	ENUM	1	IIR0 INP1 MUX                            ZERO
+84	ENUM	1	IIR0 INP2 MUX                            ZERO
+85	ENUM	1	IIR0 INP3 MUX                            ZERO
+86	ENUM	1	IIR1 INP0 MUX                            ZERO
+87	ENUM	1	IIR1 INP1 MUX                            ZERO
+88	ENUM	1	IIR1 INP2 MUX                            ZERO
+89	ENUM	1	IIR1 INP3 MUX                            ZERO
+90	ENUM	1	RX MIX TX0 MUX                           ZERO
+91	ENUM	1	RX MIX TX1 MUX                           ZERO
+92	ENUM	1	RX MIX TX2 MUX                           ZERO
+93	ENUM	1	RX INT0 DEM MUX                          CLSH_DSM_OUT
+94	ENUM	1	RX INT1 DEM MUX                          CLSH_DSM_OUT
+95	ENUM	1	RX INT0_2 MUX                            ZERO
+96	ENUM	1	RX INT1_2 MUX                            ZERO
+97	ENUM	1	RX INT2_2 MUX                            ZERO
+98	ENUM	1	RX INT0_1 MIX1 INP0                      RX0
+99	ENUM	1	RX INT0_1 MIX1 INP1                      ZERO
+100	ENUM	1	RX INT0_1 MIX1 INP2                      ZERO
+101	ENUM	1	RX INT1_1 MIX1 INP0                      RX1
+102	ENUM	1	RX INT1_1 MIX1 INP1                      ZERO
+103	ENUM	1	RX INT1_1 MIX1 INP2                      ZERO
+104	ENUM	1	RX INT2_1 MIX1 INP0                      ZERO
+105	ENUM	1	RX INT2_1 MIX1 INP1                      ZERO
+106	ENUM	1	RX INT2_1 MIX1 INP2                      ZERO
+107	ENUM	1	RX INT0_1 INTERP                         ZERO
+108	ENUM	1	RX INT1_1 INTERP                         ZERO
+109	ENUM	1	RX INT2_1 INTERP                         ZERO
+110	ENUM	1	RX INT0_2 INTERP                         ZERO
+111	ENUM	1	RX INT1_2 INTERP                         ZERO
+112	ENUM	1	RX INT2_2 INTERP                         ZERO
+113	ENUM	1	RX INT0 MIX2 INP                         ZERO
+114	ENUM	1	RX INT1 MIX2 INP                         ZERO
+115	ENUM	1	RX INT2 MIX2 INP                         ZERO
+116	BOOL	1	RX INT2_1 VBAT RX AUX VBAT Enable        Off
+117	INT	1	RX_RX0 Digital Volume                    84
+118	INT	1	RX_RX1 Digital Volume                    84
+119	INT	1	RX_RX2 Digital Volume                    84
+120	INT	1	RX_RX0 Mix Digital Volume                84
+121	INT	1	RX_RX1 Mix Digital Volume                84
+122	INT	1	RX_RX2 Mix Digital Volume                84
+123	BOOL	1	RX_COMP1 Switch                          On
+124	BOOL	1	RX_COMP2 Switch                          On
+125	INT	1	RX0 FIR Coeff Num                        0
+126	INT	1	RX1 FIR Coeff Num                        0
+127	ENUM	1	HPH Idle Detect                          OFF
+128	ENUM	1	RX_EAR Mode                              OFF
+129	ENUM	1	RX_FIR Filter                            OFF
+130	ENUM	1	RX_HPH HD2 Mode                          OFF
+131	ENUM	1	RX_HPH_PWR_MODE                          ULP
+132	ENUM	1	RX_GSM mode Enable                       OFF
+133	BOOL	1	RX_Softclip Enable                       Off
+134	BOOL	1	AUX_HPF Enable                           On
+135	INT	1	IIR0 INP0 Volume                         54
+136	INT	1	IIR0 INP1 Volume                         84
+137	INT	1	IIR0 INP2 Volume                         84
+138	INT	1	IIR0 INP3 Volume                         84
+139	INT	1	IIR1 INP0 Volume                         84
+140	INT	1	IIR1 INP1 Volume                         84
+141	INT	1	IIR1 INP2 Volume                         84
+142	INT	1	IIR1 INP3 Volume                         84
+143	BOOL	1	IIR0 Enable Band1                        Off
+144	BOOL	1	IIR0 Enable Band2                        Off
+145	BOOL	1	IIR0 Enable Band3                        Off
+146	BOOL	1	IIR0 Enable Band4                        Off
+147	BOOL	1	IIR0 Enable Band5                        Off
+148	BOOL	1	IIR1 Enable Band1                        Off
+149	BOOL	1	IIR1 Enable Band2                        Off
+150	BOOL	1	IIR1 Enable Band3                        Off
+151	BOOL	1	IIR1 Enable Band4                        Off
+152	BOOL	1	IIR1 Enable Band5                        Off
+153	BYTE	20	IIR0 Band1                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+154	BYTE	20	IIR0 Band2                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+155	BYTE	20	IIR0 Band3                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+156	BYTE	20	IIR0 Band4                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+157	BYTE	20	IIR0 Band5                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+158	BYTE	20	IIR1 Band1                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+159	BYTE	20	IIR1 Band2                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+160	BYTE	20	IIR1 Band3                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+161	BYTE	20	IIR1 Band4                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+162	BYTE	20	IIR1 Band5                                00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+163	BYTE	404	RX0 FIR Coeff Group0                      00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+164	BYTE	404	RX0 FIR Coeff Group1                      00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+165	BYTE	404	RX1 FIR Coeff Group0                      00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+166	BYTE	404	RX1 FIR Coeff Group1                      00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+167	BOOL	1	VA_AIF1_CAP Mixer DEC0                   Off
+168	BOOL	1	VA_AIF1_CAP Mixer DEC1                   Off
+169	BOOL	1	VA_AIF1_CAP Mixer DEC2                   Off
+170	BOOL	1	VA_AIF1_CAP Mixer DEC3                   Off
+171	BOOL	1	VA_AIF2_CAP Mixer DEC0                   Off
+172	BOOL	1	VA_AIF2_CAP Mixer DEC1                   Off
+173	BOOL	1	VA_AIF2_CAP Mixer DEC2                   Off
+174	BOOL	1	VA_AIF2_CAP Mixer DEC3                   Off
+175	BOOL	1	VA_AIF3_CAP Mixer DEC0                   Off
+176	BOOL	1	VA_AIF3_CAP Mixer DEC1                   Off
+177	BOOL	1	VA_AIF3_CAP Mixer DEC2                   Off
+178	BOOL	1	VA_AIF3_CAP Mixer DEC3                   Off
+179	ENUM	1	VA DMIC MUX0                             ZERO
+180	ENUM	1	VA DMIC MUX1                             ZERO
+181	ENUM	1	VA DMIC MUX2                             ZERO
+182	ENUM	1	VA DMIC MUX3                             ZERO
+183	ENUM	1	VA SMIC MUX0                             ZERO
+184	ENUM	1	VA SMIC MUX1                             ZERO
+185	ENUM	1	VA SMIC MUX2                             ZERO
+186	ENUM	1	VA SMIC MUX3                             ZERO
+187	ENUM	1	VA DEC0 MUX                              MSM_DMIC
+188	ENUM	1	VA DEC1 MUX                              MSM_DMIC
+189	ENUM	1	VA DEC2 MUX                              MSM_DMIC
+190	ENUM	1	VA DEC3 MUX                              MSM_DMIC
+191	INT	1	VA_DEC0 Volume                           84
+192	INT	1	VA_DEC1 Volume                           84
+193	INT	1	VA_DEC2 Volume                           84
+194	INT	1	VA_DEC3 Volume                           84
+195	BOOL	1	LPI Enable                               Off
+196	BOOL	1	VA_SWR_DMIC Enable                       Off
+197	ENUM	1	VA_DEC0 MODE                             ADC_DEFAULT
+198	ENUM	1	VA_DEC1 MODE                             ADC_DEFAULT
+199	ENUM	1	VA_DEC2 MODE                             ADC_DEFAULT
+200	ENUM	1	VA_DEC3 MODE                             ADC_DEFAULT
+201	BOOL	1	BT SOC status                            Off
+202	BOOL	1	BT set feedback channel                  Off
+203	BYTE	80	CODEC_DMA-LPAIF_RXTX-RX-0 Channel Map     02  00  00  00  03  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+204	ENUM	1	PM_QOS Vote                              Disable
+205	BOOL	1	LPI PCM Logging Enable                   Off
+206	ENUM	1	VOTE Against Sleep                       Disable
+207	BYTE	80	CODEC_DMA-LPAIF_RXTX-RX-1 Channel Map     00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+208	BYTE	80	CODEC_DMA-LPAIF_RXTX-RX-2 Channel Map     00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+209	BYTE	80	CODEC_DMA-LPAIF_RXTX-RX-3 Channel Map     00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+210	BYTE	80	CODEC_DMA-LPAIF_RXTX-RX-5 Channel Map     01  00  00  00  01  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+211	BYTE	80	CODEC_DMA-LPAIF_RXTX-TX-3 Channel Map     00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+212	BYTE	80	CODEC_DMA-LPAIF_RXTX-TX-4 Channel Map     00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+213	BYTE	80	CODEC_DMA-LPAIF_VA-TX-0 Channel Map       00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+214	BYTE	80	CODEC_DMA-LPAIF_VA-TX-1 Channel Map       00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+215	BYTE	80	CODEC_DMA-LPAIF_VA-TX-2 Channel Map       00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+216	BYTE	80	SLIM-DEV1-RX-7 Channel Map                01  00  00  00  9d  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00
+217	BYTE	80	SLIM-DEV1-TX-7 Channel Map                01  00  00  00  9f  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00

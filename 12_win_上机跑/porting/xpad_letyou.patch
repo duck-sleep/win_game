@@ -1,0 +1,13 @@
+--- a/drivers/input/joystick/xpad.c
++++ b/drivers/input/joystick/xpad.c
+@@ -0,0 +1,10 @@
++/* 0x1532:0x0a3f (Razer Wolverine V3 Pro) → handed to xone driver */
++static bool xone_claim_needed(struct usb_interface *intf)
++{
++    struct usb_device *udev = interface_to_usbdev(intf);
++    return (le16_to_cpu(udev->descriptor.idVendor) == 0x1532);
++}
++
++/* in xpad_probe(): */
++    if (xone_claim_needed(intf))
++        return -ENODEV;

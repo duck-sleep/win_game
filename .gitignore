@@ -1,0 +1,49 @@
+# ============================================================
+# win_game_project
+# 只跟踪 03_ai的记忆_和skill / 12_win_上机跑 / 25_xbox_control
+# 其余为本地大文件（烧录包、游戏镜像、工具），不进仓
+# ============================================================
+
+# ---- 顶层大目录（本地保留，勿推）----
+/01_资料/
+/13_win_cap/
+/20_burn_tool/
+/22_burn_data/
+/23_网络诊断/
+/30_game_data/
+
+# ---- 顶层压缩包 ----
+/*.7z
+/*.zip
+/*.rar
+
+# ---- WorkBuddy 工作区数据 ----
+/.workbuddy/
+
+# ---- 25_xbox_control：安装包与构建产物 ----
+25_xbox_control/01_软件/
+25_xbox_control/hapticx-android/.gradle/
+25_xbox_control/hapticx-android/.kotlin/
+25_xbox_control/hapticx-android/local.properties
+25_xbox_control/**/build/
+25_xbox_control/**/.idea/
+
+# ---- 25_xbox_control：可再生的测试/截图产物 ----
+# 截图原始 BMP（同目录已有压缩后的 .png）
+*.bmp
+# 测试音频
+25_xbox_control/**/*.wav
+# 编译好的 Linux 测试二进制（同目录保留 .c 源码）
+25_xbox_control/hapticx/ff_test/snm970_jt
+25_xbox_control/hapticx/fftest/ffpulse
+25_xbox_control/hapticx/fftest/sendgip
+
+# ---- 通用 ----
+__pycache__/
+*.pyc
+*.pyo
+*.class
+*.dex
+*.log
+.DS_Store
+Thumbs.db
