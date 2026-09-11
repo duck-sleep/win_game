@@ -52,7 +52,7 @@ echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode  # 连电脑传�
 ## 二、每日进度速览（最新在前）
 | 日期 | 关键成果 |
 |------|----------|
-| 09-11 | 推《战神2》6.4GB 到掌机 SSD 成功；★打通 USB 传文件通道（切 `peripheral` 非 `device`，33.5MB/s = WiFi 10 倍） |
+| 09-11 | 推《战神2》6.4GB 到掌机 SSD 成功；★打通 USB 传文件通道（切 `peripheral` 非 `device`，33.5MB/s = WiFi 10 倍）；★GitHub 建仓 `duck-sleep/win_game` 并首推成功（瘦包 26MB→7.17MB 后过） |
 | 09-10 | xone 移植完成，VM 编译中；await 全量 build & flash 验证 |
 | 09-09 | FF 方案定位：xpad GIP 子集不足，xone 完整握手唯一活路 |
 | 09-07 深夜 | 🎉 **蓝牙独立通道打通**：官方 API 复活，auto_test PASS，capture 镜像链路通 |
@@ -69,4 +69,6 @@ echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode  # 连电脑传�
 - adb: `C:\platform-tools\adb.exe`（不在 PATH）
 - Gitea: http://106.52.24.80:3005 / 981637988 / LTWLTW200057
 - 提交不走 origin (群晖不可达)，`git push gitea <branch>`
+- **GitHub: `git@github.com:duck-sleep/win_game.git`**（账号 duck-sleep / `ltw18505222732@gmail.com`）——工作区 `D:\win_game_project` 已初始化并推送 `main`。只跟踪 `03_ai的记忆_和skill` / `12_win_上机跑` / `25_xbox_control`，其余靠根目录 `.gitignore` 挡住。22 端口被 FlClash 拦，`~/.ssh/config` 已把 github.com 固定到 `ssh.github.com:443`
+- 弱网推 GitHub 必看 skill `github-push-behind-proxy`（瘦包 + SSH 保活，9.43MB 两次失败 → 4.12MB 一次成功）
 - 重刷后配置丢：`python make_apc_btq.py` + `svc bluetooth disable && svc bluetooth enable`
