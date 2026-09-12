@@ -19,7 +19,7 @@ command -v pulseaudio >/dev/null 2>&1 || NEED_PKGS+=(pulseaudio pulseaudio-utils
 command -v unzip >/dev/null 2>&1 || NEED_PKGS+=(unzip)
 command -v wget  >/dev/null 2>&1 || NEED_PKGS+=(wget)
 command -v curl  >/dev/null 2>&1 || NEED_PKGS+=(curl)
-python3 -m venv --help >/dev/null 2>&1 || NEED_PKGS+=(python3-venv)
+python3 -c 'import ensurepip' >/dev/null 2>&1 || NEED_PKGS+=(python3-venv)
 python3 -c 'import tkinter' >/dev/null 2>&1 || NEED_PKGS+=(python3-tk)
 if [ "${#NEED_PKGS[@]}" -gt 0 ]; then
   echo "==> Installing system packages: ${NEED_PKGS[*]}"
