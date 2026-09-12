@@ -38,6 +38,10 @@
 25_xbox_control/hapticx/fftest/ffpulse
 25_xbox_control/hapticx/fftest/sendgip
 
+# ---- Cloud Agent 环境（本地虚拟环境等）----
+/.venv/
+/hapticx-venv/
+
 # ---- 通用 ----
 __pycache__/
 *.pyc

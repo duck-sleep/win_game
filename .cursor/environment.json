@@ -1,0 +1,6 @@
+{
+  "name": "SNM970 / win_game",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh"
+}
