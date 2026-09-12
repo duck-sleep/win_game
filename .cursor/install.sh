@@ -59,7 +59,24 @@ fi
 "$HAPTICX_VENV/bin/pip" install -q -r "$REPO_ROOT/25_xbox_control/hapticx/requirements.txt"
 
 # ---------------------------------------------------------------------------
-# 4. Gradle configuration: point at the SDK and force JDK 17.
+# 4. PulseAudio autospawn: the HapticX DSP code imports `soundcard`, which
+#    connects to a PulseAudio server at import time. Enabling autospawn makes
+#    any client start a headless server on demand, so the audio path works even
+#    if the per-boot `start` phase has not run yet.
+# ---------------------------------------------------------------------------
+echo "==> Configure PulseAudio autospawn"
+mkdir -p "$HOME/.config/pulse"
+cat > "$HOME/.config/pulse/client.conf" <<EOF
+autospawn = yes
+daemon-binary = /usr/bin/pulseaudio
+EOF
+cat > "$HOME/.config/pulse/daemon.conf" <<EOF
+exit-idle-time = -1
+.include /etc/pulse/daemon.conf
+EOF
+
+# ---------------------------------------------------------------------------
+# 5. Gradle configuration: point at the SDK and force JDK 17.
 # ---------------------------------------------------------------------------
 ANDROID_PROJECT="$REPO_ROOT/25_xbox_control/hapticx-android"
 if [ -d "$ANDROID_PROJECT" ]; then
@@ -71,7 +88,7 @@ if ! grep -q '^org.gradle.java.home=' "$HOME/.gradle/gradle.properties" 2>/dev/n
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Make the shared environment available to interactive shells.
+# 6. Make the shared environment available to interactive shells.
 # ---------------------------------------------------------------------------
 BASHRC="$HOME/.bashrc"
 MARKER="# >>> win_game env >>>"
