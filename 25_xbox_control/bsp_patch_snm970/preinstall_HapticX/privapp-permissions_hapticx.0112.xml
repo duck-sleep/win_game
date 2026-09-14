@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <privapp-permissions package="com.meig.hapticx">
+        <permission name="android.permission.CAPTURE_AUDIO_OUTPUT"/>
+        <permission name="android.permission.FOREGROUND_SERVICE"/>
+        <permission name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+        <permission name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    </privapp-permissions>
+</permissions>

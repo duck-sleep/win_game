@@ -1,0 +1,11 @@
+// Android 15 禁止 PRODUCT_COPY_FILES 拷 ELF，必须走 prebuilt。
+cc_prebuilt_binary {
+    name: "ff_bridge",
+    srcs: ["ff_bridge"],
+    vendor: true,
+    compile_multilib: "64",
+    check_elf_files: false,
+    strip: {
+        none: true,
+    },
+}

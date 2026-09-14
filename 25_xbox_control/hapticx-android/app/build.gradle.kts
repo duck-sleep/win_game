@@ -12,7 +12,7 @@ android {
         minSdk = 29          // AudioPlaybackCapture需要API 29;掌机是Android 15(API 35)
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.17"
     }
 
     buildTypes {

@@ -1,14 +1,14 @@
 # WorkBuddy 项目记忆（SNM970）
 
-> 长期记忆 · 2026-09-10 更新：状态快照搬至 `00_START_新会话入口.md`，此处收**永久有效的事实与陷阱**。
+> 长期记忆 · 2026-09-12 深夜更新：状态快照以 `00_START_新会话入口.md` 为准，此处收**永久有效的事实与陷阱**。所有 AI 共用本目录。
 
 ## 一、永久事实（随时读取）
 
 ### 1. 核心技术结论 ✅
 | 项目 | 事实 | 证据 |
 |------|------|------|
-| 音频采集 | **09-07 大胜利**：官方 API 已复活 `persist.bluetooth.a2dp_offload.disabled=true` + `apc_btq.xml`/`ha_btq.xml` → auto_test PASS（nonZero=512/peak=0.36） | logcat `AUTOTEST SUMMARY`、AudioFlinger dumpsys |
-| FF 震动根因 | 0a3f 雷蛇走 GIP，xpad.c 子集不足：缺 `announce/identify/Ack/stop-rumble init`；xone 移植解决 | xone 源码 `~/tmp/xone` → 7 个 .c 完整握手 |
+| 音频采集 | **09-07 通路仍对**；重刷后两份 XML 会丢。09-12 再 push 后 A2DP CONNECTED。现役采集是 **AudioPlaybackCapture**，不是 REMOTE_SUBMIX | 板上 0.1.12；动态档放 SSD 歌已震 |
+| FF 震动 | 09-12 刷机后 xone + `/dev/input/eventN` + root `ff_bridge` 读 `HapticXOut` 实震。停震必须强度 0 + `EV_FF=1` | 用户确认震；hv-haptics 也有 FF_RUMBLE 别发错 |
 | **xone.ko 进包确认** | **09-11 14:30 验包**：inc 模式编译（删 Image 后重跑）→ `device/qcom/kalama-kernel/vendor_dlkm/` 落 ko、`dist/vendor_dlkm.modules.load` 列表 xone 三件套、`build.log` 全程 END → **xone 成功进刷机包** | 见下 "14:20 自省"；稀疏镜像 super.img 12:30 生成，vendor_dlkm.img 11:54 已收录 xone ko |
 | 驱动方案 | **09-10 完成 xone 移植**：`kernel_platform/{common,msm-kernel}/drivers/input/joystick/xone/` 7 个 .c；**待用户全量编译刷机验证** | VM 编译验证，Kalama GKI config 已写 CRYPTO_ECDSA 等 |
 | OTG 供电 | VBUS=0（ADSP/UCSI 残缺），**强制 host via USB hub 供电**：`echo host > /sys/bus/platform/devices/a600000.ssusb/mode` | 09-02 调试现场 `2026-09-05_音频调试现场/` 归档 |
@@ -52,7 +52,9 @@ echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode  # 连电脑传�
 ## 二、每日进度速览（最新在前）
 | 日期 | 关键成果 |
 |------|----------|
-| 09-11 | 推《战神2》6.4GB 到掌机 SSD 成功；★打通 USB 传文件通道（切 `peripheral` 非 `device`，33.5MB/s = WiFi 10 倍）；★GitHub 建仓 `duck-sleep/win_game` 并首推成功（瘦包 26MB→7.17MB 后过） |
+| 09-12 深夜 | 板上 **0.1.17**：悬浮马达条 + DSP 改回 Windows analyzer.py。QSSI 预装已换成 0.1.17；kalama.mk A2DP + hapticx_ff 开机 + appops。用户自己 `inc` 刷完即有 App。第一次仍要点「开始捕获」。Git 仓 App 源码仍 0.1.0 |
+| 09-12 晚 | 0.1.12 真采+四档，动态档现场过。AetherSX2 丢失后已重装 v1.5-3668，BIOS 从 SSD 补回 |
+| 09-11 | 推《战神2》6.4GB 到掌机 SSD；USB `peripheral` 33.5MB/s；GitHub `duck-sleep/win_game` 首推成功 |
 | 09-10 | xone 移植完成，VM 编译中；await 全量 build & flash 验证 |
 | 09-09 | FF 方案定位：xpad GIP 子集不足，xone 完整握手唯一活路 |
 | 09-07 深夜 | 🎉 **蓝牙独立通道打通**：官方 API 复活，auto_test PASS，capture 镜像链路通 |
@@ -71,4 +73,11 @@ echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode  # 连电脑传�
 - 提交不走 origin (群晖不可达)，`git push gitea <branch>`
 - **GitHub: `git@github.com:duck-sleep/win_game.git`**（账号 duck-sleep / `ltw18505222732@gmail.com`）——工作区 `D:\win_game_project` 已初始化并推送 `main`。只跟踪 `03_ai的记忆_和skill` / `12_win_上机跑` / `25_xbox_control`，其余靠根目录 `.gitignore` 挡住。22 端口被 FlClash 拦，`~/.ssh/config` 已把 github.com 固定到 `ssh.github.com:443`
 - 弱网推 GitHub 必看 skill `github-push-behind-proxy`（瘦包 + SSH 保活，9.43MB 两次失败 → 4.12MB 一次成功）
-- 重刷后配置丢：`python make_apc_btq.py` + `svc bluetooth disable && svc bluetooth enable`
+- 重刷后 A2DP 丢：从 `.workbuddy/tmp_apmcheck` 或已改进 VM 的 XML push；`setprop persist.bluetooth.a2dp_offload.disabled true`；`killall audioserver`；开关蓝牙
+- HapticX 震动桥：`adb shell "( /system/bin/sh /data/local/tmp/run_ff_bridge.sh >/data/local/tmp/ff_bridge.log 2>&1 & ) ; echo FORKED"`。禁止 `pkill -f ff_bridge`；勿对活着的桥 `logcat -c`
+- 平台签名：VM `signapk.jar` + `platform.pk8`。大包预装：`LA.QSSI.15.0/vendor/meig/HapticX/HapticX.apk`（现 **0.1.17**），`device/qcom/qssi/qssi.mk:310` inherit `vendor/meig/hapticx.mk`
+- 固件一次 inc 应带：HapticX 0.1.17 + `a2dp_offload.disabled=true` + apc/ha 两份策略（md5 `7be27531…` / `4e472f90…`）+ `/vendor/bin/ff_bridge` 开机 + `PROJECT_MEDIA`/`SYSTEM_ALERT_WINDOW` appops。刷完仍要用户点一次屏幕捕获
+- 0.1.15/16 用整段 PCM 顶马达会跑满，已在 0.1.17 撤掉；只留 `CAPTURE_SCALE=2.5` 放大 30–130Hz
+- 薄低音歌先切 **动态** 档；均衡门限更高可能完全不震
+- AetherSX2 包名 `xyz.aethersx2.android`。OnionKnight 主页看不到 sideload 图标，用 `am start -n xyz.aethersx2.android/.MainActivity`
+- 用户 09-12：记忆写 `03_ai的记忆_和skill`，技术写 `12_win_上机跑`

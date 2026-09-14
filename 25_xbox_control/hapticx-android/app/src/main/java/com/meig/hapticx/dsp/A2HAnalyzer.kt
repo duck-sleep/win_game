@@ -10,7 +10,7 @@ package com.meig.hapticx.dsp
  */
 class A2HAnalyzer(
     mode: String = "balanced",
-    var gain: Double = 0.67,          // 雷云 SetHapticMixerGain gain=67 → 0.67
+    var gain: Double = 0.67,          // 对齐 Win SetHapticMixerGain=67
     bandGains: DoubleArray? = null,
     bandEdges: DoubleArray? = null,
 ) {
@@ -45,6 +45,9 @@ class A2HAnalyzer(
         const val PROMINENCE = 0.4
         const val TRANSIENT_DUR = 0.022
         const val REFRACTORY = 0.12
+        // 安卓 PlaybackCapture 的 30-130Hz 比 Win WASAPI 环回瘦,只放大频段能量,
+        // 不改映射公式。0.1.15 用整段 PCM 顶马达会把条顶满,那不是 Win 算法。
+        const val CAPTURE_SCALE = 2.5
 
         /** 频率→rfft bin 序号(采样率 48k,窗 2400,分辨率 20Hz/bin)。 */
         fun freqOfBin(i: Int) = i * SAMPLE_RATE.toDouble() / FFT_WINDOW
@@ -192,7 +195,10 @@ class A2HAnalyzer(
         if (cfg["transient_vol"]!! <= 0) return false
         if (freqEnv <= 1e-6) return false
         if (elapsed - lastBeatT < REFRACTORY) return false
-        if (flux / (freqEnv + 1e-9) > PROMINENCE * 8) {
+        val thresh = PROMINENCE * 8
+        val ratio = flux / (freqEnv + 1e-9)
+        if (ratio > thresh) {
+            // 对齐 Win:脉冲幅度就是档位的 transient_vol,不跟全频响度走
             transientAmp = cfg["transient_vol"]!!
             transientDecay = kotlin.math.exp(-blockPeriod / kotlin.math.max(TRANSIENT_DUR, 1e-6))
             transientFresh = true
@@ -207,12 +213,14 @@ class A2HAnalyzer(
     fun processBlock(samples: DoubleArray): MotorFrame {
         System.arraycopy(buffer, samples.size, buffer, 0, FFT_WINDOW - samples.size)
         System.arraycopy(samples, 0, buffer, FFT_WINDOW - samples.size, samples.size)
-        val (amp, flux) = eqWeightedBand()
+        val (rawAmp, flux) = eqWeightedBand()
+        val amp = rawAmp * CAPTURE_SCALE
         val smoothed = frequencySmooth(envelope(amp))
 
         val gate = cfg["gate"]!!
         val gated = if (smoothed > gate) smoothed else 0.0
         val gamma = cfg["gamma"]!!
+        // 对齐 Win analyzer.py:(gated/0.3)^(1/gamma)
         val compressed = if (gated > 0)
             Math.pow(gated / REF_LEVEL, 1.0 / gamma).coerceIn(0.0, 1.0)
         else 0.0
