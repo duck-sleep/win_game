@@ -1,0 +1,155 @@
+﻿========== 雷云4 侦察结果 ==========
+手柄型号 : Razer Wolverine V3 Pro for Xbox
+序列号   : 762444C13401432
+雷云进程 : RazerExperienceService.exe
+A2H 频段 : 输入 30-130Hz
+A2H EQ   : 0Hz:1, 50Hz:1, 100Hz:0.3, 150Hz:0.3
+瞬态检测 : prominence=0.4 duration=0.022s
+压缩器   : gamma=3 amp_comp=0.5
+振幅窗口 : 0.04s  频率窗口: 0.125s
+最小门限 : 0.03
+编码器DLL: C:\Users\123456\AppData\Local\Razer\RazerAppEngine\User Data\\Apps\\Common\\\\RzInterhapticsHapticEncoder_v2.0.1.11.dll
+触觉报告 : Sage T1 部位x2 马达频率30-400Hz
+
+========== 原始JSON ==========
+{
+  "logDir": "C:\\Users\\123456\\AppData\\Local\\Razer\\RazerAppEngine\\User Data\\Logs",
+  "logDirExists": true,
+  "process": "RazerExperienceService.exe",
+  "device": {
+    "productName": "Razer Wolverine V3 Pro for Xbox",
+    "serialNumber": "762444C13401432"
+  },
+  "a2h": {
+    "profile": {
+      "volume": 1,
+      "transients": {
+        "volume": 0,
+        "prominence": 0.4,
+        "duration": 0.022
+      },
+      "underlying_bands": {
+        "volume": 3,
+        "bands": [
+          {
+            "volume": 0.7,
+            "amplitude_window_length": 0.04,
+            "frequency_window_length": 0.125,
+            "minimal_amplitude_threshold": 0.03,
+            "frequency_range": {
+              "min": 30,
+              "max": 130
+            },
+            "output_frequency_range": {
+              "min": 30,
+              "max": 80
+            }
+          }
+        ]
+      },
+      "haptic_EQ": {
+        "is_before_compressor": true,
+        "keyframes": [
+          {
+            "frequency": 0,
+            "volume": 1
+          },
+          {
+            "frequency": 50,
+            "volume": 1
+          },
+          {
+            "frequency": 100,
+            "volume": 0.3
+          },
+          {
+            "frequency": 150,
+            "volume": 0.3
+          }
+        ]
+      },
+      "compressor": {
+        "amp_limit": 1,
+        "amp_comp": 0.5,
+        "amp_comp_ratio": 0.5,
+        "gamma": 3
+      }
+    },
+    "deviceReport": {
+      "Bodypart": [
+        {
+          "BodypartID": 216,
+          "Characteristics": {
+            "Resolution": {
+              "AllEqual": 1,
+              "Angle": 1,
+              "Height": 1,
+              "Offset": 0
+            },
+            "ValueReport": [
+              {
+                "ActuatorType": 2,
+                "FrequencyMax": 400,
+                "FrequencyMin": 30,
+                "FrequencyResonance": 50,
+                "Height": 0,
+                "Theta": 0
+              }
+            ]
+          },
+          "Perception": 1,
+          "StreamCharacteristics": {
+            "Bands": 3,
+            "Points": 4,
+            "Transients": 2
+          }
+        },
+        {
+          "BodypartID": 116,
+          "Characteristics": {
+            "Resolution": {
+              "AllEqual": 1,
+              "Angle": 1,
+              "Height": 1,
+              "Offset": 0
+            },
+            "ValueReport": [
+              {
+                "ActuatorType": 2,
+                "FrequencyMax": 400,
+                "FrequencyMin": 30,
+                "FrequencyResonance": 50,
+                "Height": 0,
+                "Theta": 0
+              }
+            ]
+          },
+          "Perception": 1,
+          "StreamCharacteristics": {
+            "Bands": 3,
+            "Points": 4,
+            "Transients": 2
+          }
+        }
+      ],
+      "DeviceName": "Sage T1",
+      "Manufacturer": "Razer",
+      "NumberBodyPart": 2,
+      "StreamBodyType": 1,
+      "TargetingType": 1,
+      "Version": "1.0"
+    },
+    "encoderDLL": "C:\\Users\\123456\\AppData\\Local\\Razer\\RazerAppEngine\\User Data\\\\Apps\\\\Common\\\\\\\\RzInterhapticsHapticEncoder_v2.0.1.11.dll",
+    "mixerGains": {
+      "source_1": 67,
+      "source_0": 67
+    }
+  },
+  "sensa": {
+    "audioToHapticsProfiles": [
+      "exist"
+    ],
+    "sensaHdActive": true,
+    "sensaLogExists": true
+  }
+}
