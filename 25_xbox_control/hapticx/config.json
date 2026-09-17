@@ -1,9 +1,9 @@
 {
-  "mode": "custom",
+  "mode": "dynamic",
   "gain": 1.34,
   "user_index": 0,
   "audio_device": null,
-  "vibration_on": true,
+  "vibration_on": false,
   "custom_overrides": {
     "gate": 0.03,
     "band_scale": 0.7,

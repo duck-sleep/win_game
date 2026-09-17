@@ -37,6 +37,10 @@
 25_xbox_control/hapticx/ff_test/snm970_jt
 25_xbox_control/hapticx/fftest/ffpulse
 25_xbox_control/hapticx/fftest/sendgip
+# Interhaptics SDK 浅克隆自带的 .git（只跟踪头文件与说明）
+25_xbox_control/hapticx/official_pitch_probe/InterhapticsEngine_CoreSDK/.git/
+25_xbox_control/hapticx/official_pitch_probe/InterhapticsEngine_CoreSDK/bin/
+25_xbox_control/hapticx/official_pitch_probe/probe_log.txt
 
 # ---- Cloud Agent 环境（本地虚拟环境等）----
 /.venv/

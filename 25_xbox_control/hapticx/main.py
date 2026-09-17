@@ -81,6 +81,8 @@ def run_pipeline(args):
             bar_l = "#" * int(left * 40)
             bar_r = "#" * int(right * 40)
             print(f"band={band:6.3f} L[{bar_l:<40}] R[{bar_r:<40}] "
+                  f"AudioF={analyzer.last_freq_hz:6.1f}Hz Pitch={analyzer.last_pitch_norm:.2f} "
+                  f"Conf={analyzer.last_pitch_confidence:.2f} A={analyzer.last_amp:.2f} "
                   f"{'BEAT' if beat else '    '}", end="\r", flush=True)
 
     cap = LoopbackCapture(on_block, device_name=args.device)

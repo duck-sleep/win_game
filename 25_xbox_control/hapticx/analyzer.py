@@ -3,6 +3,7 @@
 参数全部对标雷云 RzAudioCapture.log 中挖出的 A2H 配方(见 razer_probe.py):
   频段 30-130Hz / EQ(0:1, 50:1, 100:0.3, 150:0.3) / 振幅窗 40ms /
   频率窗 125ms / 门限 0.03 / 压缩器 gamma 3 / 瞬态 prominence 0.4、时长 22ms。
+pitch_norm 用 A2H output_frequency_range 30–80Hz 归一化(W0.3),不是 50ms FFT。
 """
 import numpy as np
 
@@ -10,6 +11,18 @@ from audio_capture import SAMPLE_RATE
 
 FFT_WINDOW = 2400  # 50ms,雷云 period_ms_fft=50
 FFT_HOP = 960      # 20ms
+
+# 估频另开约 125ms 窗。现有 2400 点只有 20Hz/格,分不开小星星 65/98/110Hz。
+# 6000 点 @48kHz → 8Hz/格。不要拿 50ms 振幅 FFT 冒充 pitch。
+FREQ_EST_WINDOW = 6000
+# W0.3 日志 profile.underlying_bands[0].output_frequency_range,不是 deviceReport 30–400。
+PITCH_FREQ_MIN = 30.0
+PITCH_FREQ_MAX = 80.0
+# 峰邻域能量 / 30–130Hz 总能量;低于此则 freq/pitch 归零,不沿用上次值。
+PITCH_CONF_MIN = 0.55
+PITCH_SMOOTH_ALPHA = 0.55  # 约 2–3 块跟上新纯音,总延迟仍压在 ~150ms 窗填充内
+PITCH_PEAK_NEIGHBORS = 1   # ±1 格;白噪声在 30–130 约 13 格,±2 会误过高置信
+ENERGY_SILENCE = 1e-12
 
 # 雷云四种模式的参数预设(均衡=雷云真值)
 # 注意:压缩器归一化使用固定参考值 REF_LEVEL=0.3,
@@ -92,6 +105,18 @@ class A2HAnalyzer:
                            (band_edges if band_edges else BAND_EDGES)]
         self._rebuild_eq()
 
+        self.freq_buffer = np.zeros(FREQ_EST_WINDOW, dtype=np.float64)
+        self.freq_window = np.hanning(FREQ_EST_WINDOW)
+        self.freq_bins = np.fft.rfftfreq(FREQ_EST_WINDOW, 1.0 / SAMPLE_RATE)
+        self.freq_band_mask = (self.freq_bins >= BAND_MIN) & (self.freq_bins <= BAND_MAX)
+        self.last_freq_hz = 0.0
+        self.last_amp = 0.0
+        self.last_centroid_hz = 0.0
+        self.last_pitch_norm = 0.0
+        self.last_pitch_confidence = 0.0
+        self.last_band_energies = [0.0, 0.0, 0.0]
+        self._smooth_freq_hz = 0.0
+
         # 可视化:16个对数频段(20Hz-8kHz),触觉频段高亮
         viz_edges = np.geomspace(20.0, 8000.0, 17)
         self.viz_masks = [((self.freqs >= lo) & (self.freqs < hi))
@@ -171,6 +196,64 @@ class A2HAnalyzer:
             base[mask] *= self.band_gains[i]
         self.eq_table = base
 
+    def _parabolic_peak_hz(self, mag, peak_i, bins):
+        """峰值左右相邻格抛物线插值,返回 Hz。mag/bins 已是 30–130Hz 切片。"""
+        if peak_i <= 0 or peak_i >= mag.size - 1:
+            return float(bins[peak_i])
+        a, b, c = float(mag[peak_i - 1]), float(mag[peak_i]), float(mag[peak_i + 1])
+        denom = a - 2.0 * b + c
+        delta = 0.5 * (a - c) / denom if abs(denom) > 1e-12 else 0.0
+        bin_hz = SAMPLE_RATE / FREQ_EST_WINDOW
+        return float(bins[peak_i] + delta * bin_hz)
+
+    def _update_pitch_estimate(self):
+        """独立 125ms 估频。last_amp 在 process_block 里用压缩后标量写入。"""
+        spectrum = np.abs(np.fft.rfft(self.freq_buffer * self.freq_window))
+        mag = spectrum[self.freq_band_mask]
+        bins = self.freq_bins[self.freq_band_mask]
+        power = mag * mag
+        total = float(np.sum(power))
+        edges = self.band_edges
+        energies = []
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            m = (self.freq_bins >= lo) & (self.freq_bins < hi)
+            chunk = spectrum[m]
+            energies.append(float(np.sqrt(np.mean(chunk ** 2))) if chunk.size else 0.0)
+        self.last_band_energies = energies[:3] + [0.0] * max(0, 3 - len(energies))
+        self.last_band_energies = self.last_band_energies[:3]
+
+        if total < ENERGY_SILENCE or mag.size == 0:
+            self._smooth_freq_hz = 0.0
+            self.last_freq_hz = 0.0
+            self.last_centroid_hz = 0.0
+            self.last_pitch_norm = 0.0
+            self.last_pitch_confidence = 0.0
+            return
+
+        peak_i = int(np.argmax(mag))
+        lo = max(0, peak_i - PITCH_PEAK_NEIGHBORS)
+        hi = min(mag.size, peak_i + PITCH_PEAK_NEIGHBORS + 1)
+        conf = float(np.sum(power[lo:hi]) / (total + 1e-18))
+        centroid = float(np.sum(bins * power) / (total + 1e-18))
+        self.last_centroid_hz = centroid
+        self.last_pitch_confidence = conf
+
+        if conf < PITCH_CONF_MIN:
+            self._smooth_freq_hz = 0.0
+            self.last_freq_hz = 0.0
+            self.last_pitch_norm = 0.0
+            return
+
+        raw_hz = self._parabolic_peak_hz(mag, peak_i, bins)
+        if self._smooth_freq_hz <= 0.0:
+            self._smooth_freq_hz = raw_hz
+        else:
+            self._smooth_freq_hz += (raw_hz - self._smooth_freq_hz) * PITCH_SMOOTH_ALPHA
+        self.last_freq_hz = float(self._smooth_freq_hz)
+        span = PITCH_FREQ_MAX - PITCH_FREQ_MIN
+        pitch = (self.last_freq_hz - PITCH_FREQ_MIN) / span if span > 1e-9 else 0.0
+        self.last_pitch_norm = float(np.clip(pitch, 0.0, 1.0))
+
     def set_band_gains(self, band_gains):
         """UI 调频段增益时调用。"""
         self.reconfigure(band_gains=band_gains)
@@ -200,7 +283,13 @@ class A2HAnalyzer:
 
     def process_block(self, samples):
         """输入 20ms 块,返回 (left, right, band, transient)。"""
-        self.buffer = np.concatenate([self.buffer[samples.size:], samples])
+        samples = np.asarray(samples, dtype=np.float64).reshape(-1)
+        n = samples.size
+        self.buffer = np.concatenate([self.buffer[n:], samples])
+        if n >= FREQ_EST_WINDOW:
+            self.freq_buffer = samples[-FREQ_EST_WINDOW:].copy()
+        else:
+            self.freq_buffer = np.concatenate([self.freq_buffer[n:], samples])
         amp, flux = self._eq_weighted_band()
         env = self._envelope(amp)
         smoothed = self._frequency_smooth(env)
@@ -225,4 +314,7 @@ class A2HAnalyzer:
         band_level = compressed * self.cfg["band_scale"]
         left = np.clip(band_level + self.transient_amp * 0.7, 0.0, 1.0) * self.gain
         right = np.clip(self.transient_amp + band_level * 0.4, 0.0, 1.0) * self.gain
+        self._update_pitch_estimate()
+        # last_amp = 压缩后标量 × mixer gain,与左右马达拆分前的力度同量纲
+        self.last_amp = float(compressed * self.gain)
         return float(left), float(right), float(smoothed), self.transient_amp > 0

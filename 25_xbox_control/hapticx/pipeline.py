@@ -29,6 +29,11 @@ class HapticPipeline:
             "error": None,
             "band_gains": band_gains_for(config, mode),
             "band_edges": band_edges_for(config, mode),
+            "audio_freq_hz": 0.0,
+            "centroid_hz": 0.0,
+            "pitch_norm": 0.0,
+            "pitch_confidence": 0.0,
+            "amp": 0.0,
         }
         self._pending = {}
         self._analyzer = A2HAnalyzer(
@@ -132,6 +137,11 @@ class HapticPipeline:
         with self.lock:
             self.state["viz"] = [0.0] * 16
             self.state["band"] = self.state["left"] = self.state["right"] = 0.0
+            self.state["audio_freq_hz"] = 0.0
+            self.state["centroid_hz"] = 0.0
+            self.state["pitch_norm"] = 0.0
+            self.state["pitch_confidence"] = 0.0
+            self.state["amp"] = 0.0
 
     def shutdown(self):
         self.stop_capture()
@@ -148,6 +158,11 @@ class HapticPipeline:
             self.state["right"] = right if vibration_on else 0.0
             self.state["beat"] = beat
             self.state["viz"] = analyzer.viz.tolist()
+            self.state["audio_freq_hz"] = analyzer.last_freq_hz
+            self.state["centroid_hz"] = analyzer.last_centroid_hz
+            self.state["pitch_norm"] = analyzer.last_pitch_norm
+            self.state["pitch_confidence"] = analyzer.last_pitch_confidence
+            self.state["amp"] = analyzer.last_amp
             if beat:
                 self.state["beats"] += 1
             if vibration_on:

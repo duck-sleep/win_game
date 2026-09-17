@@ -328,6 +328,11 @@ class App(tk.Tk):
         self.bar_right = LevelBar(motors, "右马达(高频·节拍)", width=280,
                                   color=T.BLUE)
         self.bar_right.pack(side="left")
+        self.pitch_lbl = tk.Label(
+            b,
+            text="音频主频=0 Hz    候选Pitch=0.00    Conf=0.00    A=0.00",
+            bg=T.BG_CARD, fg=T.TEXT, font=T.FONT, anchor="w")
+        self.pitch_lbl.pack(fill="x", pady=(8, 0))
 
         # ---- 编辑器卡:Sensa HD 设备频段增益 ----
         editor = Card(page, title="Sensa HD 设备 — 频段增益", green_title=True,
@@ -485,6 +490,11 @@ class App(tk.Tk):
         spec.pack(fill="x", pady=(14, 0))
         self.spectrum = SpectrumCanvas(spec.body, width=720, height=180)
         self.spectrum.pack(fill="x")
+        self.dash_pitch_lbl = tk.Label(
+            spec.body,
+            text="音频主频=0 Hz    候选Pitch=0.00    Conf=0.00    A=0.00",
+            bg=T.BG_CARD, fg=T.TEXT, font=T.FONT, anchor="w")
+        self.dash_pitch_lbl.pack(fill="x", pady=(8, 0))
 
     # ---------- 设备 ----------
     def _build_page_devices(self):
@@ -740,6 +750,13 @@ class App(tk.Tk):
             self.band_canvas.update_spectrum(state["viz"])
             self.bar_left.set(state["left"])
             self.bar_right.set(state["right"])
+            self.pitch_lbl.configure(
+                text=(
+                    f"音频主频={state.get('audio_freq_hz', 0):.0f} Hz    "
+                    f"候选Pitch={state.get('pitch_norm', 0):.2f}    "
+                    f"Conf={state.get('pitch_confidence', 0):.2f}    "
+                    f"A={state.get('amp', 0):.2f}"
+                ))
 
         # 仪表板频谱
         if self.current_page == "dashboard":
@@ -748,6 +765,13 @@ class App(tk.Tk):
             self.spectrum.update_data(state["viz"], in_band,
                                       state["left"], state["right"],
                                       state["beat"])
+            self.dash_pitch_lbl.configure(
+                text=(
+                    f"音频主频={state.get('audio_freq_hz', 0):.0f} Hz    "
+                    f"候选Pitch={state.get('pitch_norm', 0):.2f}    "
+                    f"Conf={state.get('pitch_confidence', 0):.2f}    "
+                    f"A={state.get('amp', 0):.2f}"
+                ))
 
         # 仪表板数据
         if self.current_page == "dashboard":
