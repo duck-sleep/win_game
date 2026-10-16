@@ -1,4 +1,6 @@
-# 00_START — 新会话 1 分钟读完入口（2026-09-12 深夜更新）
+# 00_START — 新会话 1 分钟读完入口（2026-10-13 补了一条收口）
+
+> **2026-10-13**：`25_xbox_control` 的 Windows 雷云对照已收口。编码器出口（纯音、敲击、扫频、左右不同）和 DLL 逐帧相同。整首歌和 USB 没对过。下一件事用户还没指定。重开这个项目读 `04_workbuddy_记忆与skill\skills\hapticx-dll-align\SKILL.md`。下面的掌机快照仍是 2026-09-12，没有在 10 月复核。
 
 > 冲突时以本文件【当前状态】为准。更多细节见 02_知识库_整理版.md 、04_workbuddy_记忆与skill\MEMORY.md。
 >
@@ -10,7 +12,7 @@ SNM970/OK700 掌机（QCS8550 kalama Android 15 BSP）定制；主战场是「�
 ## 当前状态快照（2026-09-12 深夜）
 | 线路 | 状态 | 说明 |
 |------|------|------|
-| HapticX Windows 参数调优 | ✅ | M0~M4 + profiles + 模式增益；amp_comp 未补 |
+| HapticX Windows 官方路径 | ✅ 2026-10-13 收口 | 按 DLL 抄。左右分声道已对齐。详见 `01_记忆原档\projects\25_xbox_control\project_memory.md`。整首歌 / USB 未对 |
 | HapticX Android 现役 | ✅ **0.1.17** | 板上真采 + 四档 + 悬浮马达条。DSP 已改回 Windows `analyzer.py`（只看 30–130Hz）。用户确认「好像还行」 |
 | 采集-FF 驱动 | ✅ | xone + `eventN` + `ff_bridge` 实震。**板载 hv-haptics 也有 FF_RUMBLE，别发错** |
 | 预装进大包 | ✅ 源已换 **0.1.17** | QSSI `vendor/meig/HapticX/HapticX.apk` = 0.1.17（`.0.1.12.bak` / `.0.1.0.bak`）。`qssi.mk` 已 inherit |

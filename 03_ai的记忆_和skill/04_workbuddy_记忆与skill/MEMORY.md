@@ -38,7 +38,14 @@
 9. **rsync 不清旧产物**：`copy_kernel` 用 `rsync -a`（无 `--delete`），旧 ko 残留 `out/` → 改配置后要全量重跑或删 `out/`；
 10. **软链树确认**：`LA.VENDOR.15.4.3 → LA.VENDOR.15.4.3-irix` 是软链（inode 相同），改一边即生效；但历史上若有两份独立目录，易改错地方。
 
-### 3. 日常紧急指令
+### 3. VM 编译机环境（10-14 实测，动系统前必看）
+- **系统**：Ubuntu **22.04.5 LTS**（jammy），内核 6.8.0-138 HWE，x86_64，有 GNOME 桌面；主机名 `laide-virtual-machine`，用户 `laide`；6 核 / 43G 内存 / 根分区 1.3T（10-14 已用 782G，剩 488G）
+- ⚠️ **`/usr/bin/python` 已指向 python2**（手工软链 → `/usr/local/python2.7/bin/python2.7`，**不被 dpkg 管理**；`python2`/`python-is-python3` 包均未安装）。安卓构建脚本 `SNM970_A15_build.sh` 第 184/190/336 行是**裸调 `python`**；`build_image_standalone.py` 的 shebang 是 `env python`，实测 **py2/py3 双兼容**。**不要动 /usr/bin/python**（尤其别装 `python-is-python3`，会把裸调 python 的脚本翻成 py3）
+- **系统未装 java**（`java: command not found`、`JAVA_HOME` 空）；安卓自带 `prebuilts/jdk/{jdk8,jdk9,jdk11,jdk17}` → 装系统 JDK 不影响安卓
+- `dpkg --print-foreign-architectures` = **i386 已启用**（lib32* 包装得上）；**ccache 未安装**
+- 软链：`LA.VENDOR.15.4.3 → LA.VENDOR.15.4.3-irix`（改一边即生效）
+
+### 4. 日常紧急指令
 ```bash
 adb tcpip 5555                   # 切 host 前打开 WiFi adb
 adb root && adb remount          # push 到 /system 必备
@@ -52,6 +59,7 @@ echo peripheral > /sys/bus/platform/devices/a600000.ssusb/mode  # 连电脑传�
 ## 二、每日进度速览（最新在前）
 | 日期 | 关键成果 |
 |------|----------|
+| 10-13 | Windows `25_xbox_control` 收口：编码器出口与 DLL 逐帧相同（含左右分声道）。整首歌和 USB 未对。skill `hapticx-dll-align` |
 | 09-12 深夜 | 板上 **0.1.17**：悬浮马达条 + DSP 改回 Windows analyzer.py。QSSI 预装已换成 0.1.17；kalama.mk A2DP + hapticx_ff 开机 + appops。用户自己 `inc` 刷完即有 App。第一次仍要点「开始捕获」。Git 仓 App 源码仍 0.1.0 |
 | 09-12 晚 | 0.1.12 真采+四档，动态档现场过。AetherSX2 丢失后已重装 v1.5-3668，BIOS 从 SSD 补回 |
 | 09-11 | 推《战神2》6.4GB 到掌机 SSD；USB `peripheral` 33.5MB/s；GitHub `duck-sleep/win_game` 首推成功 |

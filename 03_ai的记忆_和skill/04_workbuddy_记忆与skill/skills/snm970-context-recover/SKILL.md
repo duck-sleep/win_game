@@ -28,11 +28,10 @@ agent_created: true
 
 开工前先向用户确认"接着做哪块"，不要凭记忆自作主张。已知方向：
 
-1. **HapticX 动态触觉反馈**——当前最活跃
-   - Windows 端：Python/tkinter UI（profiles/config 页面、band audio range slider）`D:\win_game_project\25_xbox_control\hapticx\`
-   - Android 端：采集已通（BT A2DP offload 修复），FF 驱动移植（xone GIP 驱动已搬入 kernel，待编译验证）
-2. **BSP 编译/验证**（VM 内 6~8h，用户自己跑）
-3. **掌机 OTG 手柄**（卡在 VBUS 输出，需带供电 Hub 复测）
+1. **Windows 雷云对照**——2026-10-13 已收口。重开再读 skill `hapticx-dll-align`，不要凭 9 月的「参数还在调」往下改
+2. **掌机 HapticX / BSP**——快照停在 2026-09-12（安卓 0.1.17、xone、A2DP）。10 月没有复核，开工前问用户还做不做
+3. **BSP 编译/验证**（VM 内 6~8h，用户自己跑）
+4. **掌机 OTG 手柄**（卡在 VBUS 输出，需带供电 Hub 复测）
 
 ## 第三步：遵守工作约定（用户明确要求过）
 

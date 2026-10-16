@@ -1,6 +1,7 @@
 # ============================================================
 # win_game_project
-# 只跟踪 03_ai的记忆_和skill / 12_win_上机跑 / 25_xbox_control
+# 只跟踪 03_ai的记忆_和skill / 12_win_上机跑
+# 25_xbox_control 已独立到 Gitea：981637988/windos_HapticX
 # 其余为本地大文件（烧录包、游戏镜像、工具），不进仓
 # ============================================================
 
@@ -20,27 +21,11 @@
 # ---- WorkBuddy 工作区数据 ----
 /.workbuddy/
 
-# ---- 25_xbox_control：安装包与构建产物 ----
-25_xbox_control/01_软件/
-25_xbox_control/hapticx-android/.gradle/
-25_xbox_control/hapticx-android/.kotlin/
-25_xbox_control/hapticx-android/local.properties
-25_xbox_control/**/build/
-25_xbox_control/**/.idea/
+# 25_xbox_control 自己是 Gitea 仓库，父仓库不再跟踪
+/25_xbox_control/
 
-# ---- 25_xbox_control：可再生的测试/截图产物 ----
-# 截图原始 BMP（同目录已有压缩后的 .png）
+# 截图原始 BMP（同目录通常已有压缩后的 .png）
 *.bmp
-# 测试音频
-25_xbox_control/**/*.wav
-# 编译好的 Linux 测试二进制（同目录保留 .c 源码）
-25_xbox_control/hapticx/ff_test/snm970_jt
-25_xbox_control/hapticx/fftest/ffpulse
-25_xbox_control/hapticx/fftest/sendgip
-# Interhaptics SDK 浅克隆自带的 .git（只跟踪头文件与说明）
-25_xbox_control/hapticx/official_pitch_probe/InterhapticsEngine_CoreSDK/.git/
-25_xbox_control/hapticx/official_pitch_probe/InterhapticsEngine_CoreSDK/bin/
-25_xbox_control/hapticx/official_pitch_probe/probe_log.txt
 
 # ---- Cloud Agent 环境（本地虚拟环境等）----
 /.venv/

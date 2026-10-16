@@ -11,6 +11,7 @@
 ├── 02_知识库_整理版.md            ← 通用项目背景（环境/编译/SSD/提交），入口卡不够时再读
 ├── 03_skill清单_本项目工作流.md   ← TRAE skill 清单（已过时，WorkBuddy 只看 skill 目录）
 ├── 01_记忆原档\                   ← TRAE 原始记忆冷档（按日期归档），日常勿读
+├── 01_记忆原档\projects\25_xbox_control\  ← 2026-10-13 Windows 雷云收口
 └── 04_workbuddy_记忆与skill\      ← WorkBuddy（当前 AI）记忆区
     ├── MEMORY.md                  ← 长期记忆（只存永久事实：技术结论/坑/命令/时间线）
     ├── 日志\YYYY-MM-DD.md         ← 每日工作日志（只读最近 1~2 天）

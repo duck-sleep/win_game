@@ -17,6 +17,7 @@
 
 | skill | 用途 | 何时用 |
 |---|---|---|
+| **hapticx-dll-align** | Windows 雷云对照：按 DLL 抄、逐帧验收、禁止听感改算法 | 重开 `25_xbox_control`，或用户说和雷云不一样 |
 | **snm970-context-recover** | ★ 新会话上下文恢复三步法 | 会话重开 / 上下文崩了，第一步就加载 |
 | **github-push-behind-proxy** | ★ 弱网/代理下推仓库到 GitHub（瘦包 + SSH 保活） | `git push` 报 sideband disconnect |
 | push-to-snm970-storage | 推 ROM/大文件到掌机 SSD（USB vs WiFi 通道、模式切换、md5 校验） | 传游戏、装 APK |
@@ -24,6 +25,7 @@
 | api-endpoint-slow-diagnosis | API 端点慢/断连五步诊断（含无线侧最后一公里） | 模型回答慢、429/500/10054 |
 | hapticx-png-guard | PNG 生成规范（大端 `>I`，坏图会报废会话） | 写截图/出图脚本 |
 | snm970-aarch64-static-bin | 掌机端 aarch64 静态二进制编译 | 需要板子上跑的静态工具 |
+| **vm-ssh-sudo-exec** | ★ 非交互 SSH 进 VM 跑 sudo/长任务（askpass 包装 + scp/pipefail/整批 apt 三个假成功坑） | 在 `rk-vm` / `vm-laide` 上装包、编译、传大文件 |
 
 ## 恢复顺序（新会话 / 上下文断了）
 
