@@ -1,0 +1,16 @@
+[Unit]
+Description=K11C IP-KVM USB gadget (HID keyboard + absolute mouse + ACM)
+After=local-fs.target
+# 官方的 usb-gadget.service 会在 Type-C 上挂 adb(2207:0006)，
+# 那个 VID:PID 会被 Windows 上装过的 Android 驱动整台认领，导致 HID 接口不被枚举
+# → 我们在镜像里把官方那个 mask 掉（见构建脚本），这里不再声明 Conflicts
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/k11c-gadget.sh
+ExecStop=/bin/sh -c 'echo "" > /sys/kernel/config/usb_gadget/k11c/UDC'
+
+[Install]
+WantedBy=multi-user.target
