@@ -26,6 +26,7 @@
 | hapticx-png-guard | PNG 生成规范（大端 `>I`，坏图会报废会话） | 写截图/出图脚本 |
 | snm970-aarch64-static-bin | 掌机端 aarch64 静态二进制编译 | 需要板子上跑的静态工具 |
 | **vm-ssh-sudo-exec** | ★ 非交互 SSH 进 VM 跑 sudo/长任务（askpass 包装 + scp/pipefail/整批 apt 三个假成功坑） | 在 `rk-vm` / `vm-laide` 上装包、编译、传大文件 |
+| **usb-gadget-hid-bringup** | ★ 板子点亮成 USB 键鼠 + "设备侧全对但主机不认"的排查顺序（configfs 装配顺序、VID/PID 撞驱动、属性可用性、通道被踢、剪贴板回读验证法、两端状态对照表） | 做 K11C IP-KVM / 任何 configfs HID gadget / 电脑不认板子 |
 
 ## 恢复顺序（新会话 / 上下文断了）
 
