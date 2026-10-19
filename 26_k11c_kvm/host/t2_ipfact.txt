@@ -1,0 +1,5 @@
+ip -4 -o addr show wlan0; echo ---
+nmcli -f IP4.CONNECTION,IP4.DHCP_CLIENT_ID con show Duck_5G 2>&1 | head -5; echo ---
+nmcli -f DHCP4 con show Duck_5G 2>&1 | grep -Ei 'ip_address|lease_time|next_server|domain_name_server' | head -8; echo ---
+echo kickpi | sudo -S sh -c "grep -h . /var/lib/NetworkManager/*lease* 2>/dev/null | head -6"; echo ---
+hostname -f 2>&1; hostnamectl 2>/dev/null | grep -i 'hostname\|machine'

@@ -1,0 +1,1 @@
+echo kickpi | sudo -S sh -c "sync; (sleep 1; reboot) >/dev/null 2>&1 &" ; echo REBOOT_SENT

@@ -1,0 +1,6 @@
+# 板子上跑的一律 LF：这些文件会被 scp 到 Ubuntu 直接执行，CRLF 会让 #!/bin/sh 那行失效
+26_k11c_kvm/**/*.sh text eol=lf
+26_k11c_kvm/**/*.py text eol=lf
+26_k11c_kvm/**/*.service text eol=lf
+26_k11c_kvm/**/*.desktop text eol=lf
+26_k11c_kvm/**/*.html text eol=lf

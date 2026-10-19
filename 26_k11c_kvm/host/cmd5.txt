@@ -1,0 +1,2 @@
+echo kickpi | sudo -S sh -c "echo '' > /sys/kernel/config/usb_gadget/k11c/UDC; echo unbound; sleep 1; echo fcc00000.usb > /sys/kernel/config/usb_gadget/k11c/UDC; echo rebound; sleep 1; cat /sys/kernel/config/usb_gadget/k11c/UDC; cat /sys/class/udc/fcc00000.usb/state"
+echo kickpi | sudo -S sh -c "sleep 6; cat /sys/class/udc/fcc00000.usb/state; echo ---; dmesg | tail -8"

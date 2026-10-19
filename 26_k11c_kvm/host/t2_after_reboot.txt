@@ -1,0 +1,3 @@
+uptime; cat /proc/uptime
+nmcli -t -f GENERAL.STATE,IP4.ADDRESS dev show wlan0; nmcli -t -f NAME,DEVICE con show --active
+echo kickpi | sudo -S sh -c "last -x reboot 2>/dev/null | head -3"

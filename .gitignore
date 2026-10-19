@@ -40,3 +40,8 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+
+# 调试期的一次性大屏截图（每张 1.6 MB，不是验收证据）
+26_k11c_kvm/host/now.png
+26_k11c_kvm/host/t6_d1.png
+26_k11c_kvm/host/t6_d2.png

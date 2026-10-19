@@ -1,0 +1,6 @@
+echo kickpi | sudo -S sh -c "dmesg | grep -iE 'dwc3|gadget|hidg|configfs' | tail -25"
+echo kickpi | sudo -S sh -c "dmesg | tail -30"
+echo kickpi | sudo -S sh -c "journalctl -u k11c-gadget --no-pager | tail -20"
+echo kickpi | sudo -S sh -c "ls -l /sys/bus/platform/drivers/dwc3/; cat /sys/kernel/debug/usb/dwc3/fcc00000.usb/mode 2>/dev/null; echo ---; cat /sys/class/power_supply/wusb*/uevent 2>/dev/null | head"
+cat /sys/kernel/config/usb_gadget/k11c/idVendor /sys/kernel/config/usb_gadget/k11c/idProduct /sys/kernel/config/usb_gadget/k11c/bDeviceClass 2>&1
+echo kickpi | sudo -S sh -c "cat /sys/kernel/config/usb_gadget/k11c/functions/hid.usb0/report_length /sys/kernel/config/usb_gadget/k11c/functions/hid.usb0/protocol /sys/kernel/config/usb_gadget/k11c/functions/hid.usb1/report_length /sys/kernel/config/usb_gadget/k11c/functions/hid.usb1/protocol; echo ---; ls /sys/kernel/config/usb_gadget/k11c/strings/0x409/; cat /sys/kernel/config/usb_gadget/k11c/strings/0x409/serialnumber"

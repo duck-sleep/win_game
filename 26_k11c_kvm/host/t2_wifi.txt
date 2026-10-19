@@ -1,0 +1,5 @@
+echo kickpi | sudo -S nmcli dev wifi connect "Duck_5G" password "00000000" ifname wlan0 2>&1 | tail -6
+nmcli -t -f GENERAL.STATE,IP4.ADDRESS dev show wlan0
+nmcli -t -f NAME,AUTOCONNECT,DEVICE con show
+echo kickpi | sudo -S systemctl enable --now ssh 2>&1 | tail -3
+systemctl is-active ssh; ip -4 -o addr show wlan0; ip -4 -o route show default

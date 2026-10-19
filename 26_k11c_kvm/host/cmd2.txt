@@ -1,0 +1,9 @@
+uname -a
+echo kickpi | sudo -S sh -c "systemctl status k11c-gadget --no-pager -l | head -25"
+systemctl is-enabled k11c-gadget
+systemctl is-masked usb-gadget
+ls /sys/class/udc/
+echo kickpi | sudo -S sh -c "for u in /sys/class/udc/*; do echo \$u = \$(cat \$u/state); done"
+echo kickpi | sudo -S sh -c "ls -l /dev/hidg* /dev/ttyGS0 2>&1"
+ls /sys/kernel/config/usb_gadget/ 2>&1
+echo kickpi | sudo -S sh -c "cat /sys/kernel/config/usb_gadget/k11c/UDC 2>&1; echo ---; ls -l /sys/kernel/config/usb_gadget/k11c/configs/b.1/ 2>&1"

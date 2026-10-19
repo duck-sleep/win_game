@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>K11C KVM</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #111417; color: #e8eaed; font: 15px/1.4 system-ui, sans-serif; }
+  #vid { display: block; width: 100%; touch-action: none; cursor: crosshair; background: #000; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; }
+  button { flex: 1 1 auto; min-width: 56px; min-height: 44px; padding: 0 8px; font-size: 15px;
+           background: #2a2f36; color: #e8eaed; border: 1px solid #3c434c; border-radius: 8px; }
+  button:active { background: #45607a; }
+  #txt { flex: 1 1 140px; min-height: 44px; padding: 0 10px; font-size: 16px;
+         background: #1b1f24; color: #e8eaed; border: 1px solid #3c434c; border-radius: 8px; }
+  label.chk { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #9aa0a6; }
+  #st { padding: 6px 10px; font-size: 12px; color: #9aa0a6; font-family: ui-monospace, monospace;
+        border-top: 1px solid #262b31; white-space: pre-wrap; }
+  #st.bad { color: #ff6b6b; }
+</style>
+</head>
+<body>
+<img id="vid" src="/stream.mjpg" alt="被控电脑画面">
+
+<div class="row">
+  <button data-click="1">左键</button>
+  <button data-click="2">右键</button>
+  <button data-dbl="1">双击</button>
+  <button data-wheel="3">滚上</button>
+  <button data-wheel="-3">滚下</button>
+</div>
+
+<div class="row">
+  <input id="txt" type="text" autocomplete="off" placeholder="输入要发过去的文字">
+  <button id="send">发送</button>
+  <label class="chk"><input id="cr" type="checkbox">发送后回车</label>
+</div>
+
+<div class="row">
+  <button data-key="40">Enter</button>
+  <button data-key="42">退格</button>
+  <button data-key="41">Esc</button>
+  <button data-key="43">Tab</button>
+  <button data-key="80">&larr;</button>
+  <button data-key="82">&uarr;</button>
+  <button data-key="79">&rarr;</button>
+  <button data-key="81">&darr;</button>
+</div>
+
+<div class="row">
+  <button data-combo="8,0">Win</button>
+  <button data-combo="1,44">切输入法</button>
+  <button data-combo="5,76">Ctrl+Alt+Del</button>
+</div>
+
+<div id="st">连接中…</div>
+
+<script>
+var MAX = 32767, seq = 0, cur = { x: 16384, y: 16384 };
+var vid = document.getElementById('vid'), st = document.getElementById('st');
+var THROTTLE = 30, lastSent = 0, pending = null, timer = null;
+
+/* 状态行分开存：fps/clients 由 /state 轮询更新，ms/err 由每次 RPC 更新。
+   早先只有一行文本、轮询时整行重画，把"上次 RPC xx ms"盖掉了。 */
+var net = { fps: '-', clients: '-', ms: '-', best: '-', err: '' };
+
+function render() {
+  st.textContent = net.fps + ' fps | ' + net.clients + ' 看流 | 上次 RPC ' + net.ms +
+    ' ms | 最快 ' + net.best + ' ms' + (net.err ? ' | ' + net.err : '');
+  st.className = net.err ? 'bad' : '';
+}
+
+function rpc(method, params) {
+  var t0 = performance.now();
+  return fetch('/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: ++seq, method: method, params: params || {} })
+  }).then(function (r) { return r.json(); }).then(function (j) {
+    if (j.error) { throw new Error(j.error.message); }
+    var ms = Math.round(performance.now() - t0);
+    net.ms = ms;
+    if (net.best === '-' || ms < net.best) { net.best = ms; }
+    net.err = '';
+    render();
+    return j.result;
+  }).catch(function (e) {
+    net.err = 'RPC 失败: ' + e.message;
+    render();
+    throw e;
+  });
+}
+
+/* ---------- 触摸板：手指在画面上移动 = 绝对鼠标 ---------- */
+function rel(e) {
+  var r = vid.getBoundingClientRect();
+  var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y));
+  return { x: Math.round(x * MAX), y: Math.round(y * MAX) };
+}
+
+function sendMove(p) {
+  lastSent = performance.now();
+  rpc('absMouseReport', { x: p.x, y: p.y, buttons: 0 }).catch(function () {});
+}
+
+function onMove(e) {
+  var p = rel(e);
+  cur = p;
+  var wait = THROTTLE - (performance.now() - lastSent);
+  if (wait <= 0) {
+    pending = null;
+    sendMove(p);
+  } else {
+    pending = p;
+    if (!timer) {
+      timer = setTimeout(function () {
+        timer = null;
+        if (pending) { sendMove(pending); pending = null; }
+      }, wait);
+    }
+  }
+}
+
+function clickAt(btn) {
+  rpc('absMouseReport', { x: cur.x, y: cur.y, buttons: btn })
+    .then(function () { return rpc('absMouseReport', { x: cur.x, y: cur.y, buttons: 0 }); })
+    .catch(function () {});
+}
+
+var down = null;
+vid.addEventListener('pointerdown', function (e) {
+  e.preventDefault();
+  down = { t: Date.now(), x: e.clientX, y: e.clientY, moved: 0 };
+  try { vid.setPointerCapture(e.pointerId); } catch (err) {}
+});
+vid.addEventListener('pointermove', function (e) {
+  if (!down) { return; }
+  e.preventDefault();
+  down.moved = Math.max(down.moved, Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y));
+  onMove(e);
+});
+vid.addEventListener('pointerup', function (e) {
+  if (!down) { return; }
+  var dt = Date.now() - down.t;
+  onMove(e);
+  if (down.moved < 10 && dt < 300) { clickAt(1); }   /* 轻点 = 左键单击 */
+  down = null;
+});
+vid.addEventListener('pointercancel', function () { down = null; });
+
+/* ---------- 按钮 ---------- */
+document.querySelectorAll('[data-click]').forEach(function (b) {
+  b.addEventListener('click', function () { clickAt(+b.dataset.click); });
+});
+document.querySelectorAll('[data-dbl]').forEach(function (b) {
+  b.addEventListener('click', function () { clickAt(1); setTimeout(function () { clickAt(1); }, 120); });
+});
+document.querySelectorAll('[data-wheel]').forEach(function (b) {
+  b.addEventListener('click', function () { rpc('wheelReport', { y: +b.dataset.wheel, x: 0 }); });
+});
+document.querySelectorAll('[data-key]').forEach(function (b) {
+  b.addEventListener('click', function () { rpc('keyCombo', { modifiers: 0, key: +b.dataset.key }); });
+});
+document.querySelectorAll('[data-combo]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var m = b.dataset.combo.split(',');
+    rpc('keyCombo', { modifiers: +m[0], key: +m[1] });
+  });
+});
+
+/* ---------- 打字：用 input 事件取值，不靠 keydown（安卓软键盘 keyCode 全是 229） ---------- */
+var txt = document.getElementById('txt');
+document.getElementById('send').addEventListener('click', function () {
+  var s = txt.value;
+  if (!s) { return; }
+  rpc('typeText', { text: s }).then(function (r) {
+    if (r && r.skipped) { net.err = '跳过 ' + r.skipped + ' 个不支持的字符'; render(); }
+    txt.value = '';
+    if (document.getElementById('cr').checked) {
+      return rpc('keyCombo', { modifiers: 0, key: 40 });
+    }
+  }).catch(function () {});
+});
+
+/* ---------- 状态行：每 2 秒问一次 /state ---------- */
+function poll() {
+  fetch('/state').then(function (r) { return r.json(); }).then(function (s) {
+    net.fps = s.fps;
+    net.clients = s.clients;
+    render();
+  }).catch(function (e) {
+    net.err = '连不上板子: ' + e.message;
+    render();
+  });
+}
+setInterval(poll, 2000);
+render();
+poll();
+</script>
+</body>
+</html>

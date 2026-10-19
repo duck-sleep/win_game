@@ -1,0 +1,3 @@
+echo kickpi | sudo -S sh -c "cat /sys/kernel/config/usb_gadget/k11c/strings/0x409/serialnumber; echo '--- UDC:'; cat /sys/kernel/config/usb_gadget/k11c/UDC; echo '--- config funcs:'; ls /sys/kernel/config/usb_gadget/k11c/configs/b.1/ | tr '\n' ' '; echo; ls -l /dev/hidg0 /dev/hidg1 /dev/ttyGS0"
+systemctl is-active k11c-gadget; systemctl is-enabled k11c-gadget; systemctl is-enabled usb-gadget
+echo kickpi | sudo -S sh -c "for f in /sys/class/extcon/extcon0/state; do cat \$f; done"

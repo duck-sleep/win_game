@@ -1,0 +1,8 @@
+ls /sys/class/extcon/ 2>&1; echo kickpi | sudo -S sh -c "for f in /sys/class/extcon/*/state; do echo == \$f; cat \$f; done"
+echo kickpi | sudo -S sh -c "ls /sys/class/typec/ 2>&1; cat /sys/class/typec/*/data_state /sys/class/typec/*/vconn_source 2>/dev/null"
+ls /sys/class/power_supply/ 2>&1
+echo kickpi | sudo -S sh -c "for p in /sys/class/power_supply/*; do echo == \$p; cat \$p/uevent 2>/dev/null; done"
+echo kickpi | sudo -S sh -c "dmesg | grep -iE 'extcon|typec|vbus|charger|usb-otg|otg' | tail -20"
+echo kickpi | sudo -S sh -c "cat /sys/class/udc/fcc00000.usb/state /sys/class/udc/fcc00000.usb/current_speed /sys/class/udc/fcc00000.usb/is_otg 2>&1"
+systemctl is-enabled usb-gadget 2>&1
+echo kickpi | sudo -S sh -c "systemctl status usb-gadget --no-pager -l 2>&1 | head -8"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=K11C TV output
+Comment=全屏把板子 HDMI OUT 接到电视上显示 /stream.mjpg
+Exec=sh /opt/k11c-kvm/tv.sh
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

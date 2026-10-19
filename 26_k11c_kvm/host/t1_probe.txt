@@ -1,0 +1,4 @@
+ls -l /sbin/agetty /usr/sbin/agetty 2>&1 | tr '\n' ' '; echo
+ls -l /lib/systemd/system/serial-getty@.service 2>&1; cat /proc/consoles
+echo kickpi | sudo -S sh -c "ls -l /dev/ttyGS0; ls /etc/systemd/system/getty.target.wants/ 2>&1; systemctl list-units 'serial-getty@*' --all --no-pager 2>&1 | head -6"
+echo kickpi | sudo -S sh -c "ls /etc/systemd/system/serial-getty@ttyGS0.service.d 2>&1"

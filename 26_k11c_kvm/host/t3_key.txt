@@ -1,0 +1,3 @@
+mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB0rBGyL6MHydba6TcP6bohtnpUMY1uduD2VRlb6GyD9 Gitee SSH Key' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo KEY_INSTALLED
+wc -l < ~/.ssh/authorized_keys; tail -c 40 ~/.ssh/authorized_keys; echo; ls -ld ~/.ssh ~/.ssh/authorized_keys
+echo kickpi | sudo -S install -d -o kickpi -g kickpi /opt/k11c-kvm && ls -ld /opt/k11c-kvm

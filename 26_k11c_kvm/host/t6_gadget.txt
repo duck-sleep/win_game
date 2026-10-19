@@ -1,0 +1,6 @@
+ls /sys/kernel/config/usb_gadget/; ls /sys/kernel/config/usb_gadget/k11c/functions/; ls /sys/kernel/config/usb_gadget/k11c/configs/b.1/
+cd /sys/kernel/config/usb_gadget/k11c && echo bcdUSB=$(cat bcdUSB) class=$(cat bDeviceClass)/$(cat bDeviceSubClass)/$(cat bDeviceProtocol) vid=$(cat idVendor) pid=$(cat idProduct) mps0=$(cat bMaxPacketSize0)
+cd /sys/kernel/config/usb_gadget/k11c && echo serial=$(cat strings/0x100/serialnumber) product=$(cat strings/0x100/product) manufacturer=$(cat strings/0x100/manufacturer)
+ls -l /dev/hidg0 /dev/hidg1 /dev/ttyGS0
+echo kickpi | sudo -S sh -c "journalctl -u k11c-gadget --no-pager | tail -12"
+echo kickpi | sudo -S sh -c "dmesg | grep -iE 'dwc3|usb 1-|new .*device' | tail -22"

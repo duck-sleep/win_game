@@ -1,0 +1,4 @@
+uptime; cat /proc/uptime; who
+cat /sys/class/udc/fcc00000.usb/state; systemctl is-active k11c-gadget ssh NetworkManager; pgrep -af "python3 kvm" | head -2
+nmcli -t -f GENERAL.STATE,IP4.ADDRESS dev show wlan0; hostname
+echo kickpi | sudo -S dmesg | tail -8

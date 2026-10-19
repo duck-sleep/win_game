@@ -1,0 +1,3 @@
+echo kickpi | sudo -S sh -c "echo '' > /sys/kernel/config/usb_gadget/k11c/UDC; sleep 1; echo T+1_unbind=\$(cat /sys/class/udc/fcc00000.usb/state); echo fcc00000.usb > /sys/kernel/config/usb_gadget/k11c/UDC; sleep 2; echo T+3_bind=\$(cat /sys/class/udc/fcc00000.usb/state); sleep 5; echo T+8=\$(cat /sys/class/udc/fcc00000.usb/state); sleep 10; echo T+18=\$(cat /sys/class/udc/fcc00000.usb/state); sleep 12; echo T+30=\$(cat /sys/class/udc/fcc00000.usb/state)"
+echo kickpi | sudo -S sh -c "dmesg | tail -12"
+echo kickpi | sudo -S sh -c "for f in /sys/class/extcon/extcon0/state /sys/class/extcon/extcon1/state; do echo == \$f; cat \$f; done"

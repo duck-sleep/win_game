@@ -1,0 +1,6 @@
+printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin kickpi --noclear %%I 115200 linux\n' > /tmp/agetty-autologin.conf
+cat /tmp/agetty-autologin.conf
+echo kickpi | sudo -S sh -c "mkdir -p '/etc/systemd/system/serial-getty@ttyGS0.service.d' && cp /tmp/agetty-autologin.conf '/etc/systemd/system/serial-getty@ttyGS0.service.d/autologin.conf' && echo COPIED && cat '/etc/systemd/system/serial-getty@ttyGS0.service.d/autologin.conf'"
+echo kickpi | sudo -S systemctl daemon-reload && echo RELOADED
+echo kickpi | sudo -S systemctl enable --now serial-getty@ttyGS0.service 2>&1 | tail -4
+systemctl is-active serial-getty@ttyGS0.service; id kickpi

@@ -1,0 +1,14 @@
+[Unit]
+Description=K11C IP-KVM (fake source + MJPEG stream + HID RPC)
+# 键鼠报文要写 /dev/hidg*，那俩节点由 gadget 脚本建，所以必须排在它后面
+After=k11c-gadget.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/k11c-kvm/kvm_server.py --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
