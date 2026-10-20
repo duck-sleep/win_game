@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K11C WebRTC H.265 测试</title>
+<style>
+  body { margin: 0; padding: 10px; background: #111417; color: #e8eaed; font: 13px/1.5 ui-monospace, monospace; }
+  video { display: block; width: 100%; background: #000; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #1b1f24; padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<video id="v" autoplay muted playsinline></video>
+<pre id="s">连接中…</pre>
+<script>
+(async function () {
+  var v = document.getElementById('v'), s = document.getElementById('s');
+  var gw = 'http://' + location.hostname + ':8001';
+
+  function say(t) { s.textContent = t; }
+
+  try {
+    var pc = new RTCPeerConnection();
+    pc.ontrack = function (e) {
+      v.srcObject = e.streams[0] || new MediaStream([e.track]);
+      try { e.receiver.jitterBufferTarget = 0; } catch (err) {}
+      say('ontrack 收到，等首帧…');
+    };
+    pc.onconnectionstatechange = function () { say('connectionState=' + pc.connectionState); };
+
+    var r = await fetch(gw + '/offer');
+    if (!r.ok) { throw new Error('offer HTTP ' + r.status); }
+    var offer = await r.text();
+    await pc.setRemoteDescription({ type: 'offer', sdp: offer });
+    await pc.setLocalDescription(await pc.createAnswer());
+
+    await new Promise(function (res) {
+      pc.onicegatheringstatechange = function () {
+        if (pc.iceGatheringState === 'complete') { res(); }
+      };
+      if (pc.iceGatheringState === 'complete') { res(); }
+      setTimeout(res, 2000);
+    });
+
+    var a = await fetch(gw + '/answer', { method: 'POST', body: pc.localDescription.sdp });
+    if (!a.ok) { throw new Error('answer HTTP ' + a.status + ' ' + await a.text()); }
+
+    setInterval(async function () {
+      var st = await pc.getStats();
+      var inb = null, codecs = {};
+      st.forEach(function (x) {
+        if (x.type === 'inbound-rtp' && x.kind === 'video') { inb = x; }
+        if (x.type === 'codec') { codecs[x.id] = x; }
+      });
+      if (!inb) { return; }
+      var jb = inb.jitterBufferEmittedCount
+        ? (1000 * inb.jitterBufferDelay / inb.jitterBufferEmittedCount).toFixed(1) : '-';
+      var line = ['codec=' + ((codecs[inb.codecId] || {}).mimeType),
+                  'dec=' + inb.decoderImplementation,
+                  'size=' + inb.frameWidth + 'x' + inb.frameHeight,
+                  'fps=' + inb.framesPerSecond,
+                  'dropped=' + inb.framesDropped,
+                  'jb_ms=' + jb].join(' ');
+      say(line);
+      fetch(gw + '/stats', { method: 'POST', body: line });
+    }, 2000);
+  } catch (e) {
+    say('失败: ' + e.message);
+  }
+})();
+</script>
+</body>
+</html>

@@ -485,7 +485,9 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 | 24 | `kmssink` 报 `streaming stopped, reason error (-5)` | lightdm 开着时 Xorg（`fuser /dev/dri/card0`）是 DRM master，别人拿不到平面。要么在 X 下用 `rkximagesink`，要么 `systemctl stop lightdm` 后再用 `kmssink`（10-19 实测能打开） |
 | 25 | GStreamer 显示 sink 几乎全丢帧，fakesink 却一帧不丢 | 显示 sink 默认 `max-lateness` 20 ms，帧迟到就扔；`videotestsrc` 每帧在 CPU 上重画 1080p，必然迟到。测上屏要用"画一次 + `imagefreeze`"的源，sink 前加 `queue` 单独开线程，必要时 `sync=false` |
 | 26 | 1080p 整帧 `timeoverlay` / `drawtext` 卡在 ~45 帧 | 整帧叠字吃满 1 个核。**RGA 不能画字**，要 60 帧只能预画数字块、每帧只贴那一小块 |
-| 27 | 从 PowerShell 直接 `ssh k11c "..."`，里面的 `$()`、引号、`2>/dev/null` 被吃掉 | PowerShell 先解析了一遍。把命令写成 `.sh` → 转 LF 换行 → `scp` 上去 → `ssh k11c "sh /tmp/x.sh"` |
+| 27 | 10-19 同框照片：监视器 `09:52:26.330` vs 手机 `…11.333`，看着像差很多 | **两边根本不是同一个时钟**：监视器是 `fakevo` 的 `CLOCK_MONOTONIC_RAW`，手机是旧软路径 ffmpeg 的 PTS，而且内容也是两条独立管道。⇒ 这种照片减出来的数**没有意义**。T16 之前必须先让两边显示**同一块缓冲上烧进去的同一段文字**（就是 T13–T15 要做的），否则量了也是白量 |
+| 28 | 手机探测页 `WebCodecs: undefined`，容易误判成"手机不行" | 页面 `secure: false`（HTTP 非安全上下文）时 Chrome **不暴露** WebCodecs，与手机能力无关。要测 WebCodecs 必须 HTTPS 或 localhost。我们走 WebRTC，这条直接忽略 |
+| 29 | 从 PowerShell 直接 `ssh k11c "..."`，里面的 `$()`、引号、`2>/dev/null` 被吃掉 | PowerShell 先解析了一遍。把命令写成 `.sh` → 转 LF 换行 → `scp` 上去 → `ssh k11c "sh /tmp/x.sh"` |
 
 ### 8.2 USB gadget 层（已解决，**不要再碰**；细节见 skill `usb-gadget-hid-bringup`）
 
@@ -503,8 +505,27 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - 已纠正的说法：RGA 不能画字（只能贴预画好的数字块）；lightdm 开着时 `kmssink` 拿不到 DRM master（关掉 lightdm 可用，10-19 实测能打开）；
   电视 13 s 是队列深度不是漂移，`-fflags nobuffer` 治不了。
 - ✅ **细方案已拆成 T10–T17（10-19）**：假源帧 = 自写 C 程序 `fakevo` 用 DRM dumb buffer 分配（本身就是 DMA-buf）；上屏 = 关 lightdm、`fakevo` 自己当 DRM master；WebRTC = `webrtcbin`（Python）。
+- 🔴 **T14 卡在板子的 GStreamer 打包，不是代码问题（10-19 深夜查实，要人选路线）**：
+  `webrtcbin` 一进 PLAYING 就报 `libnice elements are not available` → `BUS ERROR: missing a plug-in`。
+  逐层查下来：
+  - `libgstwebrtc.so` / `libgstdtls.so` / `libgstsrtp.so` 都来自 **`gstreamer1.0-plugins-bad`**，版本 **1.24.2**，和核心 1.24.2 一致 ⇒ **不是版本错配**；
+  - 它要的 `nicesrc` / `nicesink` 属于 `gst-plugins-good` 的 **nice 插件**；板上**没有 `libgstnice.so`**，
+    `dpkg -S` 也没有任何包认领；
+  - 把 apt 候选包 `gstreamer1.0-plugins-good_1.24.2-1ubuntu1.8_arm64.deb` 下载到 `/tmp` 用 `dpkg -c` 看过，
+    **里面 nice / webrtc / dtls 一个文件都没有** ⇒ **Ubuntu noble 的 plugins-good 根本没打这个插件**，
+    所以 `apt install` / `apt upgrade` 都变不出来。（我中途两次判断错：先说"缺 DTLS"，其实 1.24 里叫
+    `dtlsenc/dtlsdec/dtlssrtpenc/dtlssrtpdec`，都在；后说"缺包能装"，实测不能。）
+  三条备选（**要人选**）：
+  - **A 自己编 nice 插件**：板上有 gcc 13.3 + `libnice10` + gstreamer 开发头，编 `gst-plugins-good/ext/nice` 理论可行；
+    代价是从此维护一个自己编的第三方插件，换固件就丢，除非烘进镜像。
+  - **B 换传输 = H.265 + fMP4 over HTTP + MSE**（AI 推荐）：`mp4mux`/`qtmux`/`h265parse` 板上都在，
+    且 T10 探测页实测 **`MSE hvc1: true`** ⇒ 不装任何东西就能用 H.265。
+    代价：MSE 的分段特性决定延迟不如 WebRTC（估 200–600 ms，要实测），要写一个 init segment + moof 的分发器。
+  - **C 手机维持 MJPEG**（现在就能用，30 fps），H.265 只留给电视之外的将来。
+  不受影响的部分：**T13 已经成立** —— `fakevo --enc` 的 H.265 硬编 + DMA-buf 零拷贝是好的，
+  换 B/C 都不用重做，只是"怎么把码流送出去"这一段换掉。
 - 口径提醒：板子 `CLOCK_MONOTONIC` 会随墙钟跳（§7.2），`/state` 的 fps **不能当准数**；
-  延迟只认"同框两张码表相减"。
+  延迟只认"同框两张码表相减"，且**必须两边显示同一块缓冲上的同一段字**（见坑 27）。
 
 ## 9. 任务清单（按顺序，一件一件闭环）
 
@@ -793,7 +814,23 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T10 先验手机能不能硬解 H.265（**闸门**：不过就停）
 
-- [ ] 未开始
+- [x] 已完成 —— **闸门通过**
+- 实测(10-19)：手机 Chrome 打开 `http://192.168.31.89:8002/probe.html`，页面原文 6 行：
+  ```
+  UA: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36
+  secure: false
+  webrtc recv: video/VP9 video/rtx video/VP8 video/H264 video/AV1 video/H265 video/red video/ulpfec video/flexfec-03
+  webrtc H265: true
+  MSE hvc1: true
+  WebCodecs: undefined
+  ```
+  **`webrtc H265: true` ⇒ 过**。而且 `MSE hvc1: true` 是独立第二条证据（它查的是平台 HEVC 解码器在不在）。
+  两点要写清楚，别记错：
+  ① `WebCodecs: undefined` **不是手机不支持**，是 `secure: false` —— WebCodecs 要求安全上下文（HTTPS/localhost），
+     HTTP 页面上就是不暴露。我们走 WebRTC，用不到它，别把它当成失败信号。
+  ② 手机是 **Chrome 115**（2023 年版本），比本文原来假设的"Chrome 136+ 才默认开"更早支持；
+     但 `getCapabilities()` 只证明**信令层能协商**，真正能不能硬解要等 **T14 推流**才算实锤。
+  收尾：`sudo systemctl stop k11c-probe.service`（8002 那个临时静态服务）。
 - **目的**：H.265 走 WebRTC 要手机浏览器支持（Chrome 136 起默认开，**但手机必须有 H.265 硬解**）。先花 10 分钟确认，免得后面白做。
 - **前置**：T9。**人要做**：用平时那台手机的 Chrome 打开一个网址，把页面上的字拍照或截图发给 AI。
 - **步骤**：
@@ -823,7 +860,13 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T11 做素材：彩条底图 + 码表字形表
 
-- [ ] 未开始
+- [x] 已完成
+- 实测(10-19)：`/opt/k11c-kvm/vo/mkassets.sh` 跑通，`stat -c "%n %s"` →
+  `bars_nv12.yuv 3110400`、`glyphs.gray 41600`，两个字节数和期望值**逐位相同**；
+  转图拉回来看（`host/t11_bars.jpg`、`host/t11_glyphs.png`）：彩条 NV12 往返后颜色正、无偏移；
+  字形从上到下 `0123456789:.#` 共 13 格，**没有切边**，`:` 和 `.` 落在同一条基线上
+  （`y_align=font` 起作用了，不是挤在格子顶上）。
+  注：本任务**提前于 T10 做了** —— 素材和编码格式无关，H.264/H.265 都要用，不浪费。
 - **目的**：彩条只画一次、码表只贴数字块（§2.3-E 第 1 条），所以先把这两样东西做成文件。
 - **前置**：T10 通过。**人要做**：无。
 - **要写的文件**：`board/vo/mkassets.sh`（在板子上 `/opt/k11c-kvm/vo/` 里跑，输出到同目录）：
@@ -855,7 +898,24 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T12 第一步：电视直出（`fakevo`，只管显示，不编码）
 
-- [ ] 未开始
+- [x] 已完成
+- 实测(10-19)：`board/vo/fakevo.c` 编译 `gcc -O2 -Wall -Wextra` **零警告**（第一版有 4 类警告，都是真错：
+  `drmEventContext` 是 typedef 不能用 `struct` 写；`page_flip_handler2` 真实签名是
+  `(fd, sequence, tv_sec, tv_usec, plane_id, user)` 六个参数；`drmModeAddFB2` 的 handles/pitches/offsets
+  **固定按 4 元素数组读**，给 1/2 元素会 `-Wstringop-overread`；`snprintf` 缓冲区要留够否则
+  `-Wformat-truncation`）。
+  `sudo systemctl stop lightdm` 后 `fuser -v /dev/dri/card0` 为空 → `systemd-run --unit=k11c-fakevo` 起 `fakevo --seconds 70`：
+  1. 第一行 `conn=121 crtc=90 primary=58 nv12plane=98 mode=1920x1080@60 (encoder)` —— **和本节"固定参数"表逐字一致**；
+     程序是按名字找的（连接器取 connected 的 `HDMI-A-*`、平面按 `type` 和格式表挑），没有硬编码 ID；
+  2. 第 2–70 秒每行 `flips=60 miss=0 noslot=0`、`dt_avg=16.67ms`（= 1/60 秒）、`dt_max` 16.8–17.0 ms；
+     只有第 1 秒是 `flips=61 dt_max=21.03`（起播）；`TOTAL flips=4201 miss=0 noslot=0`（4201/70 = 60.01 帧/秒）；
+  3. `systemd-run` 报 `Consumed 2.999s CPU time` / 70 s 墙钟 = **约 4.3% 单核**（要求 <10%）；
+     同时刻软路径的 `ffmpeg` 还在跑 176.9%（那是喂手机的，不影响电视）。
+  现在 fakevo 以 `--seconds 0` 常驻（单元 `k11c-fakevo`，active）。
+  10-19 深夜人发的照片为证：监视器上是满屏彩条 + `09:52:26.330 #799981`，**帧号在跳、无桌面边框、没有虚拟键盘**；
+  停掉 probe 服务后再采样仍是 `flips=60 miss=0 dt_avg=16.67 noslot=0`。
+  ⚠️ 那张照片里手机显示的 `…11.333` 和监视器的数**不能相减** —— 两边不是同一个时钟（见坑 27）。
+  **只剩第 4 条里"肉眼还卡不卡"这一句没回答。**
 - **目的**：§2.3-C 粗线那一路。做到电视每秒 60 张不同的画面、不丢不重，延时 1–2 帧，当后面所有对比的基准。
 - **前置**：T11。**人要做**：最后看一眼电视（彩条 + 码表在走、帧号在跳）。
 - **要写的文件**：`board/vo/fakevo.c`，只依赖 libdrm。编译：
@@ -908,7 +968,27 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T13 第二步上半：同一块缓冲送 H.265 硬编，先在板子上验码流
 
-- [ ] 未开始
+- [x] 已完成
+- 实测(10-19)：`fakevo.c` 加 `--enc`（每块的 `prime_fd` 一次性包成 `GstMemory`，
+  `appsrc → mpph265enc bps=6M gop=60 → h265parse → rtph265pay pt=96 mtu=1200 → udpsink 127.0.0.1:5004`），
+  编译 `gcc -O2 -Wall -Wextra` + 4 个 gstreamer 包 **零警告**（第一版 5 处真错，见下）。
+  1. **不抓流的干净跑**（`fakevo --enc --seconds 70`，70 秒）：
+     `TOTAL flips=4200 miss=0 noslot=0 enc=4200 enc_skip=0` —— 每一帧既上屏又编码，一次没跳；
+     逐秒 `flips=59~61`、`enc=59~61`、`dt_avg=16.67ms`；CPU `Consumed 12.146s/70s` = **17.4%**（<20%）。
+  2. **带抓流的跑**（第 20 秒起 `gst-launch` 收 6 秒）：`TOTAL flips=4201 miss=0 enc=4187 enc_skip=14`。
+     ⚠️ **`enc_skip=14` 全部增长在那 25 秒内，抓流进程一停就不再涨** —— 是 `rtph265depay+h265parse+filesink`
+     抢 CPU 把编码器拖慢，不是设计问题。所以"enc_skip ≤5"这条**只对干净跑成立**，以后测这一条**不要并发抓流**。
+  3. `ffprobe -count_frames` → `stream,hevc,1920,1080,325`（6 秒收到 325 帧 ≥300）；
+  4. 抽第 100 帧（`host/t13_frame100.jpg`）肉眼看：彩条正、码表 `10:50:26.113 #001302` 锐利、
+     **无花屏无绿边无错位**；帧号 1302 ≈ 开跑后 21.7 秒，和"第 20 秒开始抓"对得上
+     ⇒ 证明编码器吃的**就是 fakevo 正在画的那一块缓冲**，不是又拷了一份。
+  🔧 编译期抓到的 5 个真错（下次写 GStreamer C 直接避开）：
+  ① `gst_parse_launch` 是**返回** pipeline，不是出参（只有 `const char*, GError**`）；
+  ② 没有 `GST_PAD_PROBE_TYPE_BUFFER_DOWNSTREAM` 这个东西，就是 `GST_PAD_PROBE_TYPE_BUFFER`（方向由 pad 决定）；
+  ③ `GstMiniObjectNotify` 参数顺序是 **`(user_data, object)`**，写反了会把 GstMiniObject 当自己的结构体指针解引用；
+  ④ `gst_buffer_add_video_meta_full` 的 offset/stride **固定按 4 元素读**（`GST_VIDEO_MAX_PLANES`），给 `[2]` 就 overread；
+  ⑤ 这版 `systemd-run` 不认 `--directory`，要用 `-p WorkingDirectory=`。
+  另外：`mpph265enc` 在 `gst_parse_launch` 里要**显式 `name=enc`**，否则拿不到它的 src pad 挂计数器。
 - **目的**：§2.3-C 虚线的前半段。电视那一路**一点都不能变差**，同时出一路 H.265。
 - **前置**：T12。**人要做**：无。
 - **改 `fakevo.c`**：加 `--enc` 开关（不加就和 T12 完全一样）。编译命令改成
@@ -963,7 +1043,16 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T14 第二步下半：WebRTC 网关（`webrtc_gw.py`），先用测试页验
 
-- [ ] 未开始
+- [ ] 🔴 **被板子的 GStreamer 打包挡住，停在 §8.3 等路线决定**
+- 实测(10-19 深夜)：`board/webrtc_gw.py` + `board/www/webrtc.html` 已写好并部署，`py_compile` 过。
+  过程中修掉两个真问题（**下次写 GStreamer C/Python 直接避开**）：
+  ① `webrtcbin` 的 `sink_%u` 是 `sometimes` 模板，**`gst_parse_launch` 不会自动链接**，
+     实测 `could not link queue0 to w`；改成手工 `Gst.Pipeline` + `get_request_pad("sink_%u")`。
+  ② `udpsrc` 的 src 垫也是 `sometimes`，**必须先 `set_state(PLAYING)` 才存在**，
+     在 NULL 状态 `get_static_pad("src")` 拿不到东西、链接必失败。
+  修完之后卡在第三层：`webrtcbin` 报 `libnice elements are not available` —— 根因见 §8.3，
+  **Ubuntu noble 的 `gstreamer1.0-plugins-good` 没打 nice 插件，apt 装不出来**。
+  网关已 `systemctl stop k11c-gw` 停掉；`fakevo --enc`（T13 的成果）仍在跑，不受影响。
 - **目的**：把板内 RTP（127.0.0.1:5004）通过 WebRTC 送到手机。
 - **前置**：T13。**人要做**：手机打开测试页，读屏幕上的统计行发给 AI（或 AI 直接看 `/tmp/webrtc_stats.log`）。
 - **要写的文件**：
