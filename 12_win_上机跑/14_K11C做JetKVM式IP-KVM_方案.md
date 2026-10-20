@@ -492,6 +492,7 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 | 31 | pion 网关出的 offer **一行 `a=candidate` 都没有**，浏览器 `ontrack` 收到了、统计行一直卡在等首帧，板子 30 s 后报 `连接状态: failed` | 非 trickle 必须返回 **`pc.LocalDescription().SDP`**：gather 是把 candidate **追加进 local description** 的，`CreateOffer` 那份字符串里没有。写 WebRTC 网关务必当场检查 offer 里有没有 candidate，别等 ICE 超时 |
 | 32 | 新来一个连接时，浏览器的 `POST /answer` 撞上"没有活动连接" | "同一时间只服务一个观看端"的实现里，`swap()` 关掉旧连接会触发**旧连接的 `closed` 回调**，回调无条件把全局当前连接清空 ⇒ 刚装上的新连接被抹掉。回调必须**先比对是不是当前那条**再摘 |
 | 33 | 用 App 内嵌浏览器测视频，`getVideoPlaybackQuality()` 报 `droppedVideoFrames ≈ totalVideoFrames`，像是不停丢帧 | 页面 `visibilityState=hidden` 时 Chrome 把不可见标签页的合成器渲染节流掉了，**量的地方不对**。这种场景只认 `inbound-rtp` 的 `framesDecoded / framesPerSecond / framesDropped`；要看真实渲染必须用可见窗口或手机 |
+| 34 | "关掉 WiFi 省电"第一次测出来是**关掉更差**（max 123→220），和预期完全相反 | 单时段"先测后测"= 把**环境漂移**当成效果（这条链路同时受笔记本网卡省电、AP、邻居信道影响）。必须 **ON/OFF 交替各测一轮**（`host/wps_ab.ps1`，60+60 样本）⇒ 中位/p90 一模一样。另外测延迟前先 `Find-NetRoute <板子IP>`：这台机器挂着 TUN 代理（FlClash / Meta Tunnel，fake-IP 段 `198.18.0.x`），**先排除代理再谈 WiFi** |
 
 ### 8.2 USB gadget 层（已解决，**不要再碰**；细节见 skill `usb-gadget-hid-bringup`）
 
@@ -1318,4 +1319,41 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   5. 交给人烧（`RK_SUDO` 口令、MaskROM 都要人动手），烧完第一件事是**别拔 Type-C**（那是供电），
      串口确认 `1d6b:0104` 枚举成 `configured`，再手机连 `http://<IP>:8000/`。
 - **失败时**：任何一步不对，先回到 `ubuntu-rootfs.img.bak`（改名回去即可），别硬编。
+
+### T19 WiFi 省电实测（10-20 晚，用户点名"WiFi 那个得修 因为延迟越低越好"）
+
+- [x] 做完，**结论是"不用修"** —— 省电不是这条链路的延迟杠杆，不给它加脆弱的开机 hack
+- 起因：从 10-17 就记着"板上必做 `iw dev wlan0 set power_save off`，省电是尾延迟 100–200 ms 的来源"，
+  但 10-20 审计发现 **`iw` 根本没装** ⇒ 这条债**从来没测过**。查到 `/etc/NetworkManager/conf.d/default-wifi-powersave-on.conf`
+  写的是 `wifi.powersave = 3`（3=开），`iw dev wlan0 get power_save` 也确实回 `on`。
+- **测法（口径先说清）**：`host/wps_probe.ps1` / `host/wps_ab.ps1`，
+  量的是 **一条完整 TCP 连接的墙钟**（建连+发 `POST /rpc ping`+收完响应），笔记本 → 板子 `192.168.31.89:8000`，
+  **每次发之前先空闲 400–800 ms**（省电的代价就出现在"空闲→唤醒"那一下，连发 300 条会把电台叫醒，量不出差别）；
+  板子内部只花 0.2–0.4 ms，所以这个数基本就是 WiFi 往返。
+  ⚠️ 只走 raw socket + 直连 IP（`kickpi.local` 会让 .NET 先试 IPv6 link-local，白搭 280 ms）。
+- **关键一步是交替 A/B**，不是先测后测：单时段对比我第一次测出了"关掉省电反而更差"（p95 16→18 那组是流在走的、
+  空闲那组 max 123→220），这种"效果"是环境漂移，不是因果。改成 ON/OFF 各 12 个样本交替 5 轮、两边共 60+60：
+
+  | 条件 | 中位 | p90 | 最大 |
+  |---|---|---|---|
+  | 空闲链路 + 省电**开** | 14 | 111 | 194 |
+  | 空闲链路 + 省电**关** | 14 | 111 | 114 |
+  | **视频在流** + 省电关（= 真实使用中） | **12** | **16** | **26** |
+
+  ⇒ 三条结论：
+  1. **板子侧省电开关对中位和 p90 零影响**（14/111 两边一模一样），只削掉最极端那一下（194→114）；
+  2. 那条 ~100 ms 的双峰尾巴**只在链路空闲时出现**：同一个"省电开"的设置，视频流一跑起来，max 从 123 掉到 26；
+  3. 所以产品形态里它不会咬人 —— **手机在看视频 = 电台一直在忙**，鼠标报文是搭在已经醒着的链路上的。
+- **顺手排除了两个嫌疑**：① 这台笔记本挂着 **FlClash / Meta Tunnel**（TUN 代理，`git push` 那次断在 `198.18.0.21:443`
+  就是它的 fake-IP 段），我一度怀疑所有延迟数都是代理造的 —— `Find-NetRoute 192.168.31.89` 给出的是
+  **WLAN / 192.168.31.98 直连**，代理不在这条路上，前面的数不作废；② 网卡是 Intel AX201@780 Mbps，链路本身没问题。
+- **试了但没成的持久化**（**故意不进固件**）：`/etc/NetworkManager/conf.d/k11c-wifi.conf`
+  先写 `[device-wifi] wifi.powersave = 2`、再改成官方那种 `[connection] wifi.powersave = 2`，
+  两次都用 `nmcli radio wifi off/on` 重连验证 ⇒ **`iw` 都还是报 `on`**，这个 Seekwave SWT6621S 驱动上 NM 的默认值没落到实处
+  （`iw dev wlan0 set power_save off` 手动是立即生效的，说明键值路径不通，不是驱动不支持）。
+  ⇒ 要做成持久化得写 NM dispatcher 脚本 + 把 `iw` 烘进镜像，**为一条实测零收益的路径加这个不值**；
+  文件留在板上（无害、644），固件里没有它。**下次别再花半小时试 conf.d**。
+- ⚠️ **板上现在比镜像多一个包**：为了这次测量 `apt install iw`（6.7-1build1），包数 2395 → **2396**。
+  功能无影响，但**下次做板子/镜像一致性审计会看到这一条差**，别当成漂移。
+
 
