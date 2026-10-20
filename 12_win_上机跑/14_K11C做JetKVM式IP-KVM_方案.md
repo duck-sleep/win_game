@@ -488,6 +488,10 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 | 27 | 10-19 同框照片：监视器 `09:52:26.330` vs 手机 `…11.333`，看着像差很多 | **两边根本不是同一个时钟**：监视器是 `fakevo` 的 `CLOCK_MONOTONIC_RAW`，手机是旧软路径 ffmpeg 的 PTS，而且内容也是两条独立管道。⇒ 这种照片减出来的数**没有意义**。T16 之前必须先让两边显示**同一块缓冲上烧进去的同一段文字**（就是 T13–T15 要做的），否则量了也是白量 |
 | 28 | 手机探测页 `WebCodecs: undefined`，容易误判成"手机不行" | 页面 `secure: false`（HTTP 非安全上下文）时 Chrome **不暴露** WebCodecs，与手机能力无关。要测 WebCodecs 必须 HTTPS 或 localhost。我们走 WebRTC，这条直接忽略 |
 | 29 | 从 PowerShell 直接 `ssh k11c "..."`，里面的 `$()`、引号、`2>/dev/null` 被吃掉 | PowerShell 先解析了一遍。把命令写成 `.sh` → 转 LF 换行 → `scp` 上去 → `ssh k11c "sh /tmp/x.sh"` |
+| 30 | 板子打的字到了记事本变成**中文乱码**，看着像 HID 丢字节 | 是**电脑端的中文输入法**在中间做拼音组字。`typeText` 代码没错：按一次 `Ctrl+Space` 离开中文后逐字命中。注意 **`Ctrl+Space` 是开关不是"切到英文"**，盲按可能反而把英文切成中文（JetKVM 那个"切输入法"按钮同病）。判据：同一串字打两遍，第一遍乱码第二遍准 ⇒ 是输入法 |
+| 31 | pion 网关出的 offer **一行 `a=candidate` 都没有**，浏览器 `ontrack` 收到了、统计行一直卡在等首帧，板子 30 s 后报 `连接状态: failed` | 非 trickle 必须返回 **`pc.LocalDescription().SDP`**：gather 是把 candidate **追加进 local description** 的，`CreateOffer` 那份字符串里没有。写 WebRTC 网关务必当场检查 offer 里有没有 candidate，别等 ICE 超时 |
+| 32 | 新来一个连接时，浏览器的 `POST /answer` 撞上"没有活动连接" | "同一时间只服务一个观看端"的实现里，`swap()` 关掉旧连接会触发**旧连接的 `closed` 回调**，回调无条件把全局当前连接清空 ⇒ 刚装上的新连接被抹掉。回调必须**先比对是不是当前那条**再摘 |
+| 33 | 用 App 内嵌浏览器测视频，`getVideoPlaybackQuality()` 报 `droppedVideoFrames ≈ totalVideoFrames`，像是不停丢帧 | 页面 `visibilityState=hidden` 时 Chrome 把不可见标签页的合成器渲染节流掉了，**量的地方不对**。这种场景只认 `inbound-rtp` 的 `framesDecoded / framesPerSecond / framesDropped`；要看真实渲染必须用可见窗口或手机 |
 
 ### 8.2 USB gadget 层（已解决，**不要再碰**；细节见 skill `usb-gadget-hid-bringup`）
 
@@ -505,9 +509,9 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - 已纠正的说法：RGA 不能画字（只能贴预画好的数字块）；lightdm 开着时 `kmssink` 拿不到 DRM master（关掉 lightdm 可用，10-19 实测能打开）；
   电视 13 s 是队列深度不是漂移，`-fflags nobuffer` 治不了。
 - ✅ **细方案已拆成 T10–T17（10-19）**：假源帧 = 自写 C 程序 `fakevo` 用 DRM dumb buffer 分配（本身就是 DMA-buf）；上屏 = 关 lightdm、`fakevo` 自己当 DRM master；WebRTC = `webrtcbin`（Python）。
-- 🔴 **T14 卡在板子的 GStreamer 打包，不是代码问题（10-19 深夜查实，要人选路线）**：
+- ✅ **T14 路线已定并已跑通（10-20 用户拍板 D：照 JetKVM 移植）**：
+  当时卡住的原委保留（是查证出来的事实，不是代码问题）：
   `webrtcbin` 一进 PLAYING 就报 `libnice elements are not available` → `BUS ERROR: missing a plug-in`。
-  逐层查下来：
   - `libgstwebrtc.so` / `libgstdtls.so` / `libgstsrtp.so` 都来自 **`gstreamer1.0-plugins-bad`**，版本 **1.24.2**，和核心 1.24.2 一致 ⇒ **不是版本错配**；
   - 它要的 `nicesrc` / `nicesink` 属于 `gst-plugins-good` 的 **nice 插件**；板上**没有 `libgstnice.so`**，
     `dpkg -S` 也没有任何包认领；
@@ -515,15 +519,10 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
     **里面 nice / webrtc / dtls 一个文件都没有** ⇒ **Ubuntu noble 的 plugins-good 根本没打这个插件**，
     所以 `apt install` / `apt upgrade` 都变不出来。（我中途两次判断错：先说"缺 DTLS"，其实 1.24 里叫
     `dtlsenc/dtlsdec/dtlssrtpenc/dtlssrtpdec`，都在；后说"缺包能装"，实测不能。）
-  三条备选（**要人选**）：
-  - **A 自己编 nice 插件**：板上有 gcc 13.3 + `libnice10` + gstreamer 开发头，编 `gst-plugins-good/ext/nice` 理论可行；
-    代价是从此维护一个自己编的第三方插件，换固件就丢，除非烘进镜像。
-  - **B 换传输 = H.265 + fMP4 over HTTP + MSE**（AI 推荐）：`mp4mux`/`qtmux`/`h265parse` 板上都在，
-    且 T10 探测页实测 **`MSE hvc1: true`** ⇒ 不装任何东西就能用 H.265。
-    代价：MSE 的分段特性决定延迟不如 WebRTC（估 200–600 ms，要实测），要写一个 init segment + moof 的分发器。
-  - **C 手机维持 MJPEG**（现在就能用，30 fps），H.265 只留给电视之外的将来。
-  不受影响的部分：**T13 已经成立** —— `fakevo --enc` 的 H.265 硬编 + DMA-buf 零拷贝是好的，
-  换 B/C 都不用重做，只是"怎么把码流送出去"这一段换掉。
+  当时的三条备选（A 自编 nice 插件 / B H.265+fMP4+MSE / C 手机维持 MJPEG）**都没选**，
+  走的是第四条 **D：Go + pion 自己带 ICE/DTLS/SRTP** —— 就是 JetKVM 本体的做法，
+  交叉编译出一个静态 ARM64 单文件，板上不装任何包；实测见 T14，电脑侧已闭环。
+  B 仍然是后备：万一某台手机的浏览器不吃 WebRTC H.265，MSE 那条路不用改板子代码。
 - 口径提醒：板子 `CLOCK_MONOTONIC` 会随墙钟跳（§7.2），`/state` 的 fps **不能当准数**；
   延迟只认"同框两张码表相减"，且**必须两边显示同一块缓冲上的同一段字**（见坑 27）。
 
@@ -1041,18 +1040,33 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   - CPU 明显高（> 30%）→ 编码器可能没吃 DMA-buf、在拷贝：`GST_DEBUG=mppenc:5` 跑 5 秒，把含 `convert`/`copy`/`import` 的行贴出来问人；
   - 画面上下错位 / 绿边 → UV 偏移不对，核对 `pitch*1088` 两处是否一致。
 
-### T14 第二步下半：WebRTC 网关（`webrtc_gw.py`），先用测试页验
+### T14 第二步下半：WebRTC 网关，先用测试页验
 
-- [ ] 🔴 **被板子的 GStreamer 打包挡住，停在 §8.3 等路线决定**
-- 实测(10-19 深夜)：`board/webrtc_gw.py` + `board/www/webrtc.html` 已写好并部署，`py_compile` 过。
-  过程中修掉两个真问题（**下次写 GStreamer C/Python 直接避开**）：
-  ① `webrtcbin` 的 `sink_%u` 是 `sometimes` 模板，**`gst_parse_launch` 不会自动链接**，
-     实测 `could not link queue0 to w`；改成手工 `Gst.Pipeline` + `get_request_pad("sink_%u")`。
-  ② `udpsrc` 的 src 垫也是 `sometimes`，**必须先 `set_state(PLAYING)` 才存在**，
-     在 NULL 状态 `get_static_pad("src")` 拿不到东西、链接必失败。
-  修完之后卡在第三层：`webrtcbin` 报 `libnice elements are not available` —— 根因见 §8.3，
-  **Ubuntu noble 的 `gstreamer1.0-plugins-good` 没打 nice 插件，apt 装不出来**。
-  网关已 `systemctl stop k11c-gw` 停掉；`fakevo --enc`（T13 的成果）仍在跑，不受影响。
+- [x] 电脑侧闭环（10-20 上午），**剩手机验收 3、4 两条**
+- 路线按 §8.3 选 **D**：不走 GStreamer `webrtcbin`（板子的 noble 打包里没有 libnice，装不出来），
+  改成 **JetKVM 同款做法——Go + pion，ICE/DTLS/SRTP 自己带**，产物 `board/gw/main.go` + `util.go`，
+  交叉编译成**静态 ARM64 单文件** `/opt/k11c-kvm/k11c-gw`（9.8 MB，板上零依赖）。
+  `webrtc_gw.py` 保留作参考，已停用；前端 `webrtc.html` 两种实现共用，一个字没改（只加了 ICE 诊断行）。
+- 实测(10-20 10:35，电脑 Chrome 连)：
+  - `/offer` 出的 SDP：`m=video 9 UDP/TLS/RTP/SAVPF 96` + `a=rtpmap:96 H265/90000` + `a=candidate` 4 行（host 192.168.31.89:43006）；
+  - 浏览器协商到的 codec 原文 `video/H265`，`sdpFmtpLine=level-id=93;profile-id=1;tier-flag=0;tx-mode=SRST`；
+  - `getStats`：`frameWidth/Height=1920x1080`、`framesPerSecond=60`、`framesDecoded=1582`、**`framesDropped=0`、`packetsLost=0`**、
+    `nackCount=0` `pliCount=0` `freezeCount=0`；
+  - 延迟口径（都是平均值，从 `total*` 除以计数算）：抖动缓冲 **8.4 ms**、解码 **0.46 ms/帧**（这个量级只有硬件解得出来；
+    Chrome 这版没给 `decoderImplementation` 字段，所以统计行里 `dec=undefined`，改用解码耗时当证据）；
+  - 网关侧 `rtp_in` 与 `rtp_sent` **速率完全相等**（134.6 pps 进 = 134.6 pps 出），`rtp_err=0`，950 kbps；
+  - CPU：`k11c-gw` **10%**、RSS 14.5 MB；`fakevo` 15.4%。（旁边那个 153.8% 的 `ffmpeg` 是 T4 的 MJPEG 软编假源，T15 就关掉。）
+- ⚠️ 一条**不算失败**但要记的观测：`getVideoPlaybackQuality()` 报 `drawn=3010 dropped=3009`，
+  而 WebRTC 侧 `framesDropped=0`。原因是我用的是 App 内嵌浏览器，页面 `visibilityState=hidden`，
+  Chrome 对不可见标签页直接把合成器渲染节流掉了——**是量的地方不对，不是管道丢帧**。
+  人用手机/正常窗口看时以 `framesDecoded`、`fps` 为准。
+- 实测(10-20 调试中修掉的两个真 bug，写下来免得下次再踩)：
+  1. **返回的 SDP 用了 `CreateOffer` 那份字符串**——gather 是把 candidate 追加进 `pc.LocalDescription()` 的，
+     所以 offer 里 **一行 `a=candidate` 都没有**。表现是：协商成功、`ontrack` 收到、统计行卡在"等首帧"，
+     板子 30 秒后报 `连接状态: failed`。必须回 `pc.LocalDescription().SDP`；
+  2. **`swap()` 关旧连接时，旧连接的 `closed` 回调把刚装上的新连接清空了**，
+     于是浏览器的 `POST /answer` 撞上"没有活动连接"。改成回调只在"指的就是当前这条"时才摘（`retire(s)`）。
+  顺带把 `rtp_sent` 的口径改严：只有 DTLS/ICE 真的 `connected` 之后才计数，没打通时算进 `rtp_nopeer`。
 - **目的**：把板内 RTP（127.0.0.1:5004）通过 WebRTC 送到手机。
 - **前置**：T13。**人要做**：手机打开测试页，读屏幕上的统计行发给 AI（或 AI 直接看 `/tmp/webrtc_stats.log`）。
 - **要写的文件**：
@@ -1109,7 +1123,23 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T15 手机控制页换成 H.265 画面（控制功能不能坏）
 
-- [ ] 未开始
+- [x] 电脑侧闭环（10-20），**剩手机上眼验（验收 1 的"手机"口径 + T16 的照片）**
+- 实测(10-20 10:41，用这台电脑的 Chrome 当"远端")：
+  - 改动就两个文件：`board/www/index.html`（画面元素由 JS 建：默认 `<video>` 走 WebRTC，`?mjpeg=1` 才建 `<img src="/stream.mjpg">`；
+    触摸坐标仍走 `getBoundingClientRect()`，两种元素共用同一套代码），`board/kvm_server.py`（加 `--no-mjpeg`）。
+  - 状态行现在长这样：`H265 60 fps | 丢帧 0 | 缓冲 8.4 ms | 上次 RPC 57 ms | 最快 50 ms`；
+    同一行统计每 2 s 也 POST 给网关落盘，所以手机上的读数会进 `/tmp/webrtc_stats.log`，T16 直接取。
+  - **MJPEG 那一路真的退场了**：`--no-mjpeg` 下 `/stream.mjpg` 回 **404**、`/state` 的 `fps=0.0`，
+    `pgrep -a ffmpeg` **空**（原先它一个人吃 150–190%）。
+  - 控制功能逐条取证（板子 `/state.rpc`：`total=8`，`absMouseReport=5 / typeText=1 / wheelReport=1 / keyCombo=1`，`last_err` 空）：
+    1. **坐标换算**：在 `<video>` 上派发 `pointerdown/move/up`，手指落在画面 **25% × 25%** →
+       电脑 `Cursor::Position` 读到 **(480, 270)**，屏幕 1920×1080 的 25% 正是 (480, 270)，**分毫不差**；
+    2. `typeText` 落字：开记事本 → 板子打 `ab1cd1ef` → 全选复制 → `Get-Clipboard` **相等**。
+       第一次按出的是**中文乱码**，不是链路丢字节：**电脑端中文输入法在开着**，`Ctrl+Space` 是**开关**不是"切到英文"，
+       按一下离开中文后立刻逐字命中。这条要记进坑（见坑 30），手机上人不在电脑前时这是唯一能把输入法掰回来的入口。
+  - **资源账（口径：`/proc/<pid>/stat` 的 utime+stime 差值，6.04 s 窗口，4 核满值 400%，当时一个 WebRTC 观看端在连、60 fps 在走）**：
+    `fakevo` **30.4%**（电视直出 + H.265 硬编 + 送 RTP 全在内）、`k11c-gw` **7.3%**（SRTP + 转发）、
+    `kvm_server` 没进前列（**< 0.5%**）→ **三个加起来约 38%**，对比软路径的 **约 370%**；load `1.89`（软路径当时 ≈9.5）。
 - **目的**：把 T14 的视频接进 T7 那个控制页，手机一个页面里看 H.265 画面 + 控制电脑；软编 MJPEG 可以关掉省 CPU。
 - **前置**：T14。**人要做**：照 T7 验收第 1–3 条在手机上做一遍。
 - **改动**：

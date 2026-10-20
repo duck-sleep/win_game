@@ -22,6 +22,7 @@ EOI = b"\xff\xd9"
 FPS_WINDOW = 5.0
 
 SRC = None
+MJPEG = True
 START = time.monotonic()
 
 RPC_LOCK = threading.Lock()
@@ -318,7 +319,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
-        if path == "/state":
+        if path in ("/snapshot.jpg", "/stream.mjpg") and not MJPEG:
+            self._reply(404, "text/plain; charset=utf-8", b"mjpeg disabled (--no-mjpeg)\n")
+        elif path == "/state":
             self._state()
         elif path == "/snapshot.jpg":
             self._snapshot()
@@ -431,21 +434,27 @@ class Server(ThreadingHTTPServer):
 
 
 def main():
-    global SRC, START
+    global SRC, START, MJPEG
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--fakesrc", default=os.path.join(HERE, "fakesrc.sh"))
     ap.add_argument("--hid-keyboard", default="/dev/hidg0")
     ap.add_argument("--hid-abs", default="/dev/hidg1")
+    ap.add_argument("--no-mjpeg", action="store_true",
+                    help="不启软编 MJPEG 假源：画面改走 WebRTC，这一路整个关掉省 CPU")
     args = ap.parse_args()
 
     HID_PATHS["keyboard"] = args.hid_keyboard
     HID_PATHS["abs"] = args.hid_abs
 
     START = time.monotonic()
+    MJPEG = not args.no_mjpeg
     SRC = FrameSource(["/bin/sh", args.fakesrc])
-    SRC.start()
+    if MJPEG:
+        SRC.start()
+    else:
+        log("mjpeg 关闭：不启 fakesrc，/stream.mjpg 与 /snapshot.jpg 回 404")
 
     httpd = Server((args.host, args.port), Handler)
     log("listening on %s:%d" % (args.host, args.port))

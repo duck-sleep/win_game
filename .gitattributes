@@ -4,3 +4,7 @@
 26_k11c_kvm/**/*.service text eol=lf
 26_k11c_kvm/**/*.desktop text eol=lf
 26_k11c_kvm/**/*.html text eol=lf
+# 网关源码要 scp 到 VM 上编译，同样锁 LF
+26_k11c_kvm/**/*.go text eol=lf
+26_k11c_kvm/**/go.mod text eol=lf
+26_k11c_kvm/**/go.sum text eol=lf

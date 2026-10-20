@@ -45,3 +45,8 @@ Thumbs.db
 26_k11c_kvm/host/now.png
 26_k11c_kvm/host/t6_d1.png
 26_k11c_kvm/host/t6_d2.png
+
+# 交叉编译产物（9 MB 级，用 board/gw/build.sh 现编，不进仓）
+26_k11c_kvm/host/k11c-gw
+26_k11c_kvm/board/gw/k11c-gw
+26_k11c_kvm/board/vo/fakevo

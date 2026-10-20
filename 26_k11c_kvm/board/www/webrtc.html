@@ -22,12 +22,30 @@
 
   try {
     var pc = new RTCPeerConnection();
+    window.__pc = pc;
     pc.ontrack = function (e) {
       v.srcObject = e.streams[0] || new MediaStream([e.track]);
       try { e.receiver.jitterBufferTarget = 0; } catch (err) {}
       say('ontrack 收到，等首帧…');
     };
-    pc.onconnectionstatechange = function () { say('connectionState=' + pc.connectionState); };
+    pc.onconnectionstatechange = function () {
+      say('conn=' + pc.connectionState + ' ice=' + pc.iceConnectionState + ' sign=' + pc.signalingState);
+    };
+
+    // 没首帧时也能看到 ICE/DTLS 走到哪一步
+    setInterval(async function () {
+      var st = await pc.getStats(), p = [];
+      st.forEach(function (x) {
+        if (x.type === 'candidate-pair') {
+          p.push(x.state + (x.nominated ? '/nominated' : '') +
+                 ' sent=' + x.bytesSent + ' recv=' + x.bytesReceived);
+        }
+        if (x.type === 'transport') { p.push('dtls=' + x.dtlsTransport + ' ice=' + x.iceTransport); }
+      });
+      if (pc.connectionState !== 'connected') {
+        say('ice=' + pc.iceConnectionState + ' conn=' + pc.connectionState + ' | ' + p.join(' | '));
+      }
+    }, 1500);
 
     var r = await fetch(gw + '/offer');
     if (!r.ok) { throw new Error('offer HTTP ' + r.status); }
