@@ -1175,9 +1175,12 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - **要写的文件**：
   1. `board/k11c-fakevo.service`：`After=k11c-gadget.service`，`ExecStart=/opt/k11c-kvm/vo/fakevo --enc`，`WorkingDirectory=/opt/k11c-kvm/vo`，
      `StandardError=append:/var/log/k11c-fakevo.log`，`Restart=always`，`RestartSec=2`，`WantedBy=multi-user.target`；
-  2. `board/k11c-webrtc.service`：`After=network-online.target k11c-fakevo.service`，`Wants=network-online.target`，
-     `ExecStart=/usr/bin/python3 /opt/k11c-kvm/webrtc_gw.py --port 8001`，`Restart=always`，`RestartSec=2`；
-  3. `board/k11c-kvm.service`：`ExecStart` 末尾加 `--no-mjpeg`。
+  2. ~~`board/k11c-webrtc.service`~~ → **10-20 已写成 `board/k11c-gw.service`**（跑 Go 静态二进制，不是 Python 网关）：
+     `After=network-online.target k11c-fakevo.service`，`Wants=network-online.target`，
+     `ExecStart=/opt/k11c-kvm/k11c-gw --port 8001 --rtp-port 5004 --stats /var/log/k11c-webrtc-stats.log`，`Restart=always`，`RestartSec=2`；
+  3. `board/k11c-kvm.service`：`ExecStart` 末尾加 `--no-mjpeg` —— **10-20 已改进 repo**。
+  4. `board/k11c-fakevo.service` —— **10-20 已写**：`WorkingDirectory=/opt/k11c-kvm/vo`，
+     `ExecStart=/opt/k11c-kvm/vo/fakevo --enc --seconds 0`，加了 `Conflicts=lightdm.service`（谁先占 DRM master 谁赢）。
 - **步骤**：
   1. 三个 service 装到 `/etc/systemd/system/`，`daemon-reload`，`enable` 前两个；
   2. `sudo systemctl disable lightdm && sudo systemctl set-default multi-user.target`；
@@ -1197,3 +1200,54 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 - 搬 JetKVM 前端的 `useKeyboard.ts` / `keyboardLayouts/*`；
 - HDMI 输入板（§3.3）：选桥芯片 → 画板 → 驱动 + 设备树 → 源换成 `/dev/videoN`。
+
+### T18 出固件：把板上跑通的东西烘进镜像（10-20 开工，用户口头指令"开始准备出固件"）
+
+- [ ] 盘点 + 打包脚本已就绪，**等人拍板形态（A/B）后才写 overlay、才编译**
+- **先说为什么必须出**：现在板子上跑的东西**比镜像新**，重烧就全丢 —— 10-18 那次"镜像里是坏 gadget 脚本、重启即坏"就是这么爆的。
+- **10-20 只读盘点结果**（`host/fw_audit.sh`，板上没装没改没重启）：
+  1. **apt 包零差异**：板子 2395 个已装包 vs 镜像树 `binary/var/lib/dpkg/status` **完全一致**
+     ⇒ **不需要在镜像里补装任何包**（ffmpeg/ffplay/gst-launch/v4l2-ctl/xrandr/onboard 都在，`iw` 两边都没装）；
+     （10-18 记忆里"当时 apt 装了 ffmpeg"那句其实装的是镜像已有的东西。）
+  2. **镜像里已经对的**：`etc/systemd/system/k11c-gadget.service` + 它的 `multi-user.target.wants` 软链、
+     `usb-gadget.service → /dev/null`（mask 生效）。
+  3. **镜像里是坏的**：`usr/local/sbin/k11c-gadget.sh` 现在是 `cc42db76`（写空 `serialnumber` 那版），
+     板上是 `31743bd6` ⇒ **必须换**，这就是 10-18 那次"重启变无法识别设备"的根因。
+  4. **镜像里完全没有、必须补的**：`/opt/k11c-kvm/` 整个（13 MB，含 `vo/fakevo` 二进制 + `bars_nv12.yuv`/`glyphs.gray` 素材 +
+     Go 网关 `k11c-gw`）、`k11c-kvm.service`、`serial-getty@ttyGS0.service.d/autologin.conf`、
+     `~/.config/autostart/` 那 4 个（`k11c-tv` + 三个 `Hidden=true`，镜像里只有官方那份 91 B 的 `onboard.desktop`）、
+     `~/.ssh/authorized_keys`、**`/etc/netplan/90-NM-*.yaml`（WiFi）**。
+  5. 🔴 **WiFi 不在镜像里**：`binary/etc/netplan` 是空的，板子上那份是 10-18 写的
+     （`/run/NetworkManager/system-connections/` 里的东西是 netplan 生成的、重启就在，落盘文件是 `/etc/netplan/90-NM-<uuid>.yaml`，0600 root）。
+     ⇒ 重烧不烘它 = **板子起来就没网，只能回串口**。
+- **打包机制（读了 SDK 源码才定下来的，`ubuntu/mk-rootfs-noble.sh`）**：
+  overlay 模式下每次构建的动作是 `rm -rf binary` → **从 `ubuntu-rootfs.img` 整份拷出 binary** →
+  `sudo cp -rpf overlay/* binary/`（还有 `overlay-firmware`、`overlay-debug`）→ `mk-image.sh`
+  **`rm ubuntu-rootfs.img` 再用 `mkfs.ext4 -d binary` 重建**。
+  ⇒ 两条硬结论：① **只有放进 `ubuntu/overlay/` 的东西活得下来**，直接改 `binary/` 会被下次构建冲掉；
+  ② `ubuntu-rootfs.img` 既是输入又是输出、**自我消耗**，而且 10-17 那次的 gadget 改动目前**只活在这个 img 里**
+  （overlay 里没有）⇒ **编译前必须先备份这个 img**，并且把改动补进 overlay，让它只靠 SDK 树就能复现。
+- **已写的两个脚本**（都在 `host/`，先 `--dry` 后 `--go`，全程不碰板子、不碰镜像、不编译）：
+  1. `host/fw_stage.sh [--appliance]`：从板子拉"只有板子上有的"（fakevo 二进制、两个 .yuv/.gray 素材、netplan、ttyGS0 autologin、authorized_keys、
+     autostart 覆盖），从 repo 拉源码（`kvm_server.py`/`www`/`vo` 源/四个 unit/`gadget/k11c-gadget.sh`/`host/k11c-gw`），
+     拼成 `build/rootfs/`（**这目录含 WiFi 明文口令，已进 `.gitignore`**），并把 repo 版和板上跑的版本做 md5 对拍（现在两个都"同"）；
+  2. `host/fw_install.sh --dry|--go`（在 VM 上跑）：列清单 / 真写进 `ubuntu/overlay/`。
+     **软链必须在 VM 侧建**（Git Bash 的 `ln -s` 建出来是普通文件 —— 第一次就踩了）；
+     同时补 `usb-gadget.service → /dev/null` 进 overlay。
+- **待用户拍板的一件事：固件里电视那一路要哪种形态**
+  - **A 产品形态（T17 的写法，AI 推荐）**：`default.target → multi-user.target`，不启 lightdm，
+    `k11c-fakevo.service` 当 DRM master 直接 60 帧上电视，手机走 H.265。电视上**没有桌面**。
+  - **B 开发形态（现在这样）**：留着 lightdm + XFCE。
+    ⚠️ 但这条路**电视没有好画面可给**：fakevo 要 DRM master，lightdm 占着；软路径（ffplay 拉 MJPEG）已经被 §2.2 判死，
+    而且 `--no-mjpeg` 之后 MJPEG 源根本不存在。⇒ **选 B 就等于"固件里 TV 输出这一路是坏的，只有手机能用"**。
+  - 两个都会烘：键鼠 gadget、H.265 编码、WebRTC 网关、控制页、WiFi、串口自动登录、免密 SSH。
+- **拍板之后的步骤**（还没做）：
+  1. `cp ubuntu/ubuntu-rootfs.img ubuntu/ubuntu-rootfs.img.bak-<日期>`（7 GB，VM 剩 359 G）；
+  2. `sh host/fw_stage.sh --appliance` → `fw_install.sh --dry` 看清单 → `--go` 写 overlay；
+  3. VM 上 `./build.sh`（按 10-15 的做法走 `SUDO_ASKPASS` 包装，非交互没 tty 会卡在要密码那句）；
+  4. 校验产物：`md5sum rockdev/update.img` + **别拿大小当证据**（分区对齐，可能一字节不差）；
+     用 `debugfs -R "ls -l /opt/k11c-kvm"` / `-d` 解开抽查 gadget 脚本 md5、netplan 在不在；
+  5. 交给人烧（`RK_SUDO` 口令、MaskROM 都要人动手），烧完第一件事是**别拔 Type-C**（那是供电），
+     串口确认 `1d6b:0104` 枚举成 `configured`，再手机连 `http://<IP>:8000/`。
+- **失败时**：任何一步不对，先回到 `ubuntu-rootfs.img.bak`（改名回去即可），别硬编。
+

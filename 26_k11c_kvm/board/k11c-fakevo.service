@@ -1,0 +1,16 @@
+[Unit]
+Description=K11C IP-KVM TV output (DRM direct scanout + H.265 hardware encode)
+# 这块要当 DRM master 直接顶上 HDMI，所以桌面管理器不能先占着
+# （T17 的形态 = multi-user.target，不启 lightdm）
+After=k11c-gadget.service
+Conflicts=lightdm.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/k11c-kvm/vo
+ExecStart=/opt/k11c-kvm/vo/fakevo --enc --seconds 0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,14 @@
 [Unit]
-Description=K11C IP-KVM (fake source + MJPEG stream + HID RPC)
+Description=K11C IP-KVM (HID RPC + control page)
 # 键鼠报文要写 /dev/hidg*，那俩节点由 gadget 脚本建，所以必须排在它后面
 After=k11c-gadget.service network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/k11c-kvm/kvm_server.py --host 0.0.0.0 --port 8000
+# --no-mjpeg：画面走 fakevo→k11c-gw 的 H.265，软编 MJPEG 那一整路不启（省一整核）。
+# 哪台手机连不上 WebRTC 要退回旧画面时，去掉这个参数重启本服务即可，页面用 ?mjpeg=1 打开。
+ExecStart=/usr/bin/python3 /opt/k11c-kvm/kvm_server.py --host 0.0.0.0 --port 8000 --no-mjpeg
 Restart=always
 RestartSec=2
 

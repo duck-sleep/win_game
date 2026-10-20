@@ -1,0 +1,14 @@
+[Unit]
+Description=K11C IP-KVM WebRTC gateway (pion, static Go binary)
+# 它只收板内 127.0.0.1:5004 的 RTP，对外发 WebRTC，所以排在编码那一路后面
+After=network-online.target k11c-fakevo.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/k11c-kvm/k11c-gw --port 8001 --rtp-port 5004 --stats /var/log/k11c-webrtc-stats.log
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
