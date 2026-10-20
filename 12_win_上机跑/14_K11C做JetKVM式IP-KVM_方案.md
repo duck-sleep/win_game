@@ -1180,9 +1180,30 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T17 开机自启（产品形态：去掉桌面）
 
-- [ ] 未开始
+- [x] 机器侧全过，**只剩人眼看电视**（10-20，形态已定 = A 关桌面）
 - **目的**：上电后不用碰任何东西：电视直接是 `fakevo` 的画面，手机打开页面就是 H.265 + 控制。
-- **前置**：T16。**人要做**：**先确认同意关掉桌面**（之后电视上不再有 XFCE；要回桌面按下面"回滚"做）。没确认不许做。
+- **前置**：T16。**人要做**：**先确认同意关掉桌面** —— ✅ 10-20 已确认（下面第一条）。要回桌面按末尾"回滚"做。
+- **用户 10-20 拍板**："**我要桌面没用，tv 只要显示这个码流 1080 60**" ⇒ 选 A。
+  顺带纠正一句他的理解：**硬编不需要重烧**（`mpph265enc` 现在就在跑），重烧是为了把板上跑出来的东西烘进镜像。
+  电视这一路给他的是**原始帧直接 scanout**（不经过解码），比"解码头解码"更省、延迟更低，画面就是同一块缓冲上的彩条+码表。
+- 实测(10-20 11:49 / 11:53，两次热重启 `systemctl reboot`)：
+  1. **单元换成正式文件**：`k11c-fakevo.service`、`k11c-gw.service`、`k11c-kvm.service`（带 `--no-mjpeg`）装进
+     `/etc/systemd/system/` 并 `enable`；瞬态单元（fakevo/gw/kvm-run/probe）全部停掉让位。
+     `systemd-analyze verify` 对我们这三个文件**零抱怨**（它只挑出厂那批 `kickpi-*.service` 的模位和 `bootanim` 的 `KillMode=none`）。
+  2. **形态切换**：`systemctl disable lightdm` + `set-default multi-user.target` → `is-active lightdm` = `inactive`。
+  3. **开机时间**：内核 1.563 s + 用户态 11.921 s = **13.5 s 到 multi-user**；
+     `k11c-gadget` 7.81 s 完成、`k11c-fakevo` **7.87 s 起来**（电视约 8 秒就有画面）、第二次重启从发命令到 `:8000` 回 200 = **24 s**。
+     比 T8 的"冷启 HID 25 s / HTTP 28 s"快一截，主要省掉整个 X。⚠️ 这是**热重启**，不含上电+U-Boot 那段。
+  4. **键鼠仍然在**：两次重启后 Windows `Get-PnpDevice -PresentOnly` 都看到
+     `USB\VID_1D6B&PID_0104\EAF4B2430E0D`（composite）+ `MI_00` 键盘 + `MI_01` 鼠标，`/sys/class/udc/fcc00000.usb/state = configured`
+     ⇒ 烘进固件的那个非空 `serialnumber` 修好了。
+     ⚠️ `quick_check.ps1` 报 `present=False` 是它在读**注册表里的旧到达/移除记录**，不是当前状态 —— 判"现在有没有"要 `Get-PnpDevice -PresentOnly`。
+  5. **fakevo 冷启质量**：两次都是 `flips=60~61 miss=0~2 noslot=0 enc=60~61 enc_skip=0`（`miss` 是累计口径，见 T14 长跑那条）。
+  6. **顺手验到的白赚一条**：板子重启后，电脑上开着的那个控制页**自己重连上了**（两次重启后 `peer_live` 都回到 `true`、`offers=1`）
+     ⇒ T15 里"只能人验"的断线重连，至少"网关重启后浏览器能自己回来"这半边**已经有机器证据**了。
+  7. `is-system-running` = `degraded`，failed 是 `apport` / `networking` / `rockchip` 三个 —— **和 10-15 首次烧完一模一样**，
+     不是我们改出来的（WiFi 由 NetworkManager 管，`networking.service` 那个 ifupdown 失败不影响）。
+- **回滚**（任何一步不对、或人想要回桌面）：
 - **要写的文件**：
   1. `board/k11c-fakevo.service`：`After=k11c-gadget.service`，`ExecStart=/opt/k11c-kvm/vo/fakevo --enc`，`WorkingDirectory=/opt/k11c-kvm/vo`，
      `StandardError=append:/var/log/k11c-fakevo.log`，`Restart=always`，`RestartSec=2`，`WantedBy=multi-user.target`；

@@ -40,37 +40,43 @@ echo "=== 开机自启（VM 侧建软链） ==="
 echo
 echo "=== 写入 overlay ==="
 sudo -A mkdir -p "$OV/opt/k11c-kvm" "$OV/home/kickpi" "$OV/etc/systemd/system/multi-user.target.wants"
-# 软链在这里建（本机 Git Bash 建出来的 ln -s 是普通文件，不能带过来）
+sudo -A cp -rpf "$SRC/." "$OV/"
+sudo -A rm -f "$OV/enable.txt" "$OV/default.txt"
+
+# 属主/模**只在 overlay 那边定**，不碰暂存树：上一版在这里 chown -R 0:0 $SRC，
+# 结果下次 fw_stage.sh 的 rm -rf /tmp/k11c-rootfs 直接 Permission denied，
+# 暂存树变成半旧的根属主残留 —— 症状是清单文件"莫名丢失"、.ssh 目录没推上去。
+sudo -A chown -R 0:0 "$OV/opt/k11c-kvm" "$OV/usr/local/sbin/k11c-gadget.sh" \
+                   "$OV/etc/systemd/system" "$OV/etc/netplan"
+sudo -A chown -R 1000:1000 "$OV/home/kickpi"
+sudo -A chmod 700 "$OV/home/kickpi/.ssh"
+sudo -A chmod 600 "$OV/etc/netplan/90-NM-k11c.yaml" "$OV/home/kickpi/.ssh/authorized_keys"
+# 两个二进制必须可执行：它们在 Windows 侧是 scp 拉回来的普通文件（644），本机 chmod 没保住。
+# mkfs.ext4 -d 会把模原样带进镜像，644 的话开机服务直接 status=203/EXEC。
+sudo -A chmod 755 "$OV/opt/k11c-kvm/k11c-gw" "$OV/opt/k11c-kvm/vo/fakevo" "$OV/opt/k11c-kvm/vo"
+
+# 软链直接建在 overlay 里（Git Bash 的 ln -s 建出来是普通文件，不能带过来）
 while read -r u; do
   [ -n "$u" ] || continue
-  sudo -A ln -sfn "../$u.service" "$SRC/etc/systemd/system/multi-user.target.wants/$u.service"
+  sudo -A ln -sfn "../$u.service" "$OV/etc/systemd/system/multi-user.target.wants/$u.service"
   echo "  enable: $u.service"
 done < "$SRC/enable.txt"
-if [ -f "$SRC/default.txt" ]; then
-  D=$(cat "$SRC/default.txt")
-  sudo -A mkdir -p "$SRC/etc/systemd/system"
-  sudo -A ln -sfn "/lib/systemd/system/$D" "$SRC/etc/systemd/system/default.target"
-  echo "  default.target -> $D"
+if [ -s "$SRC/default.txt" ]; then
+  sudo -A ln -sfn "/lib/systemd/system/$(cat "$SRC/default.txt")" "$OV/etc/systemd/system/default.target"
+  echo "  default.target -> $(cat "$SRC/default.txt")"
 fi
-# 官方 usb-gadget.service 会在 Type-C 上挂 adb(2207:0006)，Windows 会把整台按硬件 ID 认领成安卓设备，
-# HID 接口就此消失 —— 必须 mask。现在这条只活在 ubuntu-rootfs.img 里，写进 overlay 才能只靠 SDK 树复现。
-sudo -A mkdir -p "$SRC/etc/systemd/system"
-sudo -A ln -sfn /dev/null "$SRC/etc/systemd/system/usb-gadget.service"
+# 官方 usb-gadget.service 会在 Type-C 上挂 adb(2207:0006)，Windows 按硬件 ID 把整台认领成安卓设备，
+# HID 接口就此消失 —— 必须 mask。这条以前只活在 ubuntu-rootfs.img 里，写进 overlay 才能只靠 SDK 树复现。
+sudo -A ln -sfn /dev/null "$OV/etc/systemd/system/usb-gadget.service"
 echo "  mask: usb-gadget.service -> /dev/null"
-# 清单文件本身不进镜像
-sudo -A rm -f "$SRC/enable.txt" "$SRC/default.txt"
-# 属主：整棵树先归 root，home 下那份归 kickpi(1000)
-sudo -A chown -R 0:0 "$SRC"
-sudo -A chown -R 1000:1000 "$SRC/home/kickpi"
-sudo -A chmod 600 "$SRC/etc/netplan/90-NM-k11c.yaml" "$SRC/home/kickpi/.ssh/authorized_keys"
-sudo -A cp -rpf "$SRC/." "$OV/"
-# cp -rpf 不跨目录改已存在文件的属主，这里再兜一次
-sudo -A chown -R 0:0 "$OV/opt/k11c-kvm" "$OV/usr/local/sbin/k11c-gadget.sh" "$OV/etc/systemd/system" "$OV/etc/netplan"
-sudo -A chown -R 1000:1000 "$OV/home/kickpi"
 
-echo "=== 写完后 overlay 里的 k11c 相关条目 ==="
-sudo -A find "$OV" \( -iname '*k11c*' -o -name '90-NM*' -o -path '*ttyGS0*' -o -name 'default.target' \) \
-     -printf '%y %M %u:%g %10s %p\n' | sort
+echo "=== 写完后核对（这两个二进制的 x 位是重点） ==="
+sudo -A ls -l "$OV/opt/k11c-kvm/k11c-gw" "$OV/opt/k11c-kvm/vo/fakevo" \
+     "$OV/opt/k11c-kvm/vo/bars_nv12.yuv" "$OV/opt/k11c-kvm/vo/glyphs.gray" \
+     "$OV/usr/local/sbin/k11c-gadget.sh" "$OV/etc/netplan/90-NM-k11c.yaml" \
+     "$OV/home/kickpi/.ssh/authorized_keys"
+sudo -A find "$OV/etc/systemd/system" \( -iname 'k11c*' -o -name 'default.target' \
+     -o -name 'usb-gadget.service' -o -path '*ttyGS0*' \) -printf '%y %M %u:%g %p\n' | sort
 
 rm -rf "$SUDO_ASKPASS" /tmp/.rk_sudo_bin
 echo "=== 完成（overlay 已更新；编译与打包还没跑） ==="
