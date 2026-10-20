@@ -1235,7 +1235,43 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 
 ### T18 出固件：把板上跑通的东西烘进镜像（10-20 开工，用户口头指令"开始准备出固件"）
 
-- [ ] 盘点 + 打包脚本已就绪，**等人拍板形态（A/B）后才写 overlay、才编译**
+- [x] **固件已编出来并逐字节校验过**（10-20 19:56），等人烧（形态按 T17 = A 关桌面）
+- 实测(10-20 出固件这一趟)：
+  1. **先备份再动手**：`ubuntu/ubuntu-rootfs.img.bak-20261020`，md5 `d90cb0d60cce4ed02cb5e3aaf9159f63`（7,056,916,480 B）。
+     必须备份的理由见上面②：`mk-image.sh` 是 `rm ubuntu-rootfs.img` 再 `mkfs.ext4 -d binary` **自我消耗**的，
+     编一半挂了就没有输入了。
+  2. `fw_stage.sh --appliance` → `fw_install.sh --go` 写进 `ubuntu/overlay/`（清单见上一节）。
+     途中自己绊自己两次，都改掉了：**chown -R 暂存树** ⇒ 下次 `rm -rf /tmp/k11c-rootfs` 直接 Permission denied，
+     暂存树成了 root 属主残留（症状是"enable.txt 莫名丢失、`.ssh` 没推上去"）；**清单文件被脚本自己 rm 掉** ⇒ 重跑一次就废。
+     现在属主/软链全在 overlay 侧做，`--go` 可以反复跑。
+     🔴 还有一个会咬人的：**`k11c-gw`、`fakevo` 从 Windows scp 过去是 644**，本机 `chmod 755` 没保住，
+     必须在 VM 上补 —— `mkfs.ext4 -d` 原样带进镜像，644 的话开机就是 `status=203/EXEC`。
+     已在镜像里核对成 `100755 root:root`（`debugfs ls -l -p` 看的是真模位，不是本地错觉）。
+  3. **构建**：`./build.sh rootfs` → `RC_ROOTFS=0`；`./build.sh updateimg` → `RC_UPDATEIMG=0`；
+     `BUILD_DONE 2026-10-20T11:56:27Z`，全程约 12 分钟。
+     ⚠️ 日志里有 **12 条 apt 警告/错误**（`GPG error … Couldn't create temporary file /tmp/apt.conf.*`、
+     两处 `E: Error, pkgProblemResolver::Resolve generated breaks`）—— 和 10-15 那条"官方包清单有 Breaks"是同一类。
+     **这次不影响结论**，因为盘点已经证明包集合零差异、我们不需要新装包；但**别再往固件里加 apt 包**，
+     要加就得先解决 chroot 里 apt 的临时文件与包名冲突，并且**装完跑二进制存在性自检**。
+  4. **产物抽查**（全部在 `ubuntu-rootfs.img` 里查，不是查本地错觉）：
+     `/opt/k11c-kvm/k11c-gw 100755`、`vo/fakevo 100755`、`vo/{bars_nv12.yuv 3110400, glyphs.gray 41600}`、
+     `www/{index,probe,webrtc}.html`、四个 `k11c-*.service`、`multi-user.target.wants/` 四条软链（长度 22/22/18/19 就是 `../k11c-xxx.service`）、
+     `default.target` 软链长度 37 = `/lib/systemd/system/multi-user.target`、`usb-gadget.service` 长度 9 = `/dev/null`（mask 生效）、
+     `serial-getty@ttyGS0.service.d/autologin.conf`、`/etc/netplan/90-NM-k11c.yaml 100600 root`、
+     `~kickpi/.ssh/authorized_keys 100600 1000:1000`；
+     🔑 **`/usr/local/sbin/k11c-gadget.sh` dump 出来 md5 = `31743bd61c4cc87564cf80cba7495c60`** —— 就是修好的那版，
+     `cc42db76`（写空 serialnumber、重启变"无法识别的设备"）已经彻底换掉；
+     `/usr/bin/{ffmpeg,ffprobe,gst-launch-1.0}` 三个都还在。
+  5. **交付件**：`D:\02_baidu\自建镜像\K11C_v12_ubuntu2404_selfbuild-kvm-h265-20261020.img`，
+     **7,187,221,066 B，md5 `01c089b66e2472cde444f378ce560a0d`**（VM 与 Windows 两边算出来一致，38 秒拉完）。
+     比上一版大 14.7 MB ≈ 烘进去的 `/opt/k11c-kvm`。⚠️ 老规矩：**别拿大小当"改到位"的证据**，要看上面那些抽查。
+- **烧完之后第一次开机该看到什么**（人做）：HDMI 插上电视 → 上电约 **8 秒**电视出彩条+码表、**24 秒**手机能连
+  `http://<板子IP>:8000/`（这两个数是 T17 在**现在这块板**上量的，固件同理，但冷上电还要再加 U-Boot 那几秒）；
+  Windows 侧 `Get-PnpDevice -PresentOnly` 要出现 `VID_1D6B&PID_0104` + 键盘 + 鼠标 + COM 口。
+  ⚠️ **烧完就没有桌面了**（这是选了 A 的结果，不是坏了）；想要回桌面：
+  `sudo systemctl set-default graphical.target && sudo systemctl enable --now lightdm`（然后 fakevo 会抢不到 DRM master，得先 `systemctl stop k11c-fakevo`）。
+- **还没做**：`k11c-probe`（8002 静态服务，调试用的 `webrtc.html`/`probe.html`）**故意没进固件** ⇒ 重烧后那两个页面要靠 8000 上的控制页；
+  要再验手机 H.265 能力（T10）得临时 `systemd-run` 起一个静态服务。
 - **先说为什么必须出**：现在板子上跑的东西**比镜像新**，重烧就全丢 —— 10-18 那次"镜像里是坏 gadget 脚本、重启即坏"就是这么爆的。
 - **10-20 只读盘点结果**（`host/fw_audit.sh`，板上没装没改没重启）：
   1. **apt 包零差异**：板子 2395 个已装包 vs 镜像树 `binary/var/lib/dpkg/status` **完全一致**
