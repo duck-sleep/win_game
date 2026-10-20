@@ -1056,6 +1056,12 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
     Chrome 这版没给 `decoderImplementation` 字段，所以统计行里 `dec=undefined`，改用解码耗时当证据）；
   - 网关侧 `rtp_in` 与 `rtp_sent` **速率完全相等**（134.6 pps 进 = 134.6 pps 出），`rtp_err=0`，950 kbps；
   - CPU：`k11c-gw` **10%**、RSS 14.5 MB；`fakevo` 15.4%。（旁边那个 153.8% 的 `ffmpeg` 是 T4 的 MJPEG 软编假源，T15 就关掉。）
+- **长跑证据（10-20 11:09 取，`fakevo` 连续跑 8 h 37 min、网关连续 34 min，无人碰）**：
+  逐秒行 `flips=60 miss=4 dt_avg=16.67 dt_max≈16.7–16.8 noslot=0 enc=60 enc_skip=1007`。
+  **口径要看清**：`flips` 和 `enc` 是**每秒**的，`miss / noslot / enc_skip` 是**累计的**（源码里只有 `g_flips_sec` 每秒清零）
+  ⇒ 8.5 小时约 185 万次翻页里 **`miss` 总共只有 4**、`noslot` **0**、`enc_skip` 1007 次全在暖机阶段涨完就冻住不动了。
+  网关侧 `rtp_in = rtp_sent + rtp_nopeer`（266672 = 264920 + 1752）**逐本对得上、`rtp_err=0`**。
+  ⇒ "电视和编码这两路能 24 小时挂着"这条现在是**有数支撑的**，不是推断。
 - ⚠️ 一条**不算失败**但要记的观测：`getVideoPlaybackQuality()` 报 `drawn=3010 dropped=3009`，
   而 WebRTC 侧 `framesDropped=0`。原因是我用的是 App 内嵌浏览器，页面 `visibilityState=hidden`，
   Chrome 对不可见标签页直接把合成器渲染节流掉了——**是量的地方不对，不是管道丢帧**。
@@ -1137,6 +1143,11 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
     2. `typeText` 落字：开记事本 → 板子打 `ab1cd1ef` → 全选复制 → `Get-Clipboard` **相等**。
        第一次按出的是**中文乱码**，不是链路丢字节：**电脑端中文输入法在开着**，`Ctrl+Space` 是**开关**不是"切到英文"，
        按一下离开中文后立刻逐字命中。这条要记进坑（见坑 30），手机上人不在电脑前时这是唯一能把输入法掰回来的入口。
+  - **断线重连**：手工 `pc.close()` 之后直接调页面里的 `retryVideo()` → 板子 `offers` 3→4、`peer_live` 回到 `true`、
+    状态行重新出 `H265 59 fps | 丢帧 0`，`pc.connectionState` 又变 `connected` ⇒ 重连这套是通的。
+    ⚠️ 但**只调 `pc.close()` 让它自己触发**这条路在这台电脑上验不了：内嵌页面隐藏约 5 分钟后 Chrome 会**冻结整个页面**，
+    连 `connectionstatechange` 事件都不投（现象：`sess` 还是 1、状态行没有"2 秒后重连"）。
+    **手机息屏后浏览器同样可能被冻** ⇒ 真机上"锁屏再解锁还能不能自己回画面"这条**必须人验**，我这边测不出真实行为。
   - **资源账（口径：`/proc/<pid>/stat` 的 utime+stime 差值，6.04 s 窗口，4 核满值 400%，当时一个 WebRTC 观看端在连、60 fps 在走）**：
     `fakevo` **30.4%**（电视直出 + H.265 硬编 + 送 RTP 全在内）、`k11c-gw` **7.3%**（SRTP + 转发）、
     `kvm_server` 没进前列（**< 0.5%**）→ **三个加起来约 38%**，对比软路径的 **约 370%**；load `1.89`（软路径当时 ≈9.5）。
