@@ -1467,8 +1467,12 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - 计数器都清零状态：`dc_bad=0 dc_drop=0 dc_http_err=0 rpc_http_err=0 rpc_write_err=0`，
   Python 侧 `wheelReport/keyCombo/typeText` 各 1 条都落到、`last_err` 空。
 
-- ⚠️ **固件还没重编**：板子上 `/opt/k11c-kvm/k11c-gw`（10,289,336 B）和 `www/index.html` 已经是新版，
-  但镜像里还是 T18 那份。等手机验过再重打一次，**免得他烧两遍**。
+- ⚠️ ~~**固件还没重编**：板子上 `/opt/k11c-kvm/k11c-gw`（10,289,336 B）和 `www/index.html` 已经是新版，
+  但镜像里还是 T18 那份。等手机验过再重打一次，**免得他烧两遍**。~~
+  **10-21 已重打**：`D:\02_baidu\自建镜像\K11C_v12_ubuntu2404_selfbuild-kvm-dc-20261021.img`，
+  **7,188,269,642 B / md5 `32e0c0fac4289e1de79ad484b03dc79f`**（`RC_ROOTFS=0`、`RC_UPDATEIMG=0`，10 分钟）。
+  抽查方式改了：不再只看 `debugfs ls`，而是**从镜像里 dump 出来算 md5，和板子上正在跑的那份逐字节对**
+  —— `k11c-gw 5c2cc0c6d544…`、`index.html 25b6136b2d09…` 两边一致才算烘对。
 - **同一时间只有一个观看端**：手机一连上就会把电脑上那个页面踢掉（设计如此，`swap()`）。
 
 ### T20 之后（现在不要开做）
