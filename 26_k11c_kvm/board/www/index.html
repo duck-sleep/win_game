@@ -55,6 +55,11 @@
   <button data-combo="5,76">Ctrl+Alt+Del</button>
 </div>
 
+<div class="row">
+  <button id="ab">测延迟 DC vs HTTP</button>
+  <span id="about" style="align-self:center;font-size:12px;color:#9aa0a6"></span>
+</div>
+
 <div id="st">连接中…</div>
 
 <script>
@@ -88,11 +93,7 @@ function render() {
 
 function rpc(method, params) {
   var t0 = performance.now();
-  return fetch('/rpc', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: ++seq, method: method, params: params || {} })
-  }).then(function (r) { return r.json(); }).then(function (j) {
+  return rpcSend({ id: ++seq, method: method, params: params || {} }).then(function (j) {
     if (j.error) { throw new Error(j.error.message); }
     var ms = Math.round(performance.now() - t0);
     net.ms = ms;
@@ -107,11 +108,14 @@ function rpc(method, params) {
   });
 }
 
-/* ---------- 鼠标走 WebRTC datachannel（JetKVM 的 hidrpc 二进制报文） ----------
-   报文：0x03 + x(int32 大端) + y(int32 大端) + buttons(u8)，共 10 字节。
-   和 HTTP 的区别不是"更快送达"，是**不用等回执**：光标在板子收到的那一刻就动了，
-   浏览器不必再等一个没用的 JSON 回来。通道没开就退回 HTTP，功能不能因为换传输而挂掉。 */
-var dc = null, dcSent = 0, httpSent = 0;
+/* ---------- 控制走 WebRTC datachannel（照 JetKVM 的通道划分） ----------
+   hid            可靠有序：键盘、鼠标按键（按下/松开不能丢，丢了按键会卡在按下）
+   hid-unreliable 不可靠  ：鼠标移动（旧的没有价值，重传只会让最新位置更晚到）
+   jsonrpc        可靠有序：其余 JSON-RPC（滚轮、打字、查询）
+   报文格式和 JetKVM 逐字节一致：0x03 + x(int32 BE) + y(int32 BE) + buttons(u8)。
+   任何一条通道没开就退回 HTTP fetch —— 换传输不许把功能弄挂。 */
+var dcHid = null, dcFast = null, dcRPC = null;
+var dcSent = 0, fastSent = 0, httpSent = 0, rpcPending = {};
 
 function pointerMsg(x, y, buttons) {
   var b = new Uint8Array(10);
@@ -123,11 +127,39 @@ function pointerMsg(x, y, buttons) {
 }
 
 function sendPointer(x, y, buttons) {
-  if (dc && dc.readyState === 'open') {
-    try { dc.send(pointerMsg(x, y, buttons)); dcSent++; return; } catch (e) {}
+  /* 纯移动走不可靠通道；带按键的（按下/松开）走可靠通道 */
+  var ch = buttons === 0 ? (dcFast && dcFast.readyState === 'open' ? dcFast : dcHid) : dcHid;
+  if (ch && ch.readyState === 'open') {
+    try {
+      ch.send(pointerMsg(x, y, buttons));
+      if (ch === dcFast) { fastSent++; } else { dcSent++; }
+      net.tx = 'DC';
+      return;
+    } catch (e) {}
   }
   httpSent++;
+  net.tx = 'HTTP';
   rpc('absMouseReport', { x: x, y: y, buttons: buttons }).catch(function () {});
+}
+
+function rpcSend(obj, forceHTTP) {
+  if (!forceHTTP && dcRPC && dcRPC.readyState === 'open') {
+    return new Promise(function (resolve, reject) {
+      var id = obj.id;
+      rpcPending[id] = resolve;
+      /* 没有超时就会永远悬着：通道半断时 Promise 不会自己失败 */
+      setTimeout(function () {
+        if (rpcPending[id]) { delete rpcPending[id]; reject(new Error('datachannel 超时')); }
+      }, 5000);
+      try { dcRPC.send(JSON.stringify(obj)); }
+      catch (e) { delete rpcPending[id]; reject(e); }
+    });
+  }
+  return fetch('/rpc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(obj)
+  }).then(function (r) { return r.json(); });
 }
 
 /* ---------- 触摸板：手指在画面上移动 = 绝对鼠标 ---------- */
@@ -162,8 +194,8 @@ function onMove(e) {
 }
 
 function clickAt(btn) {
-  /* datachannel 是 ordered 的，两条报文不会乱序；HTTP 那边走 rpc 的 Promise 链保序 */
-  if (dc && dc.readyState === 'open') {
+  /* 带按键的报文走可靠通道（sendPointer 里分好），HTTP 那边靠 Promise 链保序 */
+  if (dcHid && dcHid.readyState === 'open') {
     sendPointer(cur.x, cur.y, btn);
     sendPointer(cur.x, cur.y, 0);
     return;
@@ -280,7 +312,8 @@ function readStats() {
 function connectVideo() {
   if (MJPEG) { return; }
   var my = ++sess;
-  dc = null;
+  dcHid = dcFast = dcRPC = null;
+  rpcPending = {};
   net.tx = 'HTTP';
   pc = new RTCPeerConnection();
   pc.ontrack = function (e) {
@@ -290,10 +323,25 @@ function connectVideo() {
   };
   pc.ondatachannel = function (e) {
     if (my !== sess) { return; }
-    dc = e.channel;
-    dc.binaryType = 'arraybuffer';
-    dc.onopen = function () { net.tx = 'DC'; render(); };
-    dc.onclose = function () { net.tx = 'HTTP'; render(); };
+    var ch = e.channel;
+    ch.binaryType = 'arraybuffer';
+    if (ch.label === 'hid') { dcHid = ch; }
+    else if (ch.label === 'hid-unreliable') { dcFast = ch; }
+    else if (ch.label === 'jsonrpc') {
+      dcRPC = ch;
+      ch.onmessage = function (ev) {
+        /* 服务端发文本帧；万一哪天变回二进制帧，这里不静默吞掉，否则 Promise 只能等到超时 */
+        var txt = typeof ev.data === 'string' ? ev.data
+          : (ev.data instanceof ArrayBuffer ? new TextDecoder('utf-8').decode(ev.data) : null);
+        if (txt === null) { return; }
+        var obj;
+        try { obj = JSON.parse(txt); } catch (err) { return; }
+        var cb = rpcPending[obj.id];
+        if (cb) { delete rpcPending[obj.id]; cb(obj); }
+      };
+    }
+    ch.onopen = function () { if (dcHid || dcRPC) { net.tx = 'DC'; render(); } };
+    ch.onclose = function () { net.tx = 'HTTP'; render(); };
   };
   pc.onconnectionstatechange = function () {
     if (my !== sess) { return; }
@@ -318,6 +366,33 @@ function connectVideo() {
     .then(function (r) { return r.ok ? r.text() : bad(r); })
     .catch(function (e) { if (my === sess) { retryVideo('视频连不上: ' + e.message); } });
 }
+
+/* ---------- 一键 A/B：同一条链路上比 datachannel 和 HTTP 的往返 ----------
+   交替发（环境漂移对两边一样）+ 取中位数（抗尾巴）。 */
+function median(a) {
+  var s = a.slice().sort(function (x, y) { return x - y; });
+  return s.length ? s[Math.floor(s.length / 2)] : '-';
+}
+
+document.getElementById('ab').addEventListener('click', function () {
+  var el = document.getElementById('about'), dcMs = [], hMs = [], i = 0;
+  el.textContent = '测中…';
+  function step() {
+    if (i++ >= 30) {
+      el.textContent = 'DC 中位 ' + median(dcMs) + ' ms｜HTTP 中位 ' + median(hMs) +
+        ' ms｜各 ' + dcMs.length + ' 次';
+      return;
+    }
+    var useHTTP = (i % 2 === 0);
+    var t0 = performance.now();
+    rpcSend({ id: ++seq, method: 'ping', params: {} }, useHTTP).then(function () {
+      var ms = Math.round(performance.now() - t0);
+      (useHTTP ? hMs : dcMs).push(ms);
+      setTimeout(step, 60);
+    }).catch(function () { setTimeout(step, 60); });
+  }
+  step();
+});
 
 /* ---------- 状态行：每 2 秒问一次 /state ---------- */
 function poll() {

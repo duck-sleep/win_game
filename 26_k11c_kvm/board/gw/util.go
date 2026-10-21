@@ -25,6 +25,12 @@ func oneLine(s string) string {
 
 func itoa(v int) string { return strconv.Itoa(v) }
 
+func boolPtr(v bool) *bool { return &v }
+
+func uint16Ptr(v uint16) *uint16 { return &v }
+
+func joinComma(parts []string) string { return strings.Join(parts, ",") }
+
 // hasCandidate 判断 SDP 里到底有没有 gather 出 ICE candidate。
 // 没有 candidate 的 offer 协商会"成功"但永远连不上，必须当场报错。
 func hasCandidate(sdp string) bool {

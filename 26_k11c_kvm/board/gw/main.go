@@ -16,7 +16,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -35,34 +34,22 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// hidrpc 报文类型，逐字节照 jetkvm/kvm 的 internal/hidrpc/hidrpc.go：
-//
-//	0x03 PointerReport = [type][x int32 BE][y int32 BE][buttons u8]   共 10 字节
-//	0x01 Handshake     = [type][version]
-//
-// 只搬鼠标（移动和按键共用这一个报文，buttons 是位掩码）——它是唯一吃延迟的一条。
-// 键盘/文字继续走原来的 HTTP JSON-RPC；JetKVM 的滚轮报文在源码里只有类型号、没有布局，
-// 所以不自己发明格式。
-const (
-	msgHandshake  = 0x01
-	msgPointer    = 0x03
-	hidVersion    = 0x01
-	pointerMsgLen = 10
-	dcLabel       = "hid"
-	dcQueueLen    = 64
-)
-
 // session 是一条观看端连接。live 只有在 DTLS/SRTP 真的打通后才置位，
 // rtp_sent 因此是"确实发出去了"，不是"往空管子里灌了多少"。
+//
+// 三条 datachannel 的划分和报文格式见 hid.go。
 type session struct {
 	pc    *webrtc.PeerConnection
 	track *webrtc.TrackLocalStaticRTP
 	live  atomic.Bool
 
-	dc     *webrtc.DataChannel
-	dcOpen atomic.Bool
-	queue  chan []byte
-	closed sync.Once
+	hid     *webrtc.DataChannel // 可靠：键盘 + 鼠标按键
+	hidFast *webrtc.DataChannel // 不可靠：鼠标移动
+	rpc     *webrtc.DataChannel // JSON-RPC：滚轮 / 打字 / 查询
+	hidOpen atomic.Bool
+	rpcOpen atomic.Bool
+	queue   chan []byte
+	closed  sync.Once
 }
 
 var (
@@ -81,10 +68,6 @@ var (
 	rtpNoPeer uint64
 	bytesIn   uint64
 	offers    uint64
-	dcIn      uint64
-	dcBad     uint64
-	dcDrop    uint64
-	dcHTTPerr uint64
 )
 
 // swap 装上这条新连接，并把旧的关掉。
@@ -142,43 +125,75 @@ func newOffer() (string, error) {
 	var gatherOnce sync.Once
 	s := &session{pc: pc, track: tr, queue: make(chan []byte, dcQueueLen)}
 
-	// datachannel 由板子这边先建、写进 offer，浏览器用 ondatachannel 接。
+	// 通道由板子这边先建、写进 offer，浏览器用 ondatachannel 接。
 	// （JetKVM 是反过来的：浏览器建、设备 OnDataChannel 收 —— 那要配 perfect negotiation
 	//   二次协商。我们的信令只有一次 offer/answer，所以换了方向建，报文格式完全照他。）
 	ordered := true
-	dc, err := pc.CreateDataChannel(dcLabel, &webrtc.DataChannelInit{Ordered: &ordered})
+	fast, err := pc.CreateDataChannel(dcLabelHIDFast, &webrtc.DataChannelInit{
+		Ordered:        boolPtr(false),
+		MaxRetransmits: uint16Ptr(0), // 一次都别重传：旧的鼠标位置没有价值
+	})
 	if err != nil {
 		return "", err
 	}
-	s.dc = dc
-	dc.OnOpen(func() {
-		s.dcOpen.Store(true)
-		log.Printf("hid datachannel 打开")
-	})
-	dc.OnClose(func() {
-		s.dcOpen.Store(false)
-		s.shutdown()
-		log.Printf("hid datachannel 关闭")
-	})
-	dc.OnMessage(func(m webrtc.DataChannelMessage) {
+	hid, err := pc.CreateDataChannel(dcLabelHID, &webrtc.DataChannelInit{Ordered: &ordered})
+	if err != nil {
+		return "", err
+	}
+	rpcdc, err := pc.CreateDataChannel(dcLabelRPC, &webrtc.DataChannelInit{Ordered: &ordered})
+	if err != nil {
+		return "", err
+	}
+	s.hid, s.hidFast, s.rpc = hid, fast, rpcdc
+
+	onHID := func(ch *webrtc.DataChannel, m webrtc.DataChannelMessage) {
 		if m.IsString || len(m.Data) == 0 {
 			atomic.AddUint64(&dcBad, 1)
 			return
 		}
-		atomic.AddUint64(&dcIn, 1)
-		if m.Data[0] == msgHandshake {
-			if len(m.Data) >= 2 && m.Data[1] != hidVersion {
-				log.Printf("对端 hidrpc 版本 %d，本端 %d", m.Data[1], hidVersion)
+		body, reply, replied := handleHIDMessage(s, m.Data)
+		if replied {
+			if err := ch.Send(reply); err != nil {
+				log.Printf("握手回包失败: %v", err)
 			}
 			return
 		}
-		// 照 JetKVM：收包线程只做入队，真正的转发在 worker 里，免得 HTTP 卡住 SCTP 读
-		select {
-		case s.queue <- append([]byte(nil), m.Data...):
-		default:
-			atomic.AddUint64(&dcDrop, 1) // 队列满：丢，不阻塞（JetKVM 同样语义）
+		if body == "" {
+			return // 不支持的类型，handleHIDMessage 已经计过数
 		}
+		// 照 JetKVM：收包线程只入队，转发在 worker 里做，免得 HTTP 卡住 SCTP 读
+		select {
+		case s.queue <- []byte(body):
+		default:
+			atomic.AddUint64(&dcDrop, 1) // 队列满：丢，不阻塞
+		}
+	}
+	hid.OnMessage(func(m webrtc.DataChannelMessage) { onHID(hid, m) })
+	fast.OnMessage(func(m webrtc.DataChannelMessage) { onHID(fast, m) })
+	rpcdc.OnMessage(func(m webrtc.DataChannelMessage) {
+		if len(m.Data) == 0 {
+			return
+		}
+		atomic.AddUint64(&rpcIn, 1)
+		// JetKVM 也是每条一个 goroutine：RPC 要保序的场景（打字）由服务端串行写 HID 保证
+		go func(body []byte) {
+			resp, err := postRPCBody(body)
+			if err != nil {
+				atomic.AddUint64(&rpcHTTPerr, 1)
+				return
+			}
+			// 发**文本帧**（JetKVM 也是 SendText）：二进制帧会让对端 JSON.parse 拿到 ArrayBuffer
+			if err := rpcdc.SendText(string(resp)); err != nil {
+				atomic.AddUint64(&rpcWriteErr, 1)
+			}
+		}(append([]byte(nil), m.Data...))
 	})
+
+	hid.OnOpen(func() { s.hidOpen.Store(true); log.Printf("hid 通道打开") })
+	hid.OnClose(func() { s.hidOpen.Store(false) })
+	fast.OnOpen(func() { log.Printf("hid-unreliable 通道打开") })
+	rpcdc.OnOpen(func() { s.rpcOpen.Store(true); log.Printf("jsonrpc 通道打开") })
+	rpcdc.OnClose(func() { s.rpcOpen.Store(false) })
 	go s.runHID()
 	pc.OnICEGatheringStateChange(func(st webrtc.ICEGatheringState) {
 		if st == webrtc.ICEGatheringStateComplete {
@@ -238,24 +253,9 @@ func applyAnswer(sdp string) error {
 // runHID 把 datachannel 队列里的报文翻译成 kvm_server 的 JSON-RPC 发给本机。
 // 只用一条 worker 串行处理，保证鼠标"按下/松开"不会乱序。
 func (s *session) runHID() {
-	for data := range s.queue {
-		switch data[0] {
-		case msgPointer:
-			if len(data) != pointerMsgLen {
-				atomic.AddUint64(&dcBad, 1)
-				continue
-			}
-			x := int32(binary.BigEndian.Uint32(data[1:5]))
-			y := int32(binary.BigEndian.Uint32(data[5:9]))
-			body := `{"id":0,"method":"absMouseReport","params":{"x":` +
-				strconv.FormatInt(int64(x), 10) + `,"y":` +
-				strconv.FormatInt(int64(y), 10) + `,"buttons":` +
-				strconv.Itoa(int(data[9])) + `}}`
-			if err := postRPC(body); err != nil {
-				atomic.AddUint64(&dcHTTPerr, 1)
-			}
-		default:
-			atomic.AddUint64(&dcBad, 1) // 键盘类报文还没接到 datachannel 上
+	for body := range s.queue {
+		if _, err := postRPCBody(body); err != nil {
+			atomic.AddUint64(&dcHTTPerr, 1)
 		}
 	}
 }
@@ -267,17 +267,20 @@ func (s *session) shutdown() {
 
 // postRPC 转给 kvm_server。HID 那套逻辑只有 Python 一份实现，网关不复制第二份。
 // 必须把响应体读干净，否则 keep-alive 连接不会被复用（每次新建连接会多几毫秒）。
-func postRPC(body string) error {
-	resp, err := rpcClient.Post(rpcURL, "application/json", bytes.NewBufferString(body))
+func postRPCBody(body []byte) ([]byte, error) {
+	resp, err := rpcClient.Post(rpcURL, "application/json", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return errors.New("rpc HTTP " + strconv.Itoa(resp.StatusCode))
+	out, err := io.ReadAll(io.LimitReader(resp.Body, rpcForwardLimit))
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	if resp.StatusCode != http.StatusOK {
+		return out, errors.New("rpc HTTP " + strconv.Itoa(resp.StatusCode))
+	}
+	return out, nil
 }
 
 // pump 把 UDP 上的 RTP 原样写给当前 track。
@@ -327,11 +330,16 @@ type stateMsg struct {
 	KbpsIn    float64 `json:"kbps_in"`
 	Offers    uint64  `json:"offers"`
 	PeerLive  bool    `json:"peer_live"`
-	DcOpen    bool    `json:"dc_open"`
-	DcIn      uint64  `json:"dc_in"`
-	DcBad     uint64  `json:"dc_bad"`
-	DcDrop    uint64  `json:"dc_drop"`
-	DcHTTPerr uint64  `json:"dc_http_err"`
+	DcOpen    bool   `json:"dc_open"`
+	RpcOpen   bool   `json:"rpc_open"`
+	DcIn      uint64 `json:"dc_in"`
+	DcBad     uint64 `json:"dc_bad"`
+	DcDrop    uint64 `json:"dc_drop"`
+	DcHTTPerr uint64 `json:"dc_http_err"`
+	DcUnsup   uint64 `json:"dc_unsupported"`
+	RPCIn     uint64 `json:"rpc_in"`
+	RPCHTTPer uint64 `json:"rpc_http_err"`
+	RPCWriteE uint64 `json:"rpc_write_err"`
 }
 
 func handler() http.Handler {
@@ -392,10 +400,15 @@ func handler() http.Handler {
 				DcBad:     atomic.LoadUint64(&dcBad),
 				DcDrop:    atomic.LoadUint64(&dcDrop),
 				DcHTTPerr: atomic.LoadUint64(&dcHTTPerr),
+				DcUnsup:   atomic.LoadUint64(&dcUnsupport),
+				RPCIn:     atomic.LoadUint64(&rpcIn),
+				RPCHTTPer: atomic.LoadUint64(&rpcHTTPerr),
+				RPCWriteE: atomic.LoadUint64(&rpcWriteErr),
 			}
 			if s != nil {
 				st.PeerLive = s.live.Load()
-				st.DcOpen = s.dcOpen.Load()
+				st.DcOpen = s.hidOpen.Load()
+				st.RpcOpen = s.rpcOpen.Load()
 			}
 			if up > 0 {
 				st.KbpsIn = float64(st.BytesIn) * 8 / 1000 / up

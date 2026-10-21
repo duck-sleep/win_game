@@ -1436,6 +1436,37 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   - 中途一次读数对不上（读到 972,556 而非 1440,810）是**人正摸着触摸板**，不是映射错：重发一个干净目标点立刻对上。
 - ⚠️ **还没证的**：省了多少毫秒。DC 是 fire-and-forget，页面上量不到往返，所以只能靠**手机上体感**，
   或者以后加一个"DC 上打时间戳回环"的诊断报文（那是我们自己的东西，不在 JetKVM 协议里，暂时不加）。
+- **【10-21 补：这条已经量出来了，而且比预想的大】** 用户说"直接改吧，别人怎么做照着做" ⇒ 把**其余控制也照他那样搬上通道**，
+  并给页面加了一个一键 A/B 按钮（`测延迟 DC vs HTTP`：交替发 30 次 `ping`、各取 15 个样本算中位数，
+  交替是为了让环境漂移对两边一样 —— 单时段先测后测会测出假效果，见坑 34）。
+  **实测（这台笔记本的 Chrome，同一条链路）**：
+
+  | 传输 | 往返中位 |
+  |---|---|
+  | HTTP `fetch('/rpc')` | **53 ms** |
+  | WebRTC datachannel（JSON-RPC 文本帧） | **10 ms** |
+
+  ⇒ **省 43 ms，5.3 倍**。而且这暴露了一件事：之前他手机上那个"RPC 60 ms"**主要不是无线电** ——
+  裸 socket 量同一条路是 8–26 ms（T19 口径），换成浏览器 `fetch` 就变 53 ms，
+  **多出来的 ~40 ms 是浏览器 HTTP 那套机制**（请求对象、连接调度、隐藏页面的节流）。
+  datachannel 是消息帧、不经过这套，所以直接掉到 10 ms。
+- 现在通道的划分（照 JetKVM 的 `useHidRpc.ts`：他有 reliable / unreliable / unreliable-nonordered 三条）：
+  `hid`（可靠：键盘、鼠标**按键**）、`hid-unreliable`（**不可靠、不重传**：鼠标移动 —— 旧位置没有价值，
+  重传只会让最新位置更晚到）、`jsonrpc`（可靠文本帧：滚轮、打字、查询）。
+  **一处故意偏离**：他把按键也放不可靠通道，我们**按键走可靠**——
+  我们的"按下/松开"是两条独立报文，中间没有后续报文覆盖，丢了会**卡在按住状态**；移动才是"新值覆盖旧值"的那种数据。
+- 报文侧照他实现齐了：`0x01 Handshake`（**设备原样回一条**，对端据此判定 hidrpc 可用）、
+  `0x02 KeyboardReport[modifiers][keys…]`、`0x03 PointerReport`、`0x05 KeypressReport[key][press]`；
+  **`0x04 WheelReport` 他设备侧根本没有 case**（滚轮走 JSON-RPC），我们照此不实现，只计数 `dc_unsupported`；
+  `0x06 MouseReport` 是相对鼠标，本固件没挂 `hidg2`，同样只计数。
+- 踩到的两个坑（都是"看着成功其实没通"）：
+  1. **`pending` 撞名**：页面里 `pending` 早就是"鼠标节流待发的坐标"（初值 `null`），
+     我拿同名做 RPC 回调表 ⇒ 一点打字就 `Cannot set properties of null`。改名 `rpcPending`。
+  2. **`Send()` 发的是二进制帧**，对端 `JSON.parse` 拿到 `ArrayBuffer` 直接静默失败、Promise 只能等到 5 秒超时。
+     照他改成 **`SendText()`**（文本帧），前端再加一条 ArrayBuffer 兜底分支，不静默吞。
+- 计数器都清零状态：`dc_bad=0 dc_drop=0 dc_http_err=0 rpc_http_err=0 rpc_write_err=0`，
+  Python 侧 `wheelReport/keyCombo/typeText` 各 1 条都落到、`last_err` 空。
+
 - ⚠️ **固件还没重编**：板子上 `/opt/k11c-kvm/k11c-gw`（10,289,336 B）和 `www/index.html` 已经是新版，
   但镜像里还是 T18 那份。等手机验过再重打一次，**免得他烧两遍**。
 - **同一时间只有一个观看端**：手机一连上就会把电脑上那个页面踢掉（设计如此，`swap()`）。
