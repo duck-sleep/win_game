@@ -1282,11 +1282,6 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   `k11c-kvm.service` 去掉 `--no-mjpeg` 后 `daemon-reload` + `restart`。
 - **失败时**：电视黑 → `journalctl -u k11c-fakevo -n 50 --no-pager` + `fuser -v /dev/dri/card0`；手机连不上 → `journalctl -u k11c-webrtc -n 50 --no-pager`。
 
-### T17 之后（现在不要开做）
-
-- 搬 JetKVM 前端的 `useKeyboard.ts` / `keyboardLayouts/*`；
-- HDMI 输入板（§3.3）：选桥芯片 → 画板 → 驱动 + 设备树 → 源换成 `/dev/videoN`。
-
 ### T18 出固件：把板上跑通的东西烘进镜像（10-20 开工，用户口头指令"开始准备出固件"）
 
 - [x] **固件已编出来并逐字节校验过**（10-20 19:56），等人烧（形态按 T17 = A 关桌面）
@@ -1408,5 +1403,48 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   文件留在板上（无害、644），固件里没有它。**下次别再花半小时试 conf.d**。
 - ⚠️ **板上现在比镜像多一个包**：为了这次测量 `apt install iw`（6.7-1build1），包数 2395 → **2396**。
   功能无影响，但**下次做板子/镜像一致性审计会看到这一条差**，别当成漂移。
+
+
+
+### T20 鼠标控制换成 WebRTC datachannel（10-20 晚，用户"你修改吧 毕竟我们是移植 kvm 的 按照他的方案搞"）
+
+- [x] 代码上板、两条路径都验过；**省了多少毫秒还没量**（要他在手机上体感）；**固件还没重编**
+- **先读源码再动手**（`jetkvm/kvm` main 分支 `internal/hidrpc/hidrpc.go` + `message.go` + `ui/src/hooks/hidRpc.ts`）：
+  他的控制通道**不是 JSON-RPC，是一套二进制报文**：`[1 字节类型][载荷]`，
+  类型 `0x01 Handshake(版本) / 0x02 KeyboardReport / 0x03 PointerReport / 0x04 WheelReport / 0x05 KeypressReport / 0x06 MouseReport / 0x07 KeyboardMacroReport …`；
+  **`PointerReport` = `0x03 + x(int32 大端) + y(int32 大端) + buttons(u8)` 共 10 字节**（`fromInt32toUint8` 是移位大端，逐字节照抄）；
+  收包侧按类型分 **4 条队列**（键盘一条、鼠标一条…），慢的一类不许堵住快的一类；`msg.IsString` 直接拒收。
+  另外他还有 JSON-RPC 也跑在 datachannel 上（`onRPCMessage`），这条我们没搬。
+- **我们做了什么**（只搬吃延迟的那一条）：
+  1. `board/gw/main.go`：`dcLabel="hid"`、`Ordered=true`；收包线程只做入队（cap 64，**满了就丢并计数**，照他的语义），
+     一条 worker 串行转成 `absMouseReport` 打给本机 `127.0.0.1:8000/rpc`（`--rpc` 可改）。
+     **HID 逻辑仍然只有 Python 一份实现，网关不复制第二份。**
+     转发必须把响应体读干净，否则 keep-alive 不复用、每次多几毫秒（`io.Copy(io.Discard, resp.Body)`）。
+  2. `board/www/index.html`：`pointerMsg()` 按上面那 10 字节拼；`sendPointer()` 通道开着就走 DC，**否则自动退回 HTTP**；
+     状态行加了 `鼠标 DC / 鼠标 HTTP` 这一段，一眼看得出现在走的是哪条。
+  3. **只搬鼠标**。键盘/文字继续走 HTTP JSON-RPC —— 他的 `WheelReport(0x04)` 在源码里**只有类型号、没有字节布局**，
+     我不去发明格式；`KeyboardReport` 是状态式的（modifier+keys 数组），我们服务端是 `keyCombo` 按压语义，不匹配，硬搬等于改服务端。
+- **一处故意偏离，说清楚**：JetKVM 是**浏览器建 datachannel、设备 `OnDataChannel` 收**，那套要配 perfect negotiation（二次协商）。
+  我们的信令只有一次 offer/answer，所以改成**板子在 offer 里先建、浏览器 `ondatachannel` 接**。
+  报文格式逐字节和他一致，只有"谁先建"相反 —— 少一整套重协商机制。
+- 实测（电脑 Chrome 当远端，10-20 22:45 前后）：
+  - 协商后 `dc_open=true`；派发 2 条鼠标事件 → 网关 `dc_in=2 dc_bad=0 dc_drop=0 dc_http_err=0`，
+    Python 侧 `absMouseReport` **64 → 66**、`last_err` 空、`last_ms=0.2`；
+  - **落点精确**：手指在画面 90%×90% → `Cursor::Position = (1727, 971)`，期望 (1728, 972)，差 1 像素是取整；
+  - **回退有效**：手工 `dc.close()` 之后再划 → 状态行自己变 `鼠标 HTTP`、`httpSent=1`，落点 (383,215) 对期望 (384,216)；
+    同一次量的 HTTP 往返是 **86 ms**（DC 那条**没有往返可测**，因为它不等回执 —— 这正是要改的原因）；
+  - 中途一次读数对不上（读到 972,556 而非 1440,810）是**人正摸着触摸板**，不是映射错：重发一个干净目标点立刻对上。
+- ⚠️ **还没证的**：省了多少毫秒。DC 是 fire-and-forget，页面上量不到往返，所以只能靠**手机上体感**，
+  或者以后加一个"DC 上打时间戳回环"的诊断报文（那是我们自己的东西，不在 JetKVM 协议里，暂时不加）。
+- ⚠️ **固件还没重编**：板子上 `/opt/k11c-kvm/k11c-gw`（10,289,336 B）和 `www/index.html` 已经是新版，
+  但镜像里还是 T18 那份。等手机验过再重打一次，**免得他烧两遍**。
+- **同一时间只有一个观看端**：手机一连上就会把电脑上那个页面踢掉（设计如此，`swap()`）。
+
+### T20 之后（现在不要开做）
+
+- 搬 JetKVM 前端的 `useKeyboard.ts` / `keyboardLayouts/*`（键盘布局表 + 状态式上报，配合下一条一起做才划算）；
+- 把键盘/文字也搬到 datachannel（要先给 `KeyboardReport` 配一个状态式的服务端接口）；
+- RTCP 反馈：收 `PLI/FIR` → 让 `fakevo` 立刻出一个 IDR（治"新连接最多黑 1 秒"，`gop=60` 写死在 `fakevo.c:290`）；
+- 真画面来源（§3.3 采集 / 被控机 agent 推屏）。
 
 

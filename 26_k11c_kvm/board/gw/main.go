@@ -15,13 +15,18 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"flag"
+	"io"
 	"log"
 	"math"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,12 +35,34 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+// hidrpc 报文类型，逐字节照 jetkvm/kvm 的 internal/hidrpc/hidrpc.go：
+//
+//	0x03 PointerReport = [type][x int32 BE][y int32 BE][buttons u8]   共 10 字节
+//	0x01 Handshake     = [type][version]
+//
+// 只搬鼠标（移动和按键共用这一个报文，buttons 是位掩码）——它是唯一吃延迟的一条。
+// 键盘/文字继续走原来的 HTTP JSON-RPC；JetKVM 的滚轮报文在源码里只有类型号、没有布局，
+// 所以不自己发明格式。
+const (
+	msgHandshake  = 0x01
+	msgPointer    = 0x03
+	hidVersion    = 0x01
+	pointerMsgLen = 10
+	dcLabel       = "hid"
+	dcQueueLen    = 64
+)
+
 // session 是一条观看端连接。live 只有在 DTLS/SRTP 真的打通后才置位，
 // rtp_sent 因此是"确实发出去了"，不是"往空管子里灌了多少"。
 type session struct {
 	pc    *webrtc.PeerConnection
 	track *webrtc.TrackLocalStaticRTP
 	live  atomic.Bool
+
+	dc     *webrtc.DataChannel
+	dcOpen atomic.Bool
+	queue  chan []byte
+	closed sync.Once
 }
 
 var (
@@ -45,6 +72,8 @@ var (
 	udpConn   *net.UDPConn
 	statsFile string
 	startAt   = time.Now()
+	rpcURL    = "http://127.0.0.1:8000/rpc"
+	rpcClient = &http.Client{Timeout: 2 * time.Second}
 
 	rtpIn     uint64
 	rtpSent   uint64
@@ -52,6 +81,10 @@ var (
 	rtpNoPeer uint64
 	bytesIn   uint64
 	offers    uint64
+	dcIn      uint64
+	dcBad     uint64
+	dcDrop    uint64
+	dcHTTPerr uint64
 )
 
 // swap 装上这条新连接，并把旧的关掉。
@@ -62,6 +95,7 @@ func swap(s *session) {
 	mu.Unlock()
 	if old != nil && old != s {
 		_ = old.pc.Close()
+		old.shutdown() // 被新观看端顶掉时不会走 retire，队列得在这儿关，否则 worker 泄漏
 	}
 }
 
@@ -70,10 +104,14 @@ func swap(s *session) {
 // 浏览器的 /answer 就会撞上"没有活动连接"。
 func retire(s *session) {
 	mu.Lock()
-	if cur == s {
+	keep := cur != s
+	if !keep {
 		cur = nil
 	}
 	mu.Unlock()
+	if !keep {
+		s.shutdown()
+	}
 }
 
 func newOffer() (string, error) {
@@ -102,7 +140,46 @@ func newOffer() (string, error) {
 
 	gathered := make(chan struct{})
 	var gatherOnce sync.Once
-	s := &session{pc: pc, track: tr}
+	s := &session{pc: pc, track: tr, queue: make(chan []byte, dcQueueLen)}
+
+	// datachannel 由板子这边先建、写进 offer，浏览器用 ondatachannel 接。
+	// （JetKVM 是反过来的：浏览器建、设备 OnDataChannel 收 —— 那要配 perfect negotiation
+	//   二次协商。我们的信令只有一次 offer/answer，所以换了方向建，报文格式完全照他。）
+	ordered := true
+	dc, err := pc.CreateDataChannel(dcLabel, &webrtc.DataChannelInit{Ordered: &ordered})
+	if err != nil {
+		return "", err
+	}
+	s.dc = dc
+	dc.OnOpen(func() {
+		s.dcOpen.Store(true)
+		log.Printf("hid datachannel 打开")
+	})
+	dc.OnClose(func() {
+		s.dcOpen.Store(false)
+		s.shutdown()
+		log.Printf("hid datachannel 关闭")
+	})
+	dc.OnMessage(func(m webrtc.DataChannelMessage) {
+		if m.IsString || len(m.Data) == 0 {
+			atomic.AddUint64(&dcBad, 1)
+			return
+		}
+		atomic.AddUint64(&dcIn, 1)
+		if m.Data[0] == msgHandshake {
+			if len(m.Data) >= 2 && m.Data[1] != hidVersion {
+				log.Printf("对端 hidrpc 版本 %d，本端 %d", m.Data[1], hidVersion)
+			}
+			return
+		}
+		// 照 JetKVM：收包线程只做入队，真正的转发在 worker 里，免得 HTTP 卡住 SCTP 读
+		select {
+		case s.queue <- append([]byte(nil), m.Data...):
+		default:
+			atomic.AddUint64(&dcDrop, 1) // 队列满：丢，不阻塞（JetKVM 同样语义）
+		}
+	})
+	go s.runHID()
 	pc.OnICEGatheringStateChange(func(st webrtc.ICEGatheringState) {
 		if st == webrtc.ICEGatheringStateComplete {
 			gatherOnce.Do(func() { close(gathered) })
@@ -158,6 +235,51 @@ func applyAnswer(sdp string) error {
 	})
 }
 
+// runHID 把 datachannel 队列里的报文翻译成 kvm_server 的 JSON-RPC 发给本机。
+// 只用一条 worker 串行处理，保证鼠标"按下/松开"不会乱序。
+func (s *session) runHID() {
+	for data := range s.queue {
+		switch data[0] {
+		case msgPointer:
+			if len(data) != pointerMsgLen {
+				atomic.AddUint64(&dcBad, 1)
+				continue
+			}
+			x := int32(binary.BigEndian.Uint32(data[1:5]))
+			y := int32(binary.BigEndian.Uint32(data[5:9]))
+			body := `{"id":0,"method":"absMouseReport","params":{"x":` +
+				strconv.FormatInt(int64(x), 10) + `,"y":` +
+				strconv.FormatInt(int64(y), 10) + `,"buttons":` +
+				strconv.Itoa(int(data[9])) + `}}`
+			if err := postRPC(body); err != nil {
+				atomic.AddUint64(&dcHTTPerr, 1)
+			}
+		default:
+			atomic.AddUint64(&dcBad, 1) // 键盘类报文还没接到 datachannel 上
+		}
+	}
+}
+
+// shutdown 关掉队列，让 worker 退出。retire 和 dc.OnClose 都可能先到，所以只关一次。
+func (s *session) shutdown() {
+	s.closed.Do(func() { close(s.queue) })
+}
+
+// postRPC 转给 kvm_server。HID 那套逻辑只有 Python 一份实现，网关不复制第二份。
+// 必须把响应体读干净，否则 keep-alive 连接不会被复用（每次新建连接会多几毫秒）。
+func postRPC(body string) error {
+	resp, err := rpcClient.Post(rpcURL, "application/json", bytes.NewBufferString(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("rpc HTTP " + strconv.Itoa(resp.StatusCode))
+	}
+	return nil
+}
+
 // pump 把 UDP 上的 RTP 原样写给当前 track。
 func pump() {
 	buf := make([]byte, 2048)
@@ -205,6 +327,11 @@ type stateMsg struct {
 	KbpsIn    float64 `json:"kbps_in"`
 	Offers    uint64  `json:"offers"`
 	PeerLive  bool    `json:"peer_live"`
+	DcOpen    bool    `json:"dc_open"`
+	DcIn      uint64  `json:"dc_in"`
+	DcBad     uint64  `json:"dc_bad"`
+	DcDrop    uint64  `json:"dc_drop"`
+	DcHTTPerr uint64  `json:"dc_http_err"`
 }
 
 func handler() http.Handler {
@@ -261,9 +388,14 @@ func handler() http.Handler {
 				RtpNoPeer: atomic.LoadUint64(&rtpNoPeer),
 				BytesIn:   atomic.LoadUint64(&bytesIn),
 				Offers:    atomic.LoadUint64(&offers),
+				DcIn:      atomic.LoadUint64(&dcIn),
+				DcBad:     atomic.LoadUint64(&dcBad),
+				DcDrop:    atomic.LoadUint64(&dcDrop),
+				DcHTTPerr: atomic.LoadUint64(&dcHTTPerr),
 			}
 			if s != nil {
 				st.PeerLive = s.live.Load()
+				st.DcOpen = s.dcOpen.Load()
 			}
 			if up > 0 {
 				st.KbpsIn = float64(st.BytesIn) * 8 / 1000 / up
@@ -282,9 +414,11 @@ func main() {
 		port    = flag.Int("port", 8001, "HTTP 信令端口")
 		rtpPort = flag.Int("rtp-port", 5004, "板内 RTP 收流端口")
 		stats   = flag.String("stats", "/tmp/webrtc_stats.log", "浏览器统计落盘路径")
+		rpc     = flag.String("rpc", "http://127.0.0.1:8000/rpc", "板内 JSON-RPC 地址（datachannel 的鼠标报文转发到这里）")
 	)
 	flag.Parse()
 	statsFile = *stats
+	rpcURL = *rpc
 
 	var err error
 	udpConn, err = net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: *rtpPort})

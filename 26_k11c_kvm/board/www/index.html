@@ -74,14 +74,14 @@ document.getElementById('surface').appendChild(vid);
 /* 状态行分开存：fps/clients 由 /state 轮询更新，ms/err 由每次 RPC 更新。
    早先只有一行文本、轮询时整行重画，把"上次 RPC xx ms"盖掉了。 */
 var net = { fps: '-', clients: '-', ms: '-', best: '-', err: '',
-            codec: '-', vf: '-', drop: '-', jb: '-' };
+            codec: '-', vf: '-', drop: '-', jb: '-', tx: 'HTTP' };
 
 function render() {
   var head = MJPEG
     ? net.fps + ' fps | ' + net.clients + ' 看流'
     : (net.codec === '-' ? '连视频中' : net.codec + ' ' + net.vf + ' fps') +
       ' | 丢帧 ' + net.drop + ' | 缓冲 ' + net.jb + ' ms';
-  st.textContent = head + ' | 上次 RPC ' + net.ms +
+  st.textContent = head + ' | 鼠标 ' + net.tx + ' | 上次 RPC ' + net.ms +
     ' ms | 最快 ' + net.best + ' ms' + (net.err ? ' | ' + net.err : '');
   st.className = net.err ? 'bad' : '';
 }
@@ -107,6 +107,29 @@ function rpc(method, params) {
   });
 }
 
+/* ---------- 鼠标走 WebRTC datachannel（JetKVM 的 hidrpc 二进制报文） ----------
+   报文：0x03 + x(int32 大端) + y(int32 大端) + buttons(u8)，共 10 字节。
+   和 HTTP 的区别不是"更快送达"，是**不用等回执**：光标在板子收到的那一刻就动了，
+   浏览器不必再等一个没用的 JSON 回来。通道没开就退回 HTTP，功能不能因为换传输而挂掉。 */
+var dc = null, dcSent = 0, httpSent = 0;
+
+function pointerMsg(x, y, buttons) {
+  var b = new Uint8Array(10);
+  b[0] = 0x03;
+  b[1] = (x >> 24) & 255; b[2] = (x >> 16) & 255; b[3] = (x >> 8) & 255; b[4] = x & 255;
+  b[5] = (y >> 24) & 255; b[6] = (y >> 16) & 255; b[7] = (y >> 8) & 255; b[8] = y & 255;
+  b[9] = buttons;
+  return b;
+}
+
+function sendPointer(x, y, buttons) {
+  if (dc && dc.readyState === 'open') {
+    try { dc.send(pointerMsg(x, y, buttons)); dcSent++; return; } catch (e) {}
+  }
+  httpSent++;
+  rpc('absMouseReport', { x: x, y: y, buttons: buttons }).catch(function () {});
+}
+
 /* ---------- 触摸板：手指在画面上移动 = 绝对鼠标 ---------- */
 function rel(e) {
   var r = vid.getBoundingClientRect();
@@ -117,7 +140,7 @@ function rel(e) {
 
 function sendMove(p) {
   lastSent = performance.now();
-  rpc('absMouseReport', { x: p.x, y: p.y, buttons: 0 }).catch(function () {});
+  sendPointer(p.x, p.y, 0);
 }
 
 function onMove(e) {
@@ -139,6 +162,12 @@ function onMove(e) {
 }
 
 function clickAt(btn) {
+  /* datachannel 是 ordered 的，两条报文不会乱序；HTTP 那边走 rpc 的 Promise 链保序 */
+  if (dc && dc.readyState === 'open') {
+    sendPointer(cur.x, cur.y, btn);
+    sendPointer(cur.x, cur.y, 0);
+    return;
+  }
   rpc('absMouseReport', { x: cur.x, y: cur.y, buttons: btn })
     .then(function () { return rpc('absMouseReport', { x: cur.x, y: cur.y, buttons: 0 }); })
     .catch(function () {});
@@ -251,11 +280,20 @@ function readStats() {
 function connectVideo() {
   if (MJPEG) { return; }
   var my = ++sess;
+  dc = null;
+  net.tx = 'HTTP';
   pc = new RTCPeerConnection();
   pc.ontrack = function (e) {
     if (my !== sess) { return; }
     vid.srcObject = e.streams[0] || new MediaStream([e.track]);
     try { e.receiver.jitterBufferTarget = 0; } catch (err) {}
+  };
+  pc.ondatachannel = function (e) {
+    if (my !== sess) { return; }
+    dc = e.channel;
+    dc.binaryType = 'arraybuffer';
+    dc.onopen = function () { net.tx = 'DC'; render(); };
+    dc.onclose = function () { net.tx = 'HTTP'; render(); };
   };
   pc.onconnectionstatechange = function () {
     if (my !== sess) { return; }
