@@ -8,3 +8,6 @@
 26_k11c_kvm/**/*.go text eol=lf
 26_k11c_kvm/**/go.mod text eol=lf
 26_k11c_kvm/**/go.sum text eol=lf
+
+# 所有 shell 脚本一律 LF：CRLF 会让 #!/bin/sh 那行带 ，脚本直接跑不动
+*.sh text eol=lf
