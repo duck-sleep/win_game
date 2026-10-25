@@ -25,3 +25,15 @@ index d65f1f1a8..9235a1b9d 100644
  CONFIG_TYPEC_TCPM=y
  CONFIG_TYPEC_TCPCI=y
  CONFIG_TYPEC_HUSB311=y
+diff --git a/ubuntu/overlay/home/kickpi/.config/autostart/onboard.desktop b/ubuntu/overlay/home/kickpi/.config/autostart/onboard.desktop
+old mode 100755
+new mode 100644
+index 0423e514c..e1e3e1732
+--- a/ubuntu/overlay/home/kickpi/.config/autostart/onboard.desktop
++++ b/ubuntu/overlay/home/kickpi/.config/autostart/onboard.desktop
+@@ -1,4 +1,2 @@
+ [Desktop Entry]
+-Type=Application
+-Name=Onboard Keyboard
+-Exec=/usr/local/bin/onboard-tray.sh
++Hidden=true

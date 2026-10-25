@@ -1,5 +1,9 @@
 # SDK 侧的两处改动（**重建编译环境后必须重打，否则板子不会变成键鼠**）
 
+> **10-21 更新**：这份说明只覆盖内核 + 设备树两处。
+> **完整清单在 `VM-STATE.md`**，**完整补丁是 `sdk-tracked.patch`（3 个文件，本文件那份的超集，提交后删掉 `k11c-kvm-kernel.patch`）**。
+> 第三处改动是 `ubuntu/overlay/home/kickpi/.config/autostart/onboard.desktop` 改成 `Hidden=true`（官方开机自启的虚拟键盘会盖住画面）。
+
 这两处改的是 **VM 里那份 RK SDK 的源码树**（`~/k11c/rk-linux6.1-2026091606/`），
 不在我们自己的 `26_k11c_kvm/` 代码里，所以**重新下载 SDK / 重开虚拟机之后它们就没了**。
 10-21 之前它们只存在于 VM 的工作目录里 —— 这份补丁就是为了补掉这个洞。
