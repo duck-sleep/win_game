@@ -1,0 +1,11 @@
+- [WorkBuddy 迁移记忆 · 助手身份](workbuddy-identity.md) — IDENTITY.md · Who Am I?
+- [WorkBuddy 迁移记忆](workbuddy-memory.md) — WorkBuddy 用户级长期记忆，Git / GitHub（2026-09-11 配置），本机环境
+- [WorkBuddy 迁移记忆 · 助手设定](workbuddy-soul.md) — SOUL.md · Who You Are，Core Truths，Boundaries，Vibe，Continuity
+- [WorkBuddy 迁移记忆 · 用户资料](workbuddy-user.md) — WorkBuddy 用户资料
+- [AI 要直接执行，不要只贴命令](feedback-ai-executes-not-pastes.md) — 自己跑完报结果；但路线分叉先给他拍板、按官方教程表述
+- [验方案模式 + 先总后分文档](feedback-plan-validation-mode.md) — "你先别干 我们验方案"期间只改文档；结论必须标已证/未证+验证命令
+- [咨询型讨论也要主动落盘](feedback-save-discussion-baselines.md) — 数字基线/路线结论当场更新进对应线的记忆；记忆目录非 git、不同步，要版本化就写 12_win_上机跑 的文档
+- [别拿重启当排查手段](feedback-no-disruptive-probes.md) — 实机问题先出只读证据；拔 Type-C = 给 K11C 断电；破坏性动作先说目的再动手
+- [先加可观测性再猜 + 报数字要说清口径](feedback-instrument-and-explain-metrics.md) — "看起来坏了"就加计数器/日志；指标要讲量的是哪段、不含什么；报"省了多少"前先查基线是在什么状态下量的；有副作用的默认值关着
+- [记忆要镜像进仓库才算存过](feedback-memory-mirrored-into-repo.md) — 写完本机记忆必须跑 sync_qoder_memory.sh 再提交；别挪走本机目录；VM 口令自动脱敏
+
