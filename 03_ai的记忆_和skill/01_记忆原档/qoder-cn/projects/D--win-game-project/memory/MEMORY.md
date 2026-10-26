@@ -9,5 +9,5 @@
 - [WorkBuddy 迁移记忆 · 2026-10-14](workbuddy-daily-2026-10-14.md) — 2026-10-14 工作日志，目录清理复核（承接 10-13 的“哪些目录过期/可删”审查），咨询：同一台 VM 再编 RK356x/RK3588 Linux SDK，会不会把安卓环境搞坏？，删 `out/` 前的安全审计（只读，脚本 `/tmp/audit_out.sh`） · · 结论：**可安全删除**，新工程：KICKPI K11C（RK3566）Linux SDK · · `D:\02_baidu` 下载件分类（共 100…
 - [WorkBuddy 迁移记忆](workbuddy-memory.md) — SNM970 项目长期笔记（WorkBuddy） · · 指针文件，恢复流程（新会话照这个走），快照（2026-09-12 深夜更新；详见 00_START_新会话入口.md）
 - [K11C(RK3566) Linux 线](k11c-rk3566-line.md) — 板 V1.2 无屏走HDMI；选6.1；官方路线是overlay；10-15全量编译成功**已烧板并串口验证**
-- [K11C 做 IP-KVM 线](k11c-ip-kvm-line.md) — 10-20：WebRTC=Go+pion 静态二进制（H.265 1080p60 零丢帧，板子 38% CPU vs 软路径 370%）；A 形态关桌面上板过了；固件已编好等人烧
+- [K11C 做 IP-KVM 线](k11c-ip-kvm-line.md) — 10-26：手机比电视慢2帧(33-40ms)已实测；WiFi省电零收益销账；鼠标改覆盖式手感OK；🔴未修：/offer 一进来就踢掉当前观看端
 - [RK 编译 VM（rk-vm）](rk-vm-k11c.md) — rk@rk-vmachine 192.168.234.141，免密+依赖齐，SDK 23G 在 ~/k11c；勿与安卓 VM 同开
