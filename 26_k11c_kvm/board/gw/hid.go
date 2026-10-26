@@ -40,19 +40,28 @@ const (
 )
 
 var (
-	dcIn         uint64
-	dcBad        uint64
-	dcDrop       uint64
-	dcHTTPerr    uint64
-	dcUnsupport  uint64
-	rpcIn        uint64
-	rpcHTTPerr   uint64
-	rpcWriteErr  uint64
+	dcIn        uint64
+	dcBad       uint64
+	dcDrop      uint64
+	dcHTTPerr   uint64
+	dcUnsupport uint64
+	dcCoalesced uint64 // 被"更新的位置"顶掉的移动条数（设计行为，不是事故）
+	rpcIn       uint64
+	rpcHTTPerr  uint64
+	rpcWriteErr uint64
 )
 
 // handleHIDMessage 解析一条二进制报文，返回要发给 kvm_server 的 JSON-RPC 请求体。
-// 返回空串表示这条不需要转发（握手已在通道里回掉了 / 不支持的类型）。
-func handleHIDMessage(s *session, data []byte) (string, []byte, bool) {
+// 返回值：
+//
+//	body   要转发给 kvm_server 的 JSON-RPC（空串 = 不用转发）
+//	reply  要原样回给对端的字节（握手用）
+//	isMove true = 纯移动报文，走"只保留最新一条"的槽位，不进队列
+//
+// 为什么移动不进队列：绝对坐标只有最新一条有意义。转发稍一慢队列就溢出
+// （实测丢过 56 条 = 6.7%），而且就算不溢出，把 200 ms 前的位置补发出去
+// 只会让光标倒回去 —— 那正是"不跟手"本身。
+func handleHIDMessage(s *session, data []byte) (body string, reply []byte, isMove bool) {
 	if len(data) < 1 {
 		atomic.AddUint64(&dcBad, 1)
 		return "", nil, false
@@ -61,7 +70,7 @@ func handleHIDMessage(s *session, data []byte) (string, []byte, bool) {
 	switch data[0] {
 	case msgHandshake:
 		// 照 JetKVM：原样回一条握手，对端收到才认为 hidrpc 可用
-		return "", []byte{msgHandshake, hidVersion}, true
+		return "", []byte{msgHandshake, hidVersion}, false
 	case msgPointer:
 		if len(data) != pointerMsgLen {
 			atomic.AddUint64(&dcBad, 1)
@@ -69,10 +78,13 @@ func handleHIDMessage(s *session, data []byte) (string, []byte, bool) {
 		}
 		x := int32(binary.BigEndian.Uint32(data[1:5]))
 		y := int32(binary.BigEndian.Uint32(data[5:9]))
-		return `{"id":0,"method":"absMouseReport","params":{"x":` +
+		buttons := data[9]
+		body = `{"id":0,"method":"absMouseReport","params":{"x":` +
 			strconv.FormatInt(int64(x), 10) + `,"y":` +
 			strconv.FormatInt(int64(y), 10) + `,"buttons":` +
-			strconv.Itoa(int(data[9])) + `}}`, nil, false
+			strconv.Itoa(int(buttons)) + `}}`
+		// 带按键的（按下/松开）不许被覆盖掉，否则一次点击可能整笔丢失
+		return body, nil, buttons == 0
 	case msgKeyboard:
 		if len(data) < keyboardMsgMin {
 			atomic.AddUint64(&dcBad, 1)

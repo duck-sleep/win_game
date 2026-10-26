@@ -25,8 +25,6 @@ func oneLine(s string) string {
 
 func itoa(v int) string { return strconv.Itoa(v) }
 
-func boolPtr(v bool) *bool { return &v }
-
 func uint16Ptr(v uint16) *uint16 { return &v }
 
 func joinComma(parts []string) string { return strings.Join(parts, ",") }

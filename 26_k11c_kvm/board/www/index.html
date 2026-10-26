@@ -65,7 +65,10 @@
 <script>
 var MAX = 32767, seq = 0, cur = { x: 16384, y: 16384 };
 var st = document.getElementById('st');
-var THROTTLE = 30, lastSent = 0, pending = null, timer = null;
+var lastSent = 0, pending = null, timer = null;
+/* 节流间隔：走 datachannel 时 16 ms（和电视 60 帧同拍，一次拖动最多 60 条），
+   退回 HTTP 时 30 ms（一次请求一个往返，发太密只会自己把管道塞满）。 */
+function throttleMs() { return (dcFast && dcFast.readyState === 'open') ? 16 : 30; }
 
 /* 画面有两种：默认 WebRTC(H.265 硬解)；地址带 ?mjpeg=1 退回旧的 <img> 软编路径。
    坐标换算只认 getBoundingClientRect()，两种元素共用同一套触摸代码。 */
@@ -128,8 +131,7 @@ function pointerMsg(x, y, buttons) {
 
 function sendPointer(x, y, buttons) {
   /* 纯移动走不可靠通道；带按键的（按下/松开）走可靠通道 */
-  var ch = buttons === 0 ? (dcFast && dcFast.readyState === 'open' ? dcFast : dcHid) : dcHid;
-  if (ch && ch.readyState === 'open') {
+  var ch = buttons === 0 ? (dcFast && dcFast.readyState === 'open' ? dcFast : dcHid) : dcHid;  if (ch && ch.readyState === 'open') {
     try {
       ch.send(pointerMsg(x, y, buttons));
       if (ch === dcFast) { fastSent++; } else { dcSent++; }
@@ -178,7 +180,7 @@ function sendMove(p) {
 function onMove(e) {
   var p = rel(e);
   cur = p;
-  var wait = THROTTLE - (performance.now() - lastSent);
+  var wait = throttleMs() - (performance.now() - lastSent);
   if (wait <= 0) {
     pending = null;
     sendMove(p);

@@ -44,12 +44,17 @@ type session struct {
 	live  atomic.Bool
 
 	hid     *webrtc.DataChannel // 可靠：键盘 + 鼠标按键
-	hidFast *webrtc.DataChannel // 不可靠：鼠标移动
+	hidFast *webrtc.DataChannel // 保序不重传：鼠标移动
 	rpc     *webrtc.DataChannel // JSON-RPC：滚轮 / 打字 / 查询
 	hidOpen atomic.Bool
 	rpcOpen atomic.Bool
 	queue   chan []byte
 	closed  sync.Once
+
+	// latest 是"只保留最新一条"的移动槽位，doorbell 用来叫醒 worker。
+	// 按键/键盘/文字都走 queue（要保序、不许被覆盖），只有纯移动走 latest。
+	latest   atomic.Pointer[[]byte]
+	doorbell chan struct{}
 }
 
 var (
@@ -123,15 +128,15 @@ func newOffer() (string, error) {
 
 	gathered := make(chan struct{})
 	var gatherOnce sync.Once
-	s := &session{pc: pc, track: tr, queue: make(chan []byte, dcQueueLen)}
+	s := &session{pc: pc, track: tr, queue: make(chan []byte, dcQueueLen), doorbell: make(chan struct{}, 1)}
 
 	// 通道由板子这边先建、写进 offer，浏览器用 ondatachannel 接。
 	// （JetKVM 是反过来的：浏览器建、设备 OnDataChannel 收 —— 那要配 perfect negotiation
 	//   二次协商。我们的信令只有一次 offer/answer，所以换了方向建，报文格式完全照他。）
 	ordered := true
 	fast, err := pc.CreateDataChannel(dcLabelHIDFast, &webrtc.DataChannelInit{
-		Ordered:        boolPtr(false),
-		MaxRetransmits: uint16Ptr(0), // 一次都别重传：旧的鼠标位置没有价值
+		Ordered:        &ordered,      // 必须保序：乱序到达 = 光标一会儿新位置一会儿旧位置，来回跳
+		MaxRetransmits: uint16Ptr(0), // 但一次都不重传：旧位置没有价值，宁可丢
 	})
 	if err != nil {
 		return "", err
@@ -151,8 +156,8 @@ func newOffer() (string, error) {
 			atomic.AddUint64(&dcBad, 1)
 			return
 		}
-		body, reply, replied := handleHIDMessage(s, m.Data)
-		if replied {
+		body, reply, isMove := handleHIDMessage(s, m.Data)
+		if len(reply) > 0 {
 			if err := ch.Send(reply); err != nil {
 				log.Printf("握手回包失败: %v", err)
 			}
@@ -161,7 +166,19 @@ func newOffer() (string, error) {
 		if body == "" {
 			return // 不支持的类型，handleHIDMessage 已经计过数
 		}
-		// 照 JetKVM：收包线程只入队，转发在 worker 里做，免得 HTTP 卡住 SCTP 读
+		if isMove {
+			// 覆盖式：新位置直接把还没转发的旧位置顶掉，绝不排队
+			b := []byte(body)
+			if s.latest.Swap(&b) != nil {
+				atomic.AddUint64(&dcCoalesced, 1)
+			}
+			select {
+			case s.doorbell <- struct{}{}:
+			default: // worker 已经被叫过了，它会取到最新那条
+			}
+			return
+		}
+		// 按键/键盘/文字：进队列，保序、不许被覆盖
 		select {
 		case s.queue <- []byte(body):
 		default:
@@ -253,10 +270,25 @@ func applyAnswer(sdp string) error {
 // runHID 把 datachannel 队列里的报文翻译成 kvm_server 的 JSON-RPC 发给本机。
 // 只用一条 worker 串行处理，保证鼠标"按下/松开"不会乱序。
 func (s *session) runHID() {
-	for body := range s.queue {
-		if _, err := postRPCBody(body); err != nil {
-			atomic.AddUint64(&dcHTTPerr, 1)
+	for {
+		select {
+		case body, ok := <-s.queue:
+			if !ok {
+				return // 队列被关 = 这条连接结束了
+			}
+			s.post(body)
+		case <-s.doorbell:
+			// 只发最新那一条移动，中间被顶掉的位置直接作废
+			if p := s.latest.Swap(nil); p != nil {
+				s.post(*p)
+			}
 		}
+	}
+}
+
+func (s *session) post(body []byte) {
+	if _, err := postRPCBody(body); err != nil {
+		atomic.AddUint64(&dcHTTPerr, 1)
 	}
 }
 
@@ -337,6 +369,7 @@ type stateMsg struct {
 	DcDrop    uint64 `json:"dc_drop"`
 	DcHTTPerr uint64 `json:"dc_http_err"`
 	DcUnsup   uint64 `json:"dc_unsupported"`
+	DcCoalesc uint64 `json:"dc_coalesced"`
 	RPCIn     uint64 `json:"rpc_in"`
 	RPCHTTPer uint64 `json:"rpc_http_err"`
 	RPCWriteE uint64 `json:"rpc_write_err"`
@@ -401,6 +434,7 @@ func handler() http.Handler {
 				DcDrop:    atomic.LoadUint64(&dcDrop),
 				DcHTTPerr: atomic.LoadUint64(&dcHTTPerr),
 				DcUnsup:   atomic.LoadUint64(&dcUnsupport),
+				DcCoalesc: atomic.LoadUint64(&dcCoalesced),
 				RPCIn:     atomic.LoadUint64(&rpcIn),
 				RPCHTTPer: atomic.LoadUint64(&rpcHTTPerr),
 				RPCWriteE: atomic.LoadUint64(&rpcWriteErr),
