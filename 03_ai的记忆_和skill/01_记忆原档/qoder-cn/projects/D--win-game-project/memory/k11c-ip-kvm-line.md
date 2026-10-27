@@ -635,6 +635,69 @@ NM 的持久化也没走通：`conf.d` 里 `[device-wifi]` 和官方那种 `[con
 **⑨ 工具环境一条**：`git push` 失败并出现 `Connection closed by 198.18.0.x port 443/22` ⇒
 **是本机 Clash(TUN) 劫持了 GitHub 的 SSH，不是仓库权限问题**；让用户切/关 Clash 即可（10-26 实测两次都是这个）。
 
+---
+
+## 【10-27】公网接入调研（用户"好像有个公网方案是不是" + "JetKVM 是不是有类似方案"）
+
+**⚠️ 先记一条环境事实**：`github.com/duck-sleep/win_game` **是 public**（未登录 `GET api.github.com/repos/...`
+返回 200、`"private": false`）。里面有明文：WiFi `Duck_5G`/`00000000`（`26_k11c_kvm/host/t2_wifi.txt` 等 8 个文件）、
+板子 `kickpi`/`kickpi` 与 `root`/`root`。用户口径是"安全问题无所谓 就我用"，**但那是以为仓库私有**。
+我给了两条收口建议（转 Private / 换口令），他还没拍板。**以后往这个仓库推东西，默认按"公开"对待**。
+
+**为什么现在出不了家门（已证，代码级）**：`board/gw/main.go:117` 建 PC 用**空配置** `webrtc.Configuration{}`
+⇒ 无 STUN 无 TURN ⇒ 只有 host 候选（LAN IP）。这不是残缺：JetKVM `IsCloud=false`（局域网连）时
+`iceServer` 也是空的，**我们等于他的 LAN 模式**。当年 §2 把"云/Tailscale/登录"划成"不做·按需"（方案文档 L320/L1112）。
+
+**板子网络实测（只读命令，无安装无重启）**：`aarch64`；IPv4 出公网 OK（github 200/0.59s、ports.ubuntu.com 200）；
+**IPv6 完全没有**（只有 `fe80::`，`ip -6 route get` = `Network is unreachable`）⇒ v6 直连这条最省事的路在家不通；
+Tailscale 四件套全可达（`pkgs.tailscale.com` 200、`controlplane`/`login` 302、**`derp9.tailscale.com:443` 200**）；
+`wlan0` 上挂了**两个 IPv4**（`.89` metric 600 / `.91` metric 3003，两条默认路由）但 `nmcli` 只有一个活动连接 —— 要固定地址先理清这个。
+
+**JetKVM 的公网方案（读他 `dev` 分支源码得到，不是博客二手货）**，三块拼图：
+1. **信令 = 设备主动出一条 WebSocket 到云**（`cloud.go:308`，ping 间隔要小于云侧超时；注册 `POST {cloud}/devices/token` 用配对码换 token，`cloud.go:226`）
+   ⇒ 设备侧**不需要公网 IP / 端口映射 / IPv6 / 路由器设置**。
+2. **媒体 = 云按会话下发 ICE**（`cloud.go:463 ICEServers: req.ICEServers` → `webrtc.go:453-458` 仅 `IsCloud` 启用）。
+   他的 TURN **不是自建 coturn**，是找 **Cloudflare 托管 TURN** 现生成临时凭据
+   （`cloud-api/src/webrtc.ts:114 rtc.live.cloudflare.com/v1/turn/keys/{CLOUDFLARE_TURN_ID}/credentials/generate`，
+   还把 `turns:` 过滤掉 :134）。另有 `webrtc.go:461-475 SetICEAddressRewriteRules{External:[req.IP], Append, AsCandidateType:srflx}`
+   = 把云发来的 IP 追加成 srflx 候选，不做 STUN 也拿到公网候选。
+   ✅ **`req.IP` 语义已证**（`cloud-api/src/webrtc-signaling.ts:156-158`）= **云端从设备那条 WS 的 socket 源地址看到的设备公网 IP**
+   （或 `REAL_IP_HEADER`）⇒ 设备不查 STUN 也知道自己的对外地址；对称 NAT 下这条失效，靠浏览器侧 TURN 兜。
+   **ICE 分工（别记错）**：云给**设备**的 `iceServers` 被 `startsWith("stun:")` 硬过滤成**只有 STUN**（`webrtc-signaling.ts:26-33`）；
+   **TURN 只发给浏览器**，是 `cloud-api/src/webrtc.ts:100-138` 现场找 Cloudflare 托管 TURN 生成的 `ttl:3600` 临时凭据
+   （`customIdentifier=user.id`，还把 `turns:` 滤掉），旁边 `CreateTurnActivity` 按用户记中继字节 = 他的成本账本。
+
+**🔴 读全实现挖出的三条"现在就能抄、不需要服务器"的板子侧改动**（clone 在 `C:\Users\123456\AppData\Local\Temp\jetkvm-ref`）：
+1. **协商成功才接管**：`cloud.go:472-476` 先 `ExchangeOffer`，`err != nil` 直接 return、**不碰 `currentSession`**
+   ⇒ 这就是我们 `/offer` 踢人那条缺陷的现成修法，不用再自己设计一遍。
+2. **换人/关闭时清 HID 状态**：`cloud.go:479-480` `CancelAllAutoReleaseTimers()` + `rpcKeyboardReport(0, clearKeys)`，
+   ICE 关闭路径 `webrtc.go:632-642` 再做一次。**我们完全没有**（`gw/main.go:296 shutdown()` 只 `close(s.queue)`，
+   `kvm_server.py` grep `clear|release|reset` 只命中内核版本号）
+   ⇒ **手机按住 W 键时断线/被接管 = Windows 永久卡在按住 W**（游戏里角色一直往前跑）。
+   **这条优先级排在"公网"之前**，因为它是此刻就在发生的可感知故障。
+3. **被踢的人收到事件不是黑屏**：`writeJSONRPCEvent("otherSessionConnected")` + **睡 1 秒**才 `peerConn.Close()`（`cloud.go:478-485`）。
+
+**两条旧说法核实完毕**：① "他丢弃 RTCP"**成立**（全仓 grep `PLI|FeedbackType|OnRTCP|RequestKeyFrame` = 0，只注册 `playout-delay`，`webrtc.go:493`）
+⇒ "我们做 PLI→强制 IDR 会比他强"这条判断继续有效；② `MqttConfig` 默认 `Enabled:false` + `EnableHADiscovery` ⇒ **是 Home Assistant 集成，不是穿透通道**。
+另外他设备自己也开 `protected.GET("/webrtc/signaling/client")`（`web.go:202`），`isCloud=false` 时不填 ICE —— **和我们完全同款**，
+本地那层鉴权是 `HashedPassword`/`LocalAuthToken`/`LocalAuthMode`/`LocalLoopbackOnly` + `/auth/login-local`；
+他还得多背一个 `web_tls.go`（自签证书）就因为浏览器要求安全上下文才给 WebRTC。
+3. **身份 = Google OIDC 卡归属**（`cloud.go:400-426`，id token 验完还要比 `config.GoogleIdentity`，不符回 `google identity mismatch`）；
+   本地模式另有 `HashedPassword`/`LocalAuthToken`/`LocalAuthMode`/`LocalLoopbackOnly`（`config.go:101-104`）。
+   `MqttConfig` **默认 Enabled:false**（`config.go:211`）——那是 Home Assistant 集成，**不是穿透通道**，别被仓库里的 mqtt 字样误导。
+
+**给用户的三条路（未定，等他拍板）**：A. **Tailscale**（零代码改动，pion 把 tailscale 网卡当 host 候选，中继时 WG 连媒体都带得动；代价=每端装 App、手机变全局 VPN）；
+B. **照 JetKVM**（信令走公网入口 + 两端填 `iceServers`；代码小、要养一台公网服务）；C. **白嫖版** = `cloudflared tunnel` 穿信令 + Cloudflare Network Turn 穿媒体
+（**国内到 CF UDP/443 稳不稳未证**）。E 只穿 HTTP 的方案带不动 WebRTC 媒体，只能退 `?mjpeg=1`（固件里已 `--no-mjpeg`），只配应急看一眼。
+🔴 **A/B/C/D 之前都必须先补两条**（他有我们没有）：**零认证**（谁能连 `:8000` 谁就能注 HID = 拿到被控 Windows 完全控制权）
++ **`GET /offer` 一进来就踢人**（公网会被循环 offer 变成持续 DoS）。建议顺序：修这两条 → 上 A → 需要"零安装"才做 B/C。
+
+**取源码的土办法（下次还用得上）**：本机到 GitHub 的 HTTPS 会随 Clash 状态时好时坏（`curl` 直接 000），
+**jsDelivr 稳定**：`https://cdn.jsdelivr.net/gh/<owner>/<repo>@<branch>/<path>`；
+文件清单用 `https://data.jsdelivr.com/v1/packages/gh/<owner>/<repo>@<branch>?structure=flat`。
+仓库名以 org API 为准：设备侧是 **`jetkvm/kvm`**（默认分支 `dev`，不是 `device`），云侧 `jetkvm/cloud-api`。
+
+
 
 
 

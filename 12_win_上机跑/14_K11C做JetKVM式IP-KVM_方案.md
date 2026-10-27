@@ -1530,6 +1530,111 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
   前者**停止重连**并显示人话（`这台设备浏览器不支持 H.265，试试 ?mjpeg=1`）。
 
 
+### T22 候选：公网接入（10-27 用户问"好像有个公网方案是不是" + "JetKVM 有没有类似方案"）
+
+**先说清现状为什么出不了家门**（已证）：网关建 PC 用的是空配置 `webrtc.Configuration{}`（`gw/main.go:117`），
+没有 STUN 也没有 TURN ⇒ 只有 host 候选（`192.168.31.89`），出了这个网段谁都不知道往哪发 UDP。
+**这不是漏做**：当年 §2 就把"云、Tailscale、登录"整排划成"不做·按需"（本文 L320、L1112）。
+
+**板子这条链路的实测**（10-27 晚，全部只读命令，无安装无重启）：
+
+| 探针 | 结果 | 判定 |
+|---|---|---|
+| 架构 | `aarch64` | 官方 arm64 包能直接跑 |
+| IPv4 出公网 | `api.github.com` 200 / 0.59s；`ports.ubuntu.com` 200 / 3.5s | apt、curl 下载**可行** |
+| **IPv6** | 只有 `fe80::`，`ip -6 route get 2400:3200::1` = `Network is unreachable` | **家里没给 v6** ⇒ "v6 直连不用穿透"这条最省事的路现在不通 |
+| Tailscale 四件套 | `pkgs.tailscale.com` 200、`controlplane.tailscale.com` 302、`login.tailscale.com` 302、**`derp9.tailscale.com:443` 200** | 下载 / 登录 / 中继三关这条宽带都摸得到 |
+| 怪一处 | `wlan0` 挂了**两个 IPv4**（`.89` metric 600、`.91` metric 3003，两条默认路由），但 `nmcli` 只有一个活动连接 `Duck_5G` | 以后要"固定地址"得先把这个理清 |
+
+#### JetKVM 自己是怎么做的（读他 `dev` 分支源码，不是二手介绍）
+
+拉了 `jetkvm/kvm`（设备侧 Go）的 `main.go / config.go / cloud.go / webrtc.go / network.go`
+和 `jetkvm/cloud-api` 的 `src/webrtc.ts`。**三块拼图**：
+
+1. **信令 = 设备主动出一条 WebSocket 到云**（`cloud.go:308 runWebsocketClient`，ping 间隔注释明确要**小于云侧超时**；
+   注册是 `POST {cloud_url}/devices/token` 用配对码换 token，`cloud.go:226`）。
+   ⇒ 设备侧**不需要公网 IP、不需要端口映射、不需要 IPv6、路由器什么都不用设**。
+2. **媒体 = 云按会话下发 ICE 服务器**（`cloud.go:463 ICEServers: req.ICEServers` →
+   `webrtc.go:453-458`，只在 `IsCloud` 时启用）。而他的 TURN **不是自己跑的 coturn**，
+   是现找 Cloudflare 托管服务生成临时凭据：`cloud-api/src/webrtc.ts:114`
+   `https://rtc.live.cloudflare.com/v1/turn/keys/${CLOUDFLARE_TURN_ID}/credentials/generate`，
+   拿到之后还把 `turns:`（TURN over TLS）的 URL **过滤掉**（同文件 :134）。
+   另外 `webrtc.go:461-475` 用 `SetICEAddressRewriteRules{CIDR:0.0.0.0/0, External:[req.IP], Append, AsCandidateType:srflx}`
+   —— 把云随会话发来的那个 IP **追加成一条 srflx 候选**，等于不做 STUN 查询也拿到公网候选。
+   ✅ **`req.IP` 的语义已证**（读 `cloud-api/src/webrtc-signaling.ts:156-158`）：它是**云端从设备那条 WS 的
+   socket 源地址（或 `REAL_IP_HEADER`）看到的设备公网 IP** ⇒ "设备不用 STUN 也知道自己对外长什么样"，
+   因为云天然看得见。前提：NAT 端口保持（锥形/全锥）；对称 NAT 下这条候选无效，得靠浏览器的 TURN 兜底。
+3. **身份 = Google OIDC 卡死归属**（`cloud.go:400-426`：验 id token，再比 `config.GoogleIdentity`，
+   不符直接回 `google identity mismatch`）。本地模式另有 `HashedPassword` / `LocalAuthToken` /
+   `LocalAuthMode` / `LocalLoopbackOnly`（`config.go:101-104`）。顺带：`MqttConfig` **默认 `Enabled:false`**
+   （`config.go:211-217`），那是给 Home Assistant 用的，**不是穿透通道**，别被他仓库里的 mqtt 字样误导。
+
+**对照出的一条让人安心的结论**：他 `IsCloud=false`（局域网连）时 `iceServer` 是**空的**，只吃 host 候选
+—— **和我们 `main.go:117` 今天完全一样**。所以我们不是"做了个残缺版"，是**正好等于他的 LAN 模式**；
+差距只在"多养一个公网服务，把信令可达和打洞失败外包给云 + CF TURN"。
+
+#### 读全实现后的收获（10-27 晚，把三个仓库 clone 到本机 `Temp\jetkvm-ref` 逐文件看）
+
+**完整时序**（`kvm/cloud.go` + `cloud-api/src/webrtc-signaling.ts`）：
+配对码 → `POST {cloud}/devices/token` 换**长期 token**（`cloud.go:226`）→ 设备带
+`Authorization: Bearer <token>` + `X-Device-ID/X-App-Version/X-Device-SKU` **拨一条出站 WS** 到 `wss://api.jetkvm.com/`
+（`cloud.go:327-342`；响应头取 `X-Request-ID` 否则 `Cf-Ray` 当 connectionID ⇒ **他也架在 Cloudflare 后面**）→
+云侧每 **10 s** ping 一次、两次无 pong 就 `terminate()`（`webrtc-signaling.ts:181-191`），设备侧自己也发 WS ping
+（`web.go:318-353`）→ 浏览器带 Google session cookie 连 `wss://…/webrtc/signaling/client?id=<device>`，
+云查库确认 `device.user.googleId == sub` 才放行（`:258-293`）→ 转发 offer 时**往里塞三样**：
+`{sd, ip, iceServers, OidcGoogle}`（`:337-349`）→ 设备**先验 OIDC 归属**再建 PC。
+
+**ICE 的分工（原来不是"设备也拿 TURN"）**：云下发给**设备**的 `iceServers` 被硬过滤成**只剩 STUN**
+（`webrtc-signaling.ts:26-33` `startsWith("stun:")`，默认 `stun.cloudflare.com:3478` + 两个 Google STUN，可用 env `ICE_SERVERS` 覆盖）；
+**TURN 是给浏览器单独 HTTP 领的**：`POST` → `CreateIceCredentials`（`cloud-api/src/webrtc.ts:100-138`）
+找 Cloudflare 现生成 `ttl:3600` 的临时凭据、`customIdentifier=user.id`，还把 `turns:`（TURN-over-TLS）滤掉。
+旁边还有个 `CreateTurnActivity`（`:140-154`）按用户记 `bytesSent/bytesReceived` —— **那是他的中继成本账本**。
+⇒ 结论：**"设备零入站 + 浏览器可中继"这个组合不需要设备吃 TURN**。
+
+**同一个 handler 两种模式**（这条最让人安心）：设备自己也开了 `protected.GET("/webrtc/signaling/client", handleLocalWebRTCSignal)`
+（`web.go:202`），`isCloud=false` ⇒ 不填 ICE、只有 host 候选 —— **和我们 `gw/main.go:117` 完全同款**；
+`protected` 那层就是本地口令/token（`/auth/login-local`、`/auth/password-local`、config 里的 `HashedPassword`/`LocalAuthToken`/`LocalAuthMode`/`LocalLoopbackOnly`）。
+本地模式还多背一样东西：浏览器要安全上下文才给 WebRTC，所以他另有 `web_tls.go` + `tls_mode: self-signed|user-defined`。
+`AcceptOptions{InsecureSkipVerify:true}`（`web.go:252-253`）= 放开 WS 的 Origin 校验，因为他得让任意自签页面连进来。
+
+**🔴 三条可以直接抄（都不需要服务器，纯板子侧改）**：
+1. **接管发生在协商成功之后**（`cloud.go:472-476` + `:494`）：先 `sd, err := session.ExchangeOffer(req.Sd)`，
+   **`err != nil` 就直接 return，根本不碰 `currentSession`** ⇒ 一个"注定连不上"的客户端**发多少次 offer 都踢不掉人**。
+   这正是 T21 末尾我写的"修法①"，**他已有现成写法，不用再设计一遍**。
+2. **换人/关闭时先把 HID 状态清零**（`cloud.go:479-480`：`CancelAllAutoReleaseTimers()` + `rpcKeyboardReport(0, keyboardClearStateKeys)`；
+   ICE 关闭路径 `webrtc.go:632-642` 再做一次）。**我们两条都没有** —— 我们的
+   [`gw/main.go:296 shutdown()`](file:///D:/win_game_project/26_k11c_kvm/board/gw/main.go) 只 `close(s.queue)`，
+   `kvm_server.py` 里 grep `clear|release|reset` 只命中内核版本号那一行
+   ⇒ **手机正按住 W 键时断线/被接管，Windows 就永久卡在按住 W**（游戏里等于角色一直往前跑）。
+   **这条比 `/offer` 更该先修**，而且它是个已经存在的用户可感知 bug，不是设计洁癖。
+3. **被踢的人收到的是事件，不是黑屏**：`writeJSONRPCEvent("otherSessionConnected", nil, currentSession)`
+   然后 **`time.Sleep(1s)` 才 `peerConn.Close()`**（`cloud.go:478-485`）⇒ 前端能显示人话 + 给新链路留稳定期。
+
+**核实了的两条旧说法**：① 文档里"他丢弃 RTCP"**成立** —— 全仓 grep `PLI|FeedbackType|OnRTCP|RequestKeyFrame` **0 命中**，
+只注册了 `playout-delay` 一个扩展（`webrtc.go:493`）⇒ "我们做 PLI→强制 IDR 会比他强"这条判断仍然有效；
+② `MqttConfig` 默认 `Enabled:false` 且 `BaseTopic:"jetkvm"`、带 `EnableHADiscovery` ⇒ **是 Home Assistant 集成，不是穿透通道**。
+
+#### 三条路怎么选（都还没做，等用户拍板）
+
+| 路线 | 要不要装东西 | 要不要公网服务器 | 改我们代码的量 | 备注 |
+|---|---|---|---|---|
+| **A. Tailscale** | 板子 + 每台要用的设备都装 | 不用 | **零**（pion 会把 tailscale 网卡当 host 候选，两端同一 `100.x` 平面 = 看成直连；打洞失败时整个 UDP 被 WG 包进 DERP，**连媒体也带得动**） | 免费版 3 用户 / 100 设备；手机会变"全局 VPN"；走中继 **+30~80 ms 是估算，未证** |
+| **B. 照 JetKVM 做**（自建云 / cloud-api + CF TURN） | **不用装**，任何浏览器打开网址即可 | **要**（公网域名做信令入口 + TURN） | 小：`webrtc.Configuration{ICEServers:[…]}` 一处 + 页面 `new RTCPeerConnection({iceServers})` 一处；**大头是信令公网化** | 他的产品形态；`cloud-api` 是 Node+Prisma+Express，也在开源仓库里 |
+| **C. B 的白嫖版**：`cloudflared tunnel`（信令+页面，板子只出站）+ **Cloudflare Network Turn**（他用的同一个服务，有免费额度） | 不用装 | 不用自己买 VPS | 同 B | **国内到 CF 的 UDP/443 稳不稳 = 未证**，要实测 |
+| D. 路由器端口映射 + DDNS | 不用装 | 不用 | 要给 pion 设 `SetEphemeralUDPPortRange` 才能框死 UDP 端口 | 前提未验：运营商 WAN 是否 CGNAT（`100.64.x`/`10.x` 就白做）；**零认证裸奔，现在不许** |
+| E. 只上 frp/cloudflared 穿 HTTP | — | — | — | **带不动 WebRTC 的 UDP 媒体**，只能退回 `?mjpeg=1`，而 MJPEG 在固件里已被 `--no-mjpeg` 关掉 ⇒ 只配应急看一眼 |
+
+🔴 **不管走 A/B/C/D，有两条必须先补**（JetKVM 两条都有，我们两条都没有）：
+① **认证**——现在 `:8000` 上零鉴权，谁能连上谁就能注键盘鼠标（HID 注入 = 拿到被控 Windows 完全控制权）；
+② **`GET /offer` 一进来就 `swap()` 踢人**（T21 末那条）——内网只是咬人，公网会被脚本循环 offer 变成**持续性 DoS**。
+   抄法已定：照 `cloud.go:472-476` **协商成功才 swap**（不用自己设计）。
+
+🔴 **还有一条和"公网"无关、今天就能修的**：**断线/接管不清 HID 状态**（见上一节第 2 条）
+⇒ 按住键掉线 = 被控机永久卡住那个键。**优先级排在 ①② 之前**，因为它是现在就在发生的用户可感知故障。
+
+**建议顺序**：清 HID（几十行，可热替换验证）→ 修 ②（同样纯板子侧）→ 补 ① → 再上 A（半天，自己用够了）
+→ 真需要"零安装给别人看"才做 B/C。
+
 ### T20 之后（现在不要开做）
 
 - 搬 JetKVM 前端的 `useKeyboard.ts` / `keyboardLayouts/*`（键盘布局表 + 状态式上报，配合下一条一起做才划算）；
