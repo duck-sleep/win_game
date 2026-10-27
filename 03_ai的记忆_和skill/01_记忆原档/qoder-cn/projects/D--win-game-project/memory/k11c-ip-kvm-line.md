@@ -679,6 +679,15 @@ Tailscale 四件套全可达（`pkgs.tailscale.com` 200、`controlplane`/`login`
 
 **两条旧说法核实完毕**：① "他丢弃 RTCP"**成立**（全仓 grep `PLI|FeedbackType|OnRTCP|RequestKeyFrame` = 0，只注册 `playout-delay`，`webrtc.go:493`）
 ⇒ "我们做 PLI→强制 IDR 会比他强"这条判断继续有效；② `MqttConfig` 默认 `Enabled:false` + `EnableHADiscovery` ⇒ **是 Home Assistant 集成，不是穿透通道**。
+
+**能不能白嫖他的云？查完注册流程的结论：不能、也不该**（10-27，用户"我们用他的公网服务吗 还是要自己注册"）：
+入册 = App 走 Google 登录 → 云 `device.upsert({create:{id: deviceId, tempToken}})`（`cloud-api/src/oidc.ts:146-157`，tempToken 5 分钟）
+→ 设备用 tempToken 换长期 `secretToken`（`devices.ts:95-110`）。**云侧对 `deviceId` 没有硬件验真**（就是个字符串），
+但四条否决：① 他家 deviceID = **读 RV1106 芯片序列号**，读不到写死 `unknown_device_id`（`kvm/hw.go:70-81`）⇒ 我们 RK3566 天生对不上；
+② 走通要把**整套设备端协议再实现一遍**，比自己搭隧道贵；③ TURN 是**他付钱的 Cloudflare 额度**（`CreateTurnActivity` 记字节=他的账单）；
+④ 前端按他家 SKU/版本渲染，混进去的设备出问题没有解释权。
+⇒ **要分清三个"别人家的服务"**：JetKVM 的云（借不到）／Cloudflare 托管 TURN（**可以自己注册**，要域名）／Tailscale（**可以自己注册**，Google 登录即可，免费 3 用户 100 设备，我们代码零改动）。
+用户网络名词不熟，已在 `12_win_上机跑\15_KVM公网连接方案.md` 加 §0.5 名词小抄（NAT/CGNAT/信令/ICE 候选/STUN/TURN/隧道/DERP/OIDC 各一句人话）+ §5-F 这节对比。
 另外他设备自己也开 `protected.GET("/webrtc/signaling/client")`（`web.go:202`），`isCloud=false` 时不填 ICE —— **和我们完全同款**，
 本地那层鉴权是 `HashedPassword`/`LocalAuthToken`/`LocalAuthMode`/`LocalLoopbackOnly` + `/auth/login-local`；
 他还得多背一个 `web_tls.go`（自签证书）就因为浏览器要求安全上下文才给 WebRTC。
