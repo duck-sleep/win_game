@@ -688,6 +688,17 @@ Tailscale 四件套全可达（`pkgs.tailscale.com` 200、`controlplane`/`login`
 ④ 前端按他家 SKU/版本渲染，混进去的设备出问题没有解释权。
 ⇒ **要分清三个"别人家的服务"**：JetKVM 的云（借不到）／Cloudflare 托管 TURN（**可以自己注册**，要域名）／Tailscale（**可以自己注册**，Google 登录即可，免费 3 用户 100 设备，我们代码零改动）。
 用户网络名词不熟，已在 `12_win_上机跑\15_KVM公网连接方案.md` 加 §0.5 名词小抄（NAT/CGNAT/信令/ICE 候选/STUN/TURN/隧道/DERP/OIDC 各一句人话）+ §5-F 这节对比。
+
+**✅ 10-28 更正（用户说"我们是互相合作的，他们说新硬件序列号按开源填一个是不是也可以"）**：
+我之前把"deviceID 绑 RV1106 专属编号 ⇒ RK3566 天生对不上"当成否决理由，**这条是错的**。
+`hw.go:15-32` 读的是**通用** `/proc/cpuinfo` 里 `Serial\s*:\s*(\S+)`，而 **RK3566 也有这行**：
+实测 `grep -i '^serial' /proc/cpuinfo` → `Serial : 598b4eba996bfdf6`（`/proc/device-tree/serial-number` 同值，来自 RK3566 OTP）。
+备选唯一标识也都实测存在：eMMC CID `0x1bba93e1`、wlan0 MAC `60:48:9c:b7:57:d4`、`/etc/machine-id`。
+⇒ **他的设备 ID 逻辑在我们板上开箱可用，不用改代码、不用伪造**；配合"云侧 `oidc.ts:146-157` 对 deviceId 无验真"，
+"填个号注册进去"技术上成立。**剩下的真实障碍只有三条**：设备 API 面（前端不在开源仓库）、TURN 是谁的钱、协议解释权。
+🔴 **砖机红线**：SKU 绝不能冒充 `jetkvm-v2` —— 他 `SKUS` 表里该 SKU 的更新包是 **RV1106 的 `system/update.img`**，
+前端一弹更新就刷进 RK3566 = 废板。未知 SKU 反而安全（`releases.ts:46` `isKnownSku` 白名单，未知直接 400，刷不进去）。
+⇒ 有合作就要三样：正式 SKU 名（如 `k11c-rk3566`）、TURN 额度书面同意、前端对未知 SKU 的行为。
 另外他设备自己也开 `protected.GET("/webrtc/signaling/client")`（`web.go:202`），`isCloud=false` 时不填 ICE —— **和我们完全同款**，
 本地那层鉴权是 `HashedPassword`/`LocalAuthToken`/`LocalAuthMode`/`LocalLoopbackOnly` + `/auth/login-local`；
 他还得多背一个 `web_tls.go`（自签证书）就因为浏览器要求安全上下文才给 WebRTC。

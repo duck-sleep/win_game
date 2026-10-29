@@ -287,16 +287,16 @@ sequenceDiagram
 
 | # | 原因 | 证据 |
 |---|---|---|
-| 1 | 他的设备身份模型**和硬件绑死**，而且绑的是**他家芯片** | `kvm/hw.go:70-81`：deviceID = **读 RV1106 的芯片序列号**，读不到就直接写死 `"unknown_device_id"`。我们是 RK3566，**天生对不上** |
-| 2 | 要走通就得**把他的整套设备端协议再实现一遍**（WS 消息格式、`otherSessionConnected` 等事件、hidrpc、版本/SKU 上报……） | 这比"自己搭一条隧道"贵得多，而且是他随时能改的东西 |
-| 3 | 他烧的是**他自己付钱的 Cloudflare TURN 额度** | `cloud-api/src/webrtc.ts:140-154` 有个 `CreateTurnActivity` 按用户记 `bytesSent/bytesReceived` = **他的账单**。白嫖别人买单的中继不体面 |
-| 4 | 前端 `app.jetkvm.com` 按他的 SKU/固件版本渲染，我们是"混进去的"设备 | 出问题没有解释权，他封一段 deviceId 就能让我们全瞎 |
+| 1 | ~~他的设备身份和硬件绑死、咱对不上~~ **（10-28 更正：这条不成立）** | 我原先以为他读的是 RV1106 专有编号。**实际 `hw.go:15-32` 读的是通用的 `/proc/cpuinfo` 里的 `Serial :`**，而 RK3566 也有这行（实测 `598b4eba996bfdf6`）⇒ **他的 deviceID 逻辑在我们板上开箱即用**，不需要改代码、也不需要伪造。这条从"障碍"里划掉 |
+| 2 | 要走通就得**把他的整套设备端协议再实现一遍**（WS 消息格式、`otherSessionConnected` 等事件、hidrpc、版本/SKU 上报……） | 这比"自己搭一条隧道"贵得多，而且是他随时能改的东西。**这条仍然成立**（hidrpc 我们已经有了，缺的是设备 API 面，见 §5-G） |
+| 3 | 他烧的是**他自己付钱的 Cloudflare TURN 额度** | `cloud-api/src/webrtc.ts:140-154` 有个 `CreateTurnActivity` 按用户记 `bytesSent/bytesReceived` = **他的账单**。有合作就该谈额度，没有就别占 |
+| 4 | 前端 `app.jetkvm.com` 按他的 SKU/固件版本渲染，我们是"混进去的"设备 | **前端代码不在开源仓库里**（org 列表核对过）⇒ 出问题没有解释权，他改协议/封 id 我们就瞎 |
 
 **所以要分清三个"别人家的服务"**（这是最容易混的地方）：
 
 | 服务 | 我们能用吗 | 怎么用 |
 |---|---|---|
-| **JetKVM 的云**（`api.jetkvm.com`） | ❌ 不能（上面四条） | — |
+| **JetKVM 的云**（`api.jetkvm.com`） | ⚠️ **技术上能被注册进去**（云不验硬件、deviceId 是任意字符串），但**要有对方授权**，并且受下面四条约束 | 有合作就谈：正式 SKU + TURN 额度 + 前端兼容；没合作就别占 |
 | **Cloudflare 托管 TURN**（他买的同一个） | ✅ 能，**自己注册** | 要有 Cloudflare 账号 + 自己的域名，开 Realtime 的 TURN key，有免费额度 |
 | **Tailscale** | ✅ 能，**自己注册** | Google/GitHub 账号登录即可，免费档 3 用户 / 100 设备 |
 
@@ -305,6 +305,51 @@ sequenceDiagram
 * **A. Tailscale**：注册一个账号（用 Google 登录就行）→ 板子装一个包 → 手机装一个 App → 两边勾同一个账号。**我们的代码一行不改。** ← 推荐
 * **B/C. 照他做**：买域名 + Cloudflare 账号 + 开 TURN + 板子上跑 `cloudflared` + 网关和页面各填一处 `iceServers`。**任何浏览器打开网址就能用**（不用装 App），但要养配置。
 * **D. 自建他整套**（跑他的 `cloud-api` + 数据库 + 证书）：只有当你想做**很多台设备集中管理**时才值得，一台板子纯属自找苦吃。
+
+### G. 补充：如果有合作方说"按开源填个序列号就行"（10-28 用户转述）
+
+**能注册，但"填一个号"只是最小的那一步，而且有一个会把板子刷成砖的坑。** 代码事实三条：
+
+1. **他家的"设备 ID"不是一串可以随便填的编号，是 `/proc/cpuinfo` 里那行 `Serial :`**
+   （`kvm/hw.go:15-32` `extractSerialNumber()` 用正则抓 `Serial\s*:\s*(\S+)`）；
+   抓不到就把 deviceID 写死成 `"unknown_device_id"`（`hw.go:70-81`）——**所有抓不到的机器会撞成同一个 ID**。
+   ⇒ 所以"填一个"在工程上等于**改代码或加一个配置项**，不是填表格。
+   ✅ **10-28 实测（板子开机后马上查的）：我们板子自己有唯一序列号，一行代码都不用改。**
+   ```
+   ① grep -i '^serial' /proc/cpuinfo        →  Serial : 598b4eba996bfdf6
+   ② cat /proc/device-tree/serial-number    →  598b4eba996bfdf6（同上，来自 RK3566 的 OTP）
+   ③ cat /proc/device-tree/model            →  Rockchip RK3566 KICKPI K11C Board
+   ④ eMMC CID 序列号  → 0x1bba93e1    ⑤ wlan0 MAC → 60:48:9c:b7:57:d4    ⑥ /etc/machine-id → db84bd97…
+   ```
+   ⇒ 他那个正则 `Serial\s*:\s*(\S+)` 在 RK3566 上**直接命中**，`GetDeviceID()` 拿到的是 `598b4eba996bfdf6`
+   —— **不是 `unknown_device_id`，也不需要伪造**。备选唯一标识还有 eMMC CID / MAC / machine-id（都实测存在）。
+2. **云端完全不验硬件**：`cloud-api/src/oidc.ts:146-157` 就是
+   `device.upsert({ create: { id: deviceId, tempToken, tempTokenExpiresAt } })`，**`deviceId` 是任意字符串**。
+   所以"填一个号能被注册进去"这句话**成立**。
+3. **真正被卡的是 SKU，不是序列号**：设备上报的 `X-Device-SKU` 若是未知值，云只记一行日志就忽略
+   （`webrtc-signaling.ts:162-165`），**不影响连上**；但"取固件"的接口对 SKU 是**白名单**
+   （`releases.ts:46` `isKnownSku` 校验 + `skus.ts:112-114` 未知就抛 `Unknown SKU`），未知直接 400。
+
+🔴 **砖机风险（这条最重要）**：如果为了"看起来像真机"把 SKU 填成 `jetkvm-v2`，
+那他前端会给你弹"有固件更新"，而 `jetkvm-v2` 的更新包是 **RV1106 的 `system/update.img`**
+（`skus.ts` 的 `SKUS` 表）—— **刷进 RK3566 直接废**。
+⇒ **结论：SKU 只能是"未知/对方新加的一个名字"，绝不能冒充 `jetkvm-v2`。** 未知 SKU 反而安全（更新接口 400，刷不进去）。
+
+**还有一层没解决的**：他的**浏览器前端（app.jetkvm.com）不在开源仓库里**
+（org 只有 `kvm` / `cloud-api` / `docs` / `rv1106-system` / 两个 extension firmware / `rkcrypto` / `jetkvm-native`）。
+前端会按 JetKVM 那套 **JSON-RPC 方法名与字段**去要数据，我们只实现了一小块
+⇒ 就算注册+连上了，大概率是"设备在线、界面缺东西"。**这块差距不是填号，是把设备 API 补齐。**
+
+**既然你们是合作关系，让对方给三样东西，比我们猜协议强得多**：
+
+| 要什么 | 为什么 |
+|---|---|
+| ① 一个**正式的 SKU 名**（比如 `k11c-rk3566`）+ 确认 deviceId 规则 | 有了名字 OTA 边界才不 400，也不会误刷 RV1106 固件 |
+| ② **TURN 额度的书面同意** | 他云上有 `CreateTurnActivity` 按用户记 `bytesSent/bytesReceived` = **他在付钱** |
+| ③ 他们前端对"未知 SKU/非 JetKVM 设备"的预期行为 | 决定界面能不能用、要不要他们内部加白 |
+
+**我们这边可以先做的低风险实验**（等板子回来、且对方点头）：只做"注册 + 挂一条 WS + 出现在他的设备列表里"，
+**不碰画面、不碰 HID**，随时能删。这一步能一次性验证"合作方说法"是否成立，成本近乎为零。
 
 ---
 
