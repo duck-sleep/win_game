@@ -1642,6 +1642,49 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - [ ] **T24 接管改到协商成功之后 + 被踢端收 `otherSessionConnected`**（照 `cloud.go:472-494`，旧 PC 睡 1 秒再关）。
   这就是 T21 末尾那条 `/offer` 抢跑踢人的修法，**他已有现成写法，不用再设计**。依赖 T23（同一处代码）。
 
+### T25 云端直连实测：从注册到出画面，一晚跑通（10-29 夜，用户与合作方沟通后开试）
+
+**结论先说**：走他的云这条路**已经能出画面 + 能收键鼠**，不是纸上推演。但他云端对 `deviceId` **不做硬件验真**，
+所以"能跑"不等于"可以长期用"——授权、额度、SKU 仍要找对方确认（见 `15_KVM公网连接方案.md` §5-G）。
+
+**六个环节，逐条实测**：
+
+| 环节 | 结果 | 关键细节 |
+|---|---|---|
+| 设备身份 | ✅ 真号 `598b4eba996bfdf6` | `hw.go:15-32` 读 `/proc/cpuinfo` 的 `Serial :`；RK3566 有（= device-tree serial-number，OTP），**不改代码、不伪造** |
+| SKU | ✅ 上报 `k11c-rk3566` | 未知值云端只记日志忽略。🔴 **绝不能填 `jetkvm-v2`**：该 SKU 的 OTA 包是 RV1106 的 `update.img`，刷进 RK3566 废板 |
+| 注册 | ✅ 换到 40 字节 `secretToken` | 本地表单页 FORM POST → `api.jetkvm.com/oidc/google`（deviceId + returnTo=本机 `/adopt`）→ Google 授权 → 回跳带 `tempToken` → `POST /devices/token` |
+| 上线 | ✅ WS 200 | `Authorization: Bearer <secretToken>` + `X-Device-ID` / `X-App-Version` / `X-Device-SKU` 拨 `wss://api.jetkvm.com/` |
+| 会话 | ✅ ICE 1 秒内 `connected` | offer 的 `data.sd` = **base64(JSON{type,sdp})**；另带 `ip`（云端看到的我们公网地址，实测 `183.23.146.74`）、`iceServers`（**只有 STUN**）、`OidcGoogle`。pion 按 offer 里的 H265 载荷类型（49）注册，`SetICEAddressRewriteRules(ip→srflx)`，非 trickle |
+| 媒体 + 控制 | ✅ H.265 60fps 出画；键鼠到达 | 四条通道 `rpc` / `hidrpc` / `hidrpc-unreliable-ordered` / `-nonordered` 全建立；hidrpc 握手回显后 `0x02/0x03/0x05` 报文转成 JSON-RPC 打到本机 `:8000` |
+
+**两条操作上的硬约束**（都踩过）：
+1. **必须在同一个浏览器里完成授权** —— 云端 session cookie 是 `samesite=strict`，换浏览器就断链；
+2. **Google 必须能打开**（要梯子）。梯子关着时 PC 和板子都连不上 `accounts.google.com`，流程卡在授权页白屏。
+
+**时延（口径要写清）**：同一张照片里，电视 `00:39:19.639`、手机（云页面）`00:39:19.606`
+⇒ **手机显示的是 33 ms 之前那一帧，即手机比电视慢 33 ms（60fps 下 2 帧）**，和局域网版的 33–40 ms 同一量级。
+⚠️ **未证**：手机若连的是家里同一个 WiFi，ICE 会选 host 候选、媒体根本没出家门 ⇒ 这个数只证明"云端信令 + 前端兼容"，
+**不代表公网媒体延迟**。要测公网必须**手机关 WiFi 走蜂窝**再拍一次同框照。
+（顺带：`#` 帧号列 60fps 下 33 ms 应差 2 帧，照片里手机那串数字太小、末位糊，此列不作数，以时间码为准。）
+
+**"能跑"和"能用"之间的差距（全部未做）**：
+- UI 只喂了 6 个方法（`getVideoState` / `getNetworkSettings` / `getKeyboardLedState` / `getKeyDownState` / `getKeyboardMacros` / `getLocalVersion`），
+  其余一律回 `-32601` ⇒ 设置、虚拟介质、Wake on LAN、Extension 这些按钮是死的；
+- 没有音频；没有 RTCP/PLI（新连接最多黑到下一个 GOP 边界）；
+- 🔴 **`k11c-gw` 必须停掉**让出 `127.0.0.1:5004`（fakevo 的 RTP 端口写死 5004），所以**本地/手机页面同时不可用**
+  ⇒ 真正的解是**网关做多路 fan-out**（一份 RTP 喂多个 PeerConnection），而不是二选一；
+- 🔴 **fakevo 依赖"HDMI 有连接"**：电视关掉/拔线就 `FAIL no connected HDMI-A-* connector` 退出，码流直接没有
+  ⇒ 远程场景必须解决"没有显示器也要出画面"（虚拟显示器 / 无 DRM 的假源路径）。
+
+**新增文件**：`26_k11c_kvm/host/device_cloud.py`（注册页 + 令牌交换 + WS 报文探针）、
+`26_k11c_kvm/board/cloudkvm/main.go`（answer + RTP 转发 + RPC/HID 应答）。
+
+**撤回我之前的两个错判**（对照实测）：
+1. ~~"他的前端不在开源仓库 ⇒ 设备 API 面是最大障碍"~~ —— **设备端 UI 是开源的**（`kvm/ui`），
+   而且云端 dashboard `app.jetkvm.com` **直接接受了我们的设备并渲染出画面**；实测只要 6 个 RPC 方法 + hidrpc 握手就能出图；
+2. ~~"deviceID 绑 RV1106 专属编号 ⇒ RK3566 对不上"~~ —— 他读的是通用 `/proc/cpuinfo`，我们板子有真号（见 T22 §5-G）。
+
 ### T20 之后（现在不要开做）
 
 - 搬 JetKVM 前端的 `useKeyboard.ts` / `keyboardLayouts/*`（键盘布局表 + 状态式上报，配合下一条一起做才划算）；

@@ -288,9 +288,9 @@ sequenceDiagram
 | # | 原因 | 证据 |
 |---|---|---|
 | 1 | ~~他的设备身份和硬件绑死、咱对不上~~ **（10-28 更正：这条不成立）** | 我原先以为他读的是 RV1106 专有编号。**实际 `hw.go:15-32` 读的是通用的 `/proc/cpuinfo` 里的 `Serial :`**，而 RK3566 也有这行（实测 `598b4eba996bfdf6`）⇒ **他的 deviceID 逻辑在我们板上开箱即用**，不需要改代码、也不需要伪造。这条从"障碍"里划掉 |
-| 2 | 要走通就得**把他的整套设备端协议再实现一遍**（WS 消息格式、`otherSessionConnected` 等事件、hidrpc、版本/SKU 上报……） | 这比"自己搭一条隧道"贵得多，而且是他随时能改的东西。**这条仍然成立**（hidrpc 我们已经有了，缺的是设备 API 面，见 §5-G） |
+| 2 | 要走通就得补齐设备端要实现的接口 | **10-29 实测：只要 6 个 RPC 方法 + hidrpc 握手回显就能出画面**（`getVideoState` / `getNetworkSettings` / `getKeyboardLedState` / `getKeyDownState` / `getKeyboardMacros` / `getLocalVersion`），其余回 `-32601` 走 UI 自己的降级。**比我原判轻得多** |
 | 3 | 他烧的是**他自己付钱的 Cloudflare TURN 额度** | `cloud-api/src/webrtc.ts:140-154` 有个 `CreateTurnActivity` 按用户记 `bytesSent/bytesReceived` = **他的账单**。有合作就该谈额度，没有就别占 |
-| 4 | 前端 `app.jetkvm.com` 按他的 SKU/固件版本渲染，我们是"混进去的"设备 | **前端代码不在开源仓库里**（org 列表核对过）⇒ 出问题没有解释权，他改协议/封 id 我们就瞎 |
+| 4 | 前端 `app.jetkvm.com` 按他的 SKU/固件版本渲染，我们是"混进去的"设备 | **设备端 UI 是开源的**（`kvm/ui`，我一开始说错了）；云端 dashboard 实测**接受了我们的设备并渲染出画面**。但 dashboard 源码仍未公开 ⇒ "解释权在他"这条仍成立 |
 
 **所以要分清三个"别人家的服务"**（这是最容易混的地方）：
 
@@ -350,6 +350,31 @@ sequenceDiagram
 
 **我们这边可以先做的低风险实验**（等板子回来、且对方点头）：只做"注册 + 挂一条 WS + 出现在他的设备列表里"，
 **不碰画面、不碰 HID**，随时能删。这一步能一次性验证"合作方说法"是否成立，成本近乎为零。
+
+### H. ✅ 实测结果（10-29 夜）：B 路线**已经跑通到出画面**
+
+原本计划"只验证注册"，实际一晚就把整条链走完了：
+
+```
+① 表单页 http://192.168.31.89:8010/  →  POST api.jetkvm.com/oidc/google
+② Google 授权（要梯子）→ 回跳本机 /adopt?tempToken=…
+③ POST /devices/token → 40 字节 secretToken（有效期长期）
+④ 拨 wss://api.jetkvm.com/  →  云端 200，设备"在线"
+⑤ app.jetkvm.com 打开设备 → 云端推 offer（base64 的 {type,sdp} + ip + STUN 清单 + OidcGoogle）
+⑥ 我们回 answer（pion，H.265 pt=49，非 trickle） → ICE 1 秒内 connected（STUN 打洞，没走中继）
+⑦ H.265 60fps 码流经 WebRTC 到手机；四条 datachannel 建立；键鼠报文转成 JSON-RPC → USB HID
+```
+
+**时延**：手机（云页面）比电视慢 **33 ms**（同框时间码 19.606 vs 19.639，60fps 下 2 帧），与局域网版 33–40 ms 同一量级。
+⚠️ 口径：若手机连的是家里同一个 WiFi，ICE 会选 host 候选、**媒体没出家门** ⇒ 这数只证"云端信令 + 前端兼容"，
+**不证公网媒体延迟**；要测公网得手机关 WiFi 走蜂窝。
+
+**结论**：技术上"接他的云"比我之前判断的便宜得多（少的只是 6 个 RPC 方法 + 一次授权）。
+**但"能跑"≠"能用"**，剩下的都是产品层面的活：
+- 设置/虚拟介质/WOL/Extension 等按钮要逐条实现，否则是死的；
+- 没有音频、没有 RTCP/PLI；
+- 🔴 **本地网关和云客户端会抢 `127.0.0.1:5004`**（fakevo 端口写死）⇒ 必须改成网关多路 fan-out；
+- 🔴 **fakevo 依赖 HDMI 有连接**，电视关掉/拔线就退出 ⇒ 远程场景要解决"没有显示器也能出画面"。
 
 ---
 

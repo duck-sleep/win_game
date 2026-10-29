@@ -717,6 +717,39 @@ B. **照 JetKVM**（信令走公网入口 + 两端填 `iceServers`；代码小�
 文件清单用 `https://data.jsdelivr.com/v1/packages/gh/<owner>/<repo>@<branch>?structure=flat`。
 仓库名以 org API 为准：设备侧是 **`jetkvm/kvm`**（默认分支 `dev`，不是 `device`），云侧 `jetkvm/cloud-api`。
 
+---
+
+## 【10-29 夜】云端链路实测跑通（B 路线，从零到出画面一晚）
+
+用户："我们是互相合作的，他们说新硬件序列号按开源填一个是不是也可以" → 授权开试。
+
+**已证通的七步**：① 本地表单页 `POST api.jetkvm.com/oidc/google`（`deviceId` + `returnTo`=本机 `/adopt`）
+② Google 授权 → 回跳带 `tempToken` ③ `POST /devices/token` 换 **40 字节 secretToken** ④ 拨 `wss://api.jetkvm.com/`
+（`Authorization: Bearer` + `X-Device-ID`/`X-App-Version`/`X-Device-SKU`）→ 设备在线 ⑤ app.jetkvm.com 打开设备 → 云端推 offer
+⑥ 我们回 answer（pion，H.265 **pt=49**，`SetICEAddressRewriteRules(ip→srflx)`，非 trickle）→ **ICE 1 秒内 connected，打洞成功没走 TURN**
+⑦ H.265 60fps 码流到手机 + 四条通道（`rpc`/`hidrpc`/`hidrpc-unreliable-ordered`/`-nonordered`）+ 键鼠转 JSON-RPC 打到本机 `:8000`。
+
+**报文格式（关键）**：`data.sd` = **base64(JSON{type,sdp})**；`data.ip` = 云端看到的**我们**的公网地址（实测 `183.23.146.74`）；
+`data.iceServers` **只有 STUN**（`stun:stun.cloudflare.com:3478`）+ `data.OidcGoogle`。hidrpc 的 `0x01` 必须回显 `0x01 0x01`。
+UI 只要 6 个方法就能出画面：`getVideoState`(→`{ready:true}`) / `getNetworkSettings`(→`{hostname}`) / `getKeyboardLedState` /
+`getKeyDownState` / `getKeyboardMacros`(→`[]`) / `getLocalVersion`，其余回 `-32601` 让它走降级。
+
+**两条操作硬约束**：① 授权必须**同一个浏览器**（云端 session cookie `samesite=strict`）；② **Google 要梯子**（关着时 PC/板子都连不上，卡白屏）。
+
+**时延口径（别再算错方向）**：手机云页面 `00:39:19.606` vs 电视 `00:39:19.639` ⇒ 手机显示的是**33 ms 之前那一帧**
+= **手机比电视慢 33 ms（60fps 2 帧）**，和局域网 33–40 ms 同量级。**"时间码数字更小"是更旧，不是更快。**
+⚠️ 手机若连家里同一 WiFi，ICE 会选 host 候选、媒体没出家门 ⇒ 只证"云端信令+前端兼容"，**不证公网媒体延迟**；要测公网得关 WiFi 走蜂窝。
+（fakevo 实测 `flips=60 dt_avg=16.67 enc=60`，60fps 满帧；照片里 `#` 帧号末位糊，不作数，以时间码为准。）
+
+**缺口（全部未做）**：设置/虚拟介质/WOL/Extension 等 RPC 未实现；无音频；无 RTCP/PLI；
+🔴 **`k11c-gw` 与云客户端抢 `127.0.0.1:5004`**（fakevo 端口写死）⇒ 必须做网关多路 fan-out，否则本地页面和云二选一；
+🔴 **fakevo 依赖 HDMI 连接**，电视关/拔线就 `FAIL no connected HDMI-A-*` 退出 ⇒ 远程场景要"无显示器也出画面"。
+
+**产物与现场**：`26_k11c_kvm/host/device_cloud.py`（注册页+令牌交换+WS 探针）、`26_k11c_kvm/board/cloudkvm/main.go`（answer+RTP+RPC+HID）。
+secretToken 现在只在 `/tmp/k11c-cloud.json`（重启可能被清）⇒ 要做成 `/etc/k11c/cloud.json` + systemd 自启。
+**10-29 16:2x 现场状态**：`k11c-gw` 已停（让出 5004）、`k11c-cloud` 在跑、python `serve` 占 8010 —— 测试结束要还原（`systemctl start k11c-gw`，kill 两个临时进程）。
+
+
 
 
 
