@@ -742,8 +742,14 @@ UI 只要 6 个方法就能出画面：`getVideoState`(→`{ready:true}`) / `get
 （fakevo 实测 `flips=60 dt_avg=16.67 enc=60`，60fps 满帧；照片里 `#` 帧号末位糊，不作数，以时间码为准。）
 
 **缺口（全部未做）**：设置/虚拟介质/WOL/Extension 等 RPC 未实现；无音频；无 RTCP/PLI；
-🔴 **`k11c-gw` 与云客户端抢 `127.0.0.1:5004`**（fakevo 端口写死）⇒ 必须做网关多路 fan-out，否则本地页面和云二选一；
-🔴 **fakevo 依赖 HDMI 连接**，电视关/拔线就 `FAIL no connected HDMI-A-*` 退出 ⇒ 远程场景要"无显示器也出画面"。
+
+**同夜已补掉两条（10-29 深夜）**：
+① **端口冲突**：fakevo 管道改成 `tee` 两个 udpsink —— `5004` 给本地网关、`5005` 给云客户端（`--rtp 127.0.0.1:5005`）。
+实测两条路同时收流（本地 `rtp_in=5626/932kbps`、云 `rtp #5400 pt=49`）。顺带核实：**JetKVM 也是一个会话**
+（`web.go:230` 的 `TODO: support multiple sessions?` 还在），我们现在能"电视+本地+云"三者并存，比他还宽。
+② **没有 HDMI 就不能出画面**：fakevo 新增 `--headless` 且**连接器缺失时自动进入** —— 不建 fb、不做 atomic 扫描，
+同一套 NV12 dumb buffer 按 60fps（`clock_nanosleep` 绝对时间）直接送编码，实测 `headless flips=60 dt=16.67 enc=60`。
+（板上编译：`gcc -O2 -Wall -Wextra -o fakevo fakevo.c $(pkg-config --cflags --libs libdrm gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 gstreamer-allocators-1.0)`；旧版备份在 `/opt/k11c-kvm/vo/fakevo.bak-20261029`）
 
 **产物与现场**：`26_k11c_kvm/host/device_cloud.py`（注册页+令牌交换+WS 探针）、`26_k11c_kvm/board/cloudkvm/main.go`（answer+RTP+RPC+HID）。
 secretToken 现在只在 `/tmp/k11c-cloud.json`（重启可能被清）⇒ 要做成 `/etc/k11c/cloud.json` + systemd 自启。

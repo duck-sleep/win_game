@@ -1672,10 +1672,15 @@ Delete `0x4c`；→ `0x4f`；← `0x50`；↓ `0x51`；↑ `0x52`。大写字母
 - UI 只喂了 6 个方法（`getVideoState` / `getNetworkSettings` / `getKeyboardLedState` / `getKeyDownState` / `getKeyboardMacros` / `getLocalVersion`），
   其余一律回 `-32601` ⇒ 设置、虚拟介质、Wake on LAN、Extension 这些按钮是死的；
 - 没有音频；没有 RTCP/PLI（新连接最多黑到下一个 GOP 边界）；
-- 🔴 **`k11c-gw` 必须停掉**让出 `127.0.0.1:5004`（fakevo 的 RTP 端口写死 5004），所以**本地/手机页面同时不可用**
-  ⇒ 真正的解是**网关做多路 fan-out**（一份 RTP 喂多个 PeerConnection），而不是二选一；
-- 🔴 **fakevo 依赖"HDMI 有连接"**：电视关掉/拔线就 `FAIL no connected HDMI-A-* connector` 退出，码流直接没有
-  ⇒ 远程场景必须解决"没有显示器也要出画面"（虚拟显示器 / 无 DRM 的假源路径）。
+- ✅ **已修（10-29 深夜）：本地和云不再抢端口** —— fakevo 的 GStreamer 管道改成 `tee` **两个 udpsink**：
+  `5004` 给本地网关、`5005` 给云客户端（`k11c-cloud --rtp 127.0.0.1:5005`）。
+  实测两条路同时收流：本地 `rtp_in=5626 / 932 kbps`、云 `rtp #5400 pt=49`。
+  顺带说明：**JetKVM 自己也是一个会话**（`web.go:230` 还留着 `TODO: support multiple sessions?`），
+  我们现在反而是"电视 + 本地页面 + 云"三者可并存。
+- ✅ **已修（10-29 深夜）：没有 HDMI 也能出画面** —— fakevo 新增 `--headless`，并且**连接器缺失时自动进入**：
+  不建 framebuffer、不做 atomic 扫描输出，同一套 NV12 dumb buffer 按 60fps 节拍（`clock_nanosleep` 绝对时间）
+  直接送编码。实测 `headless flips=60 dt=16.67 enc=60 enc_skip=0`。
+  这就覆盖了"被控机在机房、没有显示器"的真实远程场景；有 HDMI 时仍走原来的扫描输出 + 编码双路。
 
 **新增文件**：`26_k11c_kvm/host/device_cloud.py`（注册页 + 令牌交换 + WS 报文探针）、
 `26_k11c_kvm/board/cloudkvm/main.go`（answer + RTP 转发 + RPC/HID 应答）。

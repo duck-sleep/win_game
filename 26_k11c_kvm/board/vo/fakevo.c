@@ -283,6 +283,8 @@ static GstPadProbeReturn enc_count_cb(GstPad *pad, GstPadProbeInfo *info, gpoint
 
 static gboolean enc_setup(void)
 {
+    /* 两个 sink：5004 给本地网关（局域网页面），5005 给云客户端（k11c-cloud）。
+       两条路互不影响，也不再抢端口。 */
     static const char *desc =
         "appsrc name=src is-live=true format=time do-timestamp=true "
         "max-buffers=2 leaky-type=downstream "
@@ -290,7 +292,9 @@ static gboolean enc_setup(void)
         "! mpph265enc name=enc bps=6000000 gop=60 "
         "! h265parse config-interval=-1 "
         "! rtph265pay config-interval=-1 pt=96 mtu=1200 "
-        "! udpsink host=127.0.0.1 port=5004 sync=false async=false";
+        "! tee name=t "
+        "t. ! queue ! udpsink host=127.0.0.1 port=5004 sync=false async=false "
+        "t. ! queue ! udpsink host=127.0.0.1 port=5005 sync=false async=false";
     GError *err = NULL;
 
     g_pipe = gst_parse_launch(desc, &err);
@@ -344,16 +348,147 @@ static void enc_push(struct slot *s)
         __atomic_sub_fetch(&s->enc_refs, 1, __ATOMIC_SEQ_CST);
 }
 
+/* 没有 HDMI 也要出画面：不开扫描输出，同一套 NV12 画进 dumb buffer，按 60fps 直接送编码。
+   远程 KVM 的场景就是"被控机在机房、没接显示器"，这条路必须有。 */
+static int run_headless(const char *barsfile, const char *glyphfile, int seconds)
+{
+    double start = now_s();
+    uint8_t *bars = read_file(barsfile, BARS_BYTES);
+    uint8_t *glyphs = read_file(glyphfile, GLYPH_BYTES);
+
+    static struct slot slots[NBUF];
+    memset(slots, 0, sizeof(slots));
+    for (int i = 0; i < NBUF; i++) {
+        struct slot *s = &slots[i];
+        s->map = create_dumb(W, YLINES * 3 / 2, 8, &s->handle, &s->pitch, &s->size);
+        s->fb = 0;                                  /* 不扫描，就不建 framebuffer */
+        if (drmPrimeHandleToFD(g_fd, s->handle, DRM_CLOEXEC | DRM_RDWR, &s->prime_fd) != 0)
+            die("drmPrimeHandleToFD");
+        for (int r = 0; r < H; r++)
+            memcpy(s->map + (size_t)r * s->pitch, bars + (size_t)r * W, W);
+        for (int r = 0; r < H / 2; r++)
+            memcpy(s->map + (size_t)s->pitch * YLINES + (size_t)r * s->pitch,
+                   bars + (size_t)W * H + (size_t)r * W, W);
+        for (int r = 0; r < GLYPH_H; r++)
+            memset(s->map + (size_t)(TXT_Y0 + r) * s->pitch + TXT_X0, 16, TXT_CHARS * GLYPH_W);
+        for (int r = 0; r < GLYPH_H / 2; r++)
+            memset(s->map + (size_t)s->pitch * YLINES +
+                   (size_t)(TXT_Y0 / 2 + r) * s->pitch + TXT_X0, 128, TXT_CHARS * GLYPH_W);
+        s->state = S_FREE;
+    }
+
+    if (g_enc) {
+        gst_init(NULL, NULL);
+        g_dmalloc = gst_dmabuf_allocator_new();
+        for (int i = 0; i < NBUF; i++)
+            slots[i].mem = gst_dmabuf_allocator_alloc_with_flags(
+                g_dmalloc, slots[i].prime_fd, (gsize)slots[i].size,
+                GST_FD_MEMORY_FLAG_DONT_CLOSE);
+        if (!enc_setup())
+            return 1;
+        printf("enc(headless): mpph265enc bps=6000000 gop=60 -> rtp 127.0.0.1:5004+5005 pt=96\n");
+        fflush(stdout);
+    }
+
+    long frame = 1;
+    double next_report = now_s() + 1.0;
+    struct timespec tick;
+    clock_gettime(CLOCK_MONOTONIC, &tick);
+
+    while (!g_quit) {
+        if (seconds > 0 && (now_s() - start) >= seconds)
+            break;
+
+        struct slot *cur = NULL;
+        for (int i = 0; i < NBUF; i++) {
+            if (slots[i].state != S_FREE)
+                continue;
+            if (__atomic_load_n(&slots[i].enc_refs, __ATOMIC_SEQ_CST) > 0)
+                continue;
+            cur = &slots[i];
+            break;
+        }
+        if (cur == NULL) {
+            g_noslot++;
+        } else {
+            draw_table(cur, cur->pitch, glyphs, frame);
+            frame++;
+            g_flips_sec++;
+            if (g_enc) {
+                long inuse = 0;
+                for (int i = 0; i < NBUF; i++)
+                    if (__atomic_load_n(&slots[i].enc_refs, __ATOMIC_SEQ_CST) > 0)
+                        inuse++;
+                if (inuse < 2)
+                    enc_push(cur);
+                else
+                    __atomic_add_fetch(&g_enc_skip, 1, __ATOMIC_SEQ_CST);
+            }
+        }
+
+        /* 60fps 节拍（没有 page flip 事件可用，就用绝对时间睡到下一个格点） */
+        tick.tv_nsec += 16666667L;
+        if (tick.tv_nsec >= 1000000000L) {
+            tick.tv_sec++;
+            tick.tv_nsec -= 1000000000L;
+        }
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &tick, NULL);
+
+        double t = now_s();
+        if (t >= next_report) {
+            long enc_now = __atomic_load_n(&g_enc_frames, __ATOMIC_SEQ_CST);
+            fprintf(stderr, "headless flips=%ld dt=%.2f noslot=%ld enc=%ld enc_skip=%ld\n",
+                    g_flips_sec, g_flips_sec ? 1000.0 / g_flips_sec : 0.0, g_noslot,
+                    enc_now - g_enc_last, __atomic_load_n(&g_enc_skip, __ATOMIC_SEQ_CST));
+            fflush(stderr);
+            g_enc_last = enc_now;
+            g_flips_sec = 0;
+            next_report += 1.0;
+            if (g_enc) {
+                GstMessage *m = gst_bus_pop_filtered(g_bus, GST_MESSAGE_ERROR | GST_MESSAGE_WARNING);
+                if (m != NULL) {
+                    GError *ge = NULL;
+                    gst_message_parse_error(m, &ge, NULL);
+                    fprintf(stderr, "BUS %s: %s\n", GST_MESSAGE_TYPE_NAME(m),
+                            ge != NULL ? ge->message : "-");
+                    if (ge != NULL)
+                        g_error_free(ge);
+                    gst_message_unref(m);
+                }
+            }
+        }
+    }
+
+    fprintf(stderr, "TOTAL headless flips=%ld noslot=%ld enc=%ld\n",
+            frame - 1, g_noslot, __atomic_load_n(&g_enc_frames, __ATOMIC_SEQ_CST));
+    fflush(stderr);
+    if (g_enc) {
+        gst_element_set_state(g_pipe, GST_STATE_NULL);
+        for (int i = 0; i < NBUF; i++)
+            if (slots[i].mem != NULL)
+                gst_memory_unref(slots[i].mem);
+        gst_object_unref(g_bus);
+        gst_object_unref(g_appsrc);
+        gst_object_unref(g_dmalloc);
+        gst_object_unref(g_pipe);
+        gst_deinit();
+    }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int seconds = 0;
+    int force_headless = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--seconds") == 0 && i + 1 < argc) {
             seconds = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--enc") == 0) {
             g_enc = TRUE;
+        } else if (strcmp(argv[i], "--headless") == 0) {
+            force_headless = 1;
         } else {
-            fprintf(stderr, "usage: %s [--enc] [--seconds N]\n", argv[0]);
+            fprintf(stderr, "usage: %s [--enc] [--headless] [--seconds N]\n", argv[0]);
             return 2;
         }
     }
@@ -383,8 +518,11 @@ int main(int argc, char **argv)
         else
             drmModeFreeConnector(c);
     }
-    if (conn == NULL)
-        die_ret("no connected HDMI-A-* connector", -ENODEV);
+    if (conn == NULL || force_headless) {
+        if (conn == NULL)
+            fprintf(stderr, "WARN no connected HDMI-A-* connector -> headless encode mode\n");
+        return run_headless("bars_nv12.yuv", "glyphs.gray", seconds);
+    }
 
     uint32_t crtc_id = 0;
     const char *crtc_how = "encoder";

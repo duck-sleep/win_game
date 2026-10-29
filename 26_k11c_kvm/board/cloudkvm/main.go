@@ -63,7 +63,7 @@ type sdpMsg struct {
 
 var (
 	statePath = flag.String("state", "/tmp/k11c-cloud.json", "token state file")
-	rtpAddr   = flag.String("rtp", "127.0.0.1:5004", "fakevo RTP input")
+	rtpAddr   = flag.String("rtp", "127.0.0.1:5005", "fakevo RTP input (second tee sink; gateway owns 5004)")
 	curTrack  atomic.Pointer[webrtc.TrackLocalStaticRTP]
 	curPC     atomic.Pointer[webrtc.PeerConnection]
 	curPT     atomic.Int32
