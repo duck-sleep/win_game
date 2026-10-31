@@ -40,19 +40,20 @@
 
 ## 2. 现在的样子：三条路并存
 
-```
-                        ┌──────────────── K11C 板子（RK3566，WiFi，无公网 IP）────────────────┐
-                        │  fakevo：画彩条 + 毫秒码表（60fps 满帧）                            │
-                        │    ├─ DRM 扫描输出 ─────────────────────────► HDMI ──► 电视           │
-                        │    └─ MPP 硬编 H.265 ─► rtph265pay ─┬─► udp:5004 ─► k11c-gw ─┐        │
-                        │                                    └─► udp:5005 ─► k11c-cloud ─┐     │
-                        └───────────────────────────────────────────────────────────────┼─────┼─┘
-                                                                                        │     │
-                                          局域网浏览器/手机 ◄──── WebRTC（直连）──────────┘     │
-                                          （页面 :8000，信令 :8001）                          │
-                                                                                              │
-                          任意网络上的浏览器 ◄────── WebRTC（直连或中继）─────────────────────┘
-                          （app.jetkvm.com 走 JetKVM 的云做信令）
+```mermaid
+flowchart LR
+  subgraph BOARD["K11C 板子（RK3566 · WiFi · 无公网 IP）"]
+    SRC["fakevo<br/>彩条 + 毫秒码表 · 60fps 满帧"]
+    SRC -->|"DRM 扫描输出（不编码）"| HDMI["HDMI OUT"]
+    SRC -->|"MPP 硬编 H.265 6Mbps gop=60"| PAY["rtph265pay pt=96"]
+    PAY -->|"udp :5004"| GW["k11c-gw<br/>页面 :8000 / 信令 :8001"]
+    PAY -->|"udp :5005"| CLOUD["k11c-cloud<br/>云客户端"]
+  end
+  HDMI --> TV["电视<br/>延迟基准（0 网络）"]
+  GW <-->|"WebRTC 直连 UDP"| LAN["家里手机 / 电脑<br/>http://192.168.31.89:8000"]
+  CLOUD -->|"出站 WSS"| JK["api.jetkvm.com<br/>JetKVM 的云"]
+  JK -->|"信令 + Google 登录"| REMOTE["外面的浏览器<br/>app.jetkvm.com"]
+  CLOUD <-->|"媒体 UDP（直连优先，失败才中继）"| REMOTE
 ```
 
 | 路径 | 怎么进 | 现在状态 | 谁在用 |
@@ -65,11 +66,11 @@
 
 ## 3. 为什么"出门就连不上"（两处同时卡死）
 
-```
-【现在只有局域网这条路】
-  手机/电脑（浏览器）  ──① 信令 HTTP :8001──►  板子 192.168.31.89
-                     ◄─② 画面+控制 WebRTC（UDP）
-  中间只有家里路由器：不转发任何端口、没有公网入口
+```mermaid
+flowchart LR
+  U["外面的手机 / 电脑"] -->|"① 要连 192.168.31.89:8001"| NAT["家里路由器<br/>没有任何端口转发"]
+  NAT -.->|"× 到不了"| B["板子 192.168.31.89"]
+  U -.->|"② 就算信令通了：ICE 只有内网候选<br/>没 STUN 也没 TURN"| B
 ```
 
 1. **信令地址不可路由**：`192.168.31.89` 在蜂窝网上根本不存在，连"我要连你"这句话都发不出去；
@@ -88,23 +89,30 @@
 **核心思路一句话：不做穿透。让设备永远只往外连，一个入站连接都不接。**
 洞是设备自己挖的 ⇒ 家里路由器什么都不用设。
 
-```
-                    ☁ 公网 api.jetkvm.com（他自己也挂在 Cloudflare 后面）
-                    存三样东西：
-                      activeConnections = deviceId → { 长连接, 云端看到的设备公网IP, 版本 }
-                      inFlight          = 此刻正在看这台设备的观看者（只放 1 个）
-                      TURN 凭据          = 现场找 Cloudflare 托管 TURN 领（只发给浏览器）
-                    ▲                                          ▲
-                    │ ② 设备开机就拨一条 WS，一路挂着不断         │ ⑤ 观看者浏览器的 WS（带 Google 身份）
-                    │    Authorization: Bearer <长期令牌>         │
-               ┌────┴──────────────┐                   ┌─────────┴───────────┐
-               │ 板子：在家里        │                   │ 浏览器：在外面        │
-               │ 无公网IP、无端口映射 │                   │ app.jetkvm.com       │
-               └────┬──────────────┘                   └─────────┬───────────┘
-                    │                                            │
-                    └─────── ⑨ 媒体：WebRTC UDP，**不经过云** ─────┘
-                               直连成功 → P2P（最快）
-                               直连失败 → 走 Cloudflare TURN 中继兜底
+```mermaid
+sequenceDiagram
+  participant DEV as 板子
+  participant CLOUD as JetKVM 云
+  participant BR as 观看者浏览器
+  participant TURN as Cloudflare TURN
+
+  DEV->>CLOUD: 用配对码换长期令牌
+  DEV->>CLOUD: 出站 WSS（Bearer + X-Device-ID / SKU）→ 在线
+  CLOUD->>CLOUD: 记下 socket 看到的设备公网 IP
+  loop 每 10 秒
+    CLOUD->>DEV: ping
+    DEV->>CLOUD: pong
+  end
+  BR->>CLOUD: 带 Google 登录态连信令
+  CLOUD->>CLOUD: 校验设备主人是你，且没人正在看
+  CLOUD->>DEV: offer + 设备公网 IP + STUN 清单
+  DEV->>DEV: 验 OidcGoogle；把 IP 当作 srflx 候选
+  DEV->>CLOUD: answer
+  CLOUD->>BR: answer 原样转回
+  DEV<<->>BR: 媒体 UDP（不经过云）
+  BR-->>TURN: 直连失败才领 TURN 凭据
+  TURN<<->>BR: 中继
+  TURN<<->>DEV: 中继
 ```
 
 **九步细看**（括号里是他源码位置）：
@@ -140,26 +148,25 @@
 
 ### 5.2 谁在跟谁说话（实际抓到的流程）
 
-```
-你（浏览器）               我们的板子                JetKVM 的云                   Google
-     │                        │                        │                            │
-     │ 1. 打开板子上的注册页   │                        │                            │
-     │───────────────────────►│                        │                            │
-     │ 2. 页面里是个表单：POST deviceId + returnTo（回跳地址）                        │
-     │────────────────────────────────────────────────►│                            │
-     │ 3. 云说：去 Google 验一下（302，带它自己的 client_id）                        │
-     │◄────────────────────────────────────────────────│                            │
-     │ 4. 你在 Google 登录 + 同意"把身份交给这个应用"                                  │
-     │─────────────────────────────────────────────────────────────────────────────►│
-     │ 5. Google 回跳：api.jetkvm.com/oidc/callback?code=…（带你的身份签名）          │
-     │◄─────────────────────────────────────────────────────────────────────────────│
-     │ 6. 云验签 → 在数据库里"认领"这台设备（deviceId 属于你），生成 5 分钟有效的临时令牌
-     │                        │                        │                            │
-     │ 7. 云把你送回板子的 /adopt?tempToken=…&oidcGoogle=…（回跳地址是第 2 步我们给的）│
-     │───────────────────────►│                        │                            │
-     │                        │ 8. 板子拿 tempToken 换长期令牌 secretToken（40 位）    │
-     │                        │───────────────────────►│                            │
-     │ 9. 板子从此用 secretToken 拨 WS，挂在云上                                       │
+```mermaid
+sequenceDiagram
+  participant U as 你（浏览器）
+  participant B as 板子（我们）
+  participant C as JetKVM 云
+  participant G as Google
+
+  U->>B: ① 打开板子上的注册页
+  B-->>U: 返回表单（deviceId + returnTo）
+  U->>C: ② POST /oidc/google
+  C-->>U: ③ 302 去 Google（带它的 client_id）
+  U->>G: ④ 登录并同意授权
+  G-->>C: ⑤ 回跳 /oidc/callback?code=…
+  C->>C: ⑥ 验签 → deviceId 绑到你的 Google ID<br/>生成 5 分钟有效的 tempToken
+  C-->>U: ⑦ 跳回板子的 /adopt?tempToken=…
+  U->>B: ⑧ 把 tempToken 交给板子
+  B->>C: ⑨ POST /devices/token
+  C-->>B: ⑩ 长期令牌 secretToken（40 位）
+  Note over B,C: 此后板子用 secretToken 拨 WSS 挂在云上
 ```
 
 **关键点**：第 7 步的回跳地址（`returnTo`）**是设备自己给的**，所以临时令牌会回到**设备本地**，
@@ -193,18 +200,23 @@
 
 ### 6.1 实际跑起来的样子
 
-```
- 浏览器                      api.jetkvm.com              板子
-   │                              │                        │
-   │ ①Google 登录 → tempToken     │                        │
-   │                              │◄──②tempToken 换 secretToken（40 位）
-   │                              │◄──③拨 WSS（Bearer + X-Device-ID/SKU）→ 在线
-   │ ④打开 app.jetkvm.com 里的设备 │                        │
-   │──────⑤ offer（base64 的 SDP）────────────────────────►│
-   │                              │                        │ ⑥pion 按 H.265 pt=49 应答
-   │◄─────⑦ answer + 候选 ────────│◄───────────────────────│
-   │◄═════════ ⑧ H.265 60fps 码流（WebRTC UDP，不经过云）══│
-   │═════════ ⑨ 四条 datachannel：rpc / hidrpc / hidrpc-unreliable-* ═════►│
+```mermaid
+sequenceDiagram
+  participant BR as 手机浏览器
+  participant C as api.jetkvm.com
+  participant DEV as 板子（pion）
+
+  BR->>C: ① Google 登录 → 看到设备页
+  DEV->>C: ② tempToken 换 secretToken（40 位）
+  DEV->>C: ③ 拨 WSS（Bearer + X-Device-ID / SKU）→ 在线
+  BR->>C: ④ 打开设备页
+  BR->>C: ⑤ offer（base64 的 SDP）
+  C->>DEV: ⑥ offer + 公网 IP + STUN 清单
+  DEV->>DEV: ⑦ 按 H.265 pt=49 组 answer，注入 srflx 候选
+  DEV->>C: ⑧ answer
+  C->>BR: ⑨ answer
+  DEV<<->>BR: ⑩ H.265 60fps（WebRTC UDP，不经过云）
+  DEV<<->>BR: ⑪ 四条 datachannel：rpc / hidrpc / hidrpc-unreliable-*
 ```
 
 ### 6.2 抓到的报文长什么样（简化）
@@ -326,16 +338,30 @@
 
 ### 9.1 目标长这样
 
-```
-   家里（NAT 后面，无公网 IP）        一台有公网 IP 的服务器              外面
-┌──────────────────────────┐    ┌────────────────────────────┐    ┌──────────────┐
-│ K11C 板子                 │    │ ① 网页 + 登录     443/tcp   │    │ 手机 / 公司电脑│
-│  fakevo ─► H.265 ─► pion  │出站│ ② 设备 WS         443/tcp   │    │ 浏览器        │
-│  (cloudkvm)               │───►│ ③ TURN 临时凭据   443/tcp   │◄──►│ 什么都不用装  │
-│                           │WSS │ ④ coturn STUN/TURN 3478/udp │    │              │
-└──────────────────────────┘    └────────────────────────────┘    └──────────────┘
-           │                          ▲         ▲                          ▲
-           └── 媒体：能直连就 UDP 直连 ─┘         └── 直连不成就从 ④ 中继 ────┘
+```mermaid
+flowchart LR
+  subgraph HOME["家里 · NAT 后面 · 无公网 IP"]
+    FAKE["fakevo<br/>彩条 + 码表 60fps"]
+    ENC["MPP 硬编 H.265<br/>rtph265pay"]
+    PION["pion（cloudkvm）<br/>接 offer / 推流 / 收键鼠"]
+    FAKE --> ENC --> PION
+  end
+
+  subgraph SRV["一台公网服务器（先选香港轻量）"]
+    WEB["网页 + 登录<br/>:443"]
+    API["/api：配对 / 设备列表<br/>offer 转发 / TURN 凭据"]
+    SIG["设备 WS<br/>/ws/device :443"]
+    COT["coturn：STUN + TURN<br/>:3478"]
+  end
+
+  OUT["手机 / 公司电脑<br/>浏览器（什么都不用装）"]
+  PION <-->|"① 出站 WSS（Bearer）"| SIG
+  PION <-->|"② 出站 UDP"| COT
+  OUT <-->|"HTTPS 打开网页、发 offer"| WEB
+  OUT -->|"POST /api/devices/:id/offer"| API
+  API <-->|"offer 下发 / answer 回收"| SIG
+  PION <-->|"媒体 UDP：直连优先"| OUT
+  COT <-->|"直连失败：从这里中继"| OUT
 ```
 
 **板子这一侧依然一个入站端口都不开。** 设备只做两件出站的事：① 连信令 WS；② 往 STUN/TURN 和对端发 UDP。
