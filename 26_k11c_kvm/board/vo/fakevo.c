@@ -5,7 +5,11 @@
  *       然后 atomic 非阻塞翻 NV12 平面的 FB，靠 page-flip 事件自限速（一个 vblank 一帧）。
  *
  * 编译：gcc -O2 -Wall -Wextra -o fakevo fakevo.c $(pkg-config --cflags --libs libdrm)
- * 用法：fakevo [--seconds N]      N=0 表示一直跑（默认 0）
+ * 用法：fakevo [--enc] [--headless] [--seconds N]      N=0 表示一直跑（默认 0）
+ *       --enc      同时把 H.265 打成 RTP 送到 127.0.0.1:5004（本地网关）+ :5005（云客户端）
+ *       开机没插 HDMI 会自动进 headless（只编码不上屏），之后每秒复核一次连接器，
+ *       线插上来就自己 exec 回上屏路径 —— 不用重启服务，也不用重启板子。
+ *       --headless 强制只编码（不自动切回，给无头测试用）
  * 素材：从当前目录读 bars_nv12.yuv(3110400) 和 glyphs.gray(41600)，见 mkassets.sh
  */
 
@@ -350,7 +354,39 @@ static void enc_push(struct slot *s)
 
 /* 没有 HDMI 也要出画面：不开扫描输出，同一套 NV12 画进 dumb buffer，按 60fps 直接送编码。
    远程 KVM 的场景就是"被控机在机房、没接显示器"，这条路必须有。 */
-static int run_headless(const char *barsfile, const char *glyphfile, int seconds)
+/* 找一个"插着的 HDMI-A 连接器"。调用者负责 drmModeFreeConnector。 */
+static drmModeConnectorPtr find_connected_hdmi(int fd)
+{
+    drmModeResPtr res = drmModeGetResources(fd);
+    if (res == NULL)
+        return NULL;
+
+    drmModeConnectorPtr conn = NULL;
+    for (int i = 0; i < res->count_connectors && conn == NULL; i++) {
+        drmModeConnectorPtr c = drmModeGetConnector(fd, res->connectors[i]);
+        if (c == NULL)
+            continue;
+        if (c->connector_type == DRM_MODE_CONNECTOR_HDMIA && c->connection == DRM_MODE_CONNECTED)
+            conn = c;
+        else
+            drmModeFreeConnector(c);
+    }
+    drmModeFreeResources(res);
+    return conn;
+}
+
+/* 只要一眼"有没有"，不留下引用 —— headless 循环里每秒调一次 */
+static int hdmi_present(void)
+{
+    drmModeConnectorPtr c = find_connected_hdmi(g_fd);
+    if (c == NULL)
+        return 0;
+    drmModeFreeConnector(c);
+    return 1;
+}
+
+static int run_headless(char **argv, const char *barsfile, const char *glyphfile,
+                        int seconds, int watch_hotplug)
 {
     double start = now_s();
     uint8_t *bars = read_file(barsfile, BARS_BYTES);
@@ -391,6 +427,7 @@ static int run_headless(const char *barsfile, const char *glyphfile, int seconds
     }
 
     long frame = 1;
+    int want_scanout = 0;
     double next_report = now_s() + 1.0;
     struct timespec tick;
     clock_gettime(CLOCK_MONOTONIC, &tick);
@@ -456,6 +493,13 @@ static int run_headless(const char *barsfile, const char *glyphfile, int seconds
                     gst_message_unref(m);
                 }
             }
+            /* 开机时电视还没插/没开 → 每秒复核一次，插上了就自己回到上屏路径 */
+            if (watch_hotplug && hdmi_present()) {
+                fprintf(stderr, "HOTPLUG HDMI 出现了 -> 退出 headless，重启进扫描输出\n");
+                fflush(stderr);
+                want_scanout = 1;
+                break;
+            }
         }
     }
 
@@ -472,6 +516,13 @@ static int run_headless(const char *barsfile, const char *glyphfile, int seconds
         gst_object_unref(g_dmalloc);
         gst_object_unref(g_pipe);
         gst_deinit();
+    }
+    if (want_scanout) {
+        /* 用同一个 argv 重开自己：这次启动就能看见连接器，直接走上屏那条路。
+         * 手动在终端跑（没有 systemd）也能恢复，所以不用 exec 以外的东西。 */
+        execv("/proc/self/exe", argv);
+        fprintf(stderr, "FAIL execv /proc/self/exe: %s\n", strerror(errno));
+        return 1;
     }
     return 0;
 }
@@ -508,20 +559,14 @@ int main(int argc, char **argv)
     if (res == NULL)
         die("drmModeGetResources");
 
-    drmModeConnectorPtr conn = NULL;
-    for (int i = 0; i < res->count_connectors && conn == NULL; i++) {
-        drmModeConnectorPtr c = drmModeGetConnector(g_fd, res->connectors[i]);
-        if (c == NULL)
-            continue;
-        if (c->connector_type == DRM_MODE_CONNECTOR_HDMIA && c->connection == DRM_MODE_CONNECTED)
-            conn = c;
-        else
-            drmModeFreeConnector(c);
-    }
+    drmModeConnectorPtr conn = find_connected_hdmi(g_fd);
     if (conn == NULL || force_headless) {
         if (conn == NULL)
-            fprintf(stderr, "WARN no connected HDMI-A-* connector -> headless encode mode\n");
-        return run_headless("bars_nv12.yuv", "glyphs.gray", seconds);
+            fprintf(stderr, "WARN 没看到插着的 HDMI-A 连接器 -> headless 编码模式"
+                            "（每秒复核，线插上来自己切回上屏）\n");
+        else
+            drmModeFreeConnector(conn);
+        return run_headless(argv, "bars_nv12.yuv", "glyphs.gray", seconds, !force_headless);
     }
 
     uint32_t crtc_id = 0;

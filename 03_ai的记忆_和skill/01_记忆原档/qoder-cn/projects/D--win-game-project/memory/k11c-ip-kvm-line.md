@@ -786,6 +786,16 @@ secretToken 现在只在 `/tmp/k11c-cloud.json`（重启可能被清）⇒ 要�
    **浏览器不建 WS**（双方 non-trickle，一次 POST 换 answer）。
    坑：RK3566 无 RTC ⇒ 开机必先 NTP，否则 TLS 失败会被误判成网络问题；Caddy 与 coturn 抢 443，先跑 3478。
 
+**【11-01 又一条：headless 反噬】** 用户报"板子重启后电视没画面"。根因就是 10-29 上的那个"没 HDMI 自动 headless"：
+**它只在进程启动那一瞬间看一次连接器**，重启时电视还没开 ⇒ 判成 disconnected ⇒ 进 headless ⇒ 之后插上也不会回头，
+表现为"码流明明在跑（网关 `rtp_in` 一直涨、912kbps）、电视黑"。
+已修：headless 循环里**每秒复核连接器**（`find_connected_hdmi()` 抽成公用的），发现插上就
+`execv("/proc/self/exe", argv)` 重开自己 → 新进程看见连接器自然走上屏路径；`--headless` 强制模式**不参与**自动切回。
+板上编译 + 装好（`fakevo.bak-20261101` 是改前的；装二进制必须先 `systemctl stop k11c-fakevo`，否则 Text file busy）。
+**通用教训：任何"自动降级"都要配一个"自动回头"**，否则一次偶然的启动顺序会永久锁死状态。
+验法：DRM 的 `/sys/class/drm/card0-HDMI-A-1/status` 这个 6.1 内核**不接受 `disconnect`（EINVAL）**，别指望软件造"没插"的状态；
+真验只能物理做 —— 关电视→重启 fakevo（应进 headless）→开电视（应 1~2 秒内自己亮）。**这条还没做过**（只验了服务重启后回到 `flips=60 miss=0` 上屏路径）。
+
 **文档入口**：`12_win_上机跑\14_K11C做JetKVM式IP-KVM_方案.md` 开头新增 **§0「现在的样子」**
 （三路输出架构图 + 进程/端口表 + 已完成/待做 + 数字口径 + 临时件位置）。
 用户隔一阵就会说"**你更新一下方案文档 我看看现在是什么样的**" ⇒ **每次大改后同步这一节**，别让它过期；
