@@ -12,8 +12,8 @@ package main
 //   * iceServers from the cloud only contains STUN. We also append the public IP the
 //     cloud observed as an srflx candidate (SetICEAddressRewriteRules), same trick as
 //     JetKVM's webrtc.go so no STUN query is needed when the NAT keeps ports.
-//   * fakevo hardcodes RTP to 127.0.0.1:5004 pt=96, so this binary must own that port;
-//     stop k11c-gw while testing.
+//   * fakevo fans its RTP out to 127.0.0.1:5004 (k11c-gw) and :5005 (us) via a tee,
+//     so both paths can run at the same time. One UDP port can only feed one socket.
 
 import (
 	"context"
