@@ -4,7 +4,9 @@
 Two modes:
   serve  : HTTP on :8010. GET / shows a form that POSTs to api.jetkvm.com/oidc/google
            with {deviceId, returnTo}; GET /adopt captures tempToken and exchanges it
-           for a secretToken at POST /devices/token, saving it to /tmp/k11c-cloud.json.
+           for a secretToken at POST /devices/token, saving it to STATE
+           (default /tmp/k11c-cloud.json; override with env K11C_STATE — use
+           /etc/k11c/cloud.json so a reboot does not wipe the token).
   ws     : dial wss://api.jetkvm.com/ with the saved secretToken and log every message.
 
 Deliberate choices:
@@ -23,7 +25,7 @@ from urllib.parse import urlparse, parse_qs
 
 CLOUD = "https://api.jetkvm.com"
 SKU = "k11c-rk3566"
-STATE = "/tmp/k11c-cloud.json"
+STATE = os.environ.get("K11C_STATE", "/tmp/k11c-cloud.json")
 PORT = 8010
 
 

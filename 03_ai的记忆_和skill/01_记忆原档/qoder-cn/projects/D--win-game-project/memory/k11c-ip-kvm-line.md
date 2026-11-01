@@ -796,6 +796,25 @@ secretToken 现在只在 `/tmp/k11c-cloud.json`（重启可能被清）⇒ 要�
 验法：DRM 的 `/sys/class/drm/card0-HDMI-A-1/status` 这个 6.1 内核**不接受 `disconnect`（EINVAL）**，别指望软件造"没插"的状态；
 真验只能物理做 —— 关电视→重启 fakevo（应进 headless）→开电视（应 1~2 秒内自己亮）。**这条还没做过**（只验了服务重启后回到 `flips=60 miss=0` 上屏路径）。
 
+**【11-01 热插测试的坑】** 用户把电视关了，板子确实瞬时读到 `disconnected`，但 `systemctl restart k11c-fakevo` 之后 5 秒内 HPD 又回连
+（`connected`）⇒ 进程直接选了上屏路径，**"关电视"造不出稳定的"没插"状态**（这台电视待机还在应答 EDID）。
+要真验必须**拔线**。用户随后确认"电视再打开就有了"—— 那只证明上屏输出扛得住电视开关，**没证明新加的自动回头**，别混着记。
+
+**【11-01 第一个真公网延迟数：284 ms】** 手机关 WiFi 走 4G，同框读码表：
+电视 `02:14:28.784 #111801`、手机 `02:14:28.500 #111784` ⇒ Δ284 ms、Δ17 帧，`17×16.67=283` 两列互相印证。
+**用户把"数字小"读成"更快"过两次**（10-29 一次、11-01 一次）⇒ 以后凡是给码表读数，**先说清"数字小 = 画面旧 = 慢"**。
+284 ms 没拆账：最大嫌疑是蜂窝链路上浏览器 jitter buffer 自己撑大；**这次是 P2P 还是 Cloudflare 中继未证**（`k11c-cloud` 没打 ICE 候选类型）。
+下一步两条：① `GetStats` 打印 selected pair/RTT/丢包/jitter；② 照 `webrtc.go:493` 发 `playout-delay`。
+
+**【11-01 云客户端"正式化"做到一半】** 板子重启把 `/tmp` 清空 ⇒ 10-29 的实验件（二进制+令牌）全没，云上显示离线三天。
+重新认领一次（`device_cloud.py` 的 `STATE` 改成可用环境变量 `K11C_STATE` 覆盖），现在：
+二进制 `/opt/k11c-kvm/k11c-cloud`（VM 交叉编译：`GOOS=linux GOARCH=arm64 CGO_ENABLED=0`，
+**必须用缓存的 toolchain** `~/gopath/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.10.linux-amd64/bin/go`，
+直接 `go build` 会报 `pion/rtp requires go >= 1.24`）、令牌 `/etc/k11c/cloud.json`（0600 root）、`connected` 1 秒、推流 `pt=49` 约 128 包/秒≈0.9 Mbps。
+**还差 systemd 单元**（`enable` 等于让板子 24h 自动挂对方云，已明确要用户点头才做）。
+另：`feedRTP` 只在**有 track（已建会话）之后**才计数打日志 ⇒ **"日志里没有 rtp 行"不等于没收到包**，
+要看就用 `sudo tcpdump -i lo -c 3 udp port 5005`。
+
 **文档入口**：`12_win_上机跑\14_K11C做JetKVM式IP-KVM_方案.md` 开头新增 **§0「现在的样子」**
 （三路输出架构图 + 进程/端口表 + 已完成/待做 + 数字口径 + 临时件位置）。
 用户隔一阵就会说"**你更新一下方案文档 我看看现在是什么样的**" ⇒ **每次大改后同步这一节**，别让它过期；
