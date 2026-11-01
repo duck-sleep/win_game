@@ -509,6 +509,14 @@ func handleOffer(ctx context.Context, c *websocket.Conn, raw json.RawMessage) er
 	})
 	pc.OnICEConnectionStateChange(func(s webrtc.ICEConnectionState) {
 		log.Printf("ice state: %s", s)
+		if s == webrtc.ICEConnectionStateConnected {
+			go func() {
+				time.Sleep(3 * time.Second)
+				logPath(pc, "连接后3秒")
+				time.Sleep(17 * time.Second)
+				logPath(pc, "连接后20秒")
+			}()
+		}
 	})
 	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("pc state: %s", s)
@@ -548,6 +556,43 @@ func handleOffer(ctx context.Context, c *websocket.Conn, raw json.RawMessage) er
 }
 
 // feedRTP reads fakevo's RTP and forwards it to the latest track.
+// logPath 说清"这次媒体到底走没走中继"：选用的 candidate pair 两端类型 + RTT。
+// 没这几行只能靠猜 —— 10-29 那句"没用到中继"是同 WiFi 场景量的，不算公网证据。
+func logPath(pc *webrtc.PeerConnection, tag string) {
+	rs := pc.GetStats()
+	cand := map[string]*webrtc.ICECandidateStats{}
+	for _, r := range rs {
+		if c, ok := r.(*webrtc.ICECandidateStats); ok {
+			cand[c.ID] = c
+		}
+	}
+	fmtCand := func(id string) string {
+		c := cand[id]
+		if c == nil {
+			return "?"
+		}
+		extra := ""
+		if c.RelayProtocol != "" {
+			extra = " via " + c.RelayProtocol
+		}
+		return fmt.Sprintf("%s %s:%d/%s%s", c.CandidateType, c.IP, c.Port, c.Protocol, extra)
+	}
+	found := false
+	for _, r := range rs {
+		p, ok := r.(*webrtc.ICECandidatePairStats)
+		if !ok || (!p.Nominated && p.State != webrtc.StatsICECandidatePairStateSucceeded) {
+			continue
+		}
+		found = true
+		log.Printf("路径 %s: 本端[%s] 对端[%s] RTT=%.1fms 可用出向=%.0fbps 已发=%dB 已收=%dB",
+			tag, fmtCand(p.LocalCandidateID), fmtCand(p.RemoteCandidateID),
+			p.CurrentRoundTripTime*1000.0, p.AvailableOutgoingBitrate, p.BytesSent, p.BytesReceived)
+	}
+	if !found {
+		log.Printf("路径 %s: 还没有成功的候选对", tag)
+	}
+}
+
 func feedRTP() {
 	addr, err := net.ResolveUDPAddr("udp", *rtpAddr)
 	if err != nil {
