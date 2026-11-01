@@ -75,23 +75,175 @@ const localRPC = "http://127.0.0.1:8000/rpc"
 
 var httpClient = &http.Client{Timeout: 3 * time.Second}
 
+// 按通道拆开数：他 UI 把"移动"发在不重传通道（maxRetransmits=0）、"按键变化"发在可靠通道，
+// 混在一起就分不清是"没发"还是"被链路丢了"。
+const (
+	chHidReliable = iota
+	chHidUnreliableOrdered
+	chHidUnreliableNonOrdered
+	chHidOther
+	nHidCh
+)
+
+func hidChIndex(label string) int {
+	switch label {
+	case "hidrpc":
+		return chHidReliable
+	case "hidrpc-unreliable-ordered":
+		return chHidUnreliableOrdered
+	case "hidrpc-unreliable-nonordered":
+		return chHidUnreliableNonOrdered
+	}
+	return chHidOther
+}
+
+var (
+	hidTypes  [nHidCh][256]atomic.Int64
+	hidFrames atomic.Int64
+	hexShown  atomic.Int64
+	lastBtn   atomic.Int64
+	postN     atomic.Int64
+	postErr   atomic.Int64
+	postUsSum atomic.Int64
+	postUsMax atomic.Int64
+	postBusy  atomic.Int64 // 正在等 :8000 回话的条数
+)
+
 // postLocal forwards one JSON-RPC call to kvm_server.py (same target our gateway uses),
 // so the cloud path reuses the single HID implementation.
 func postLocal(body string) {
+	postBusy.Add(1)
+	t0 := time.Now()
 	resp, err := httpClient.Post(localRPC, "application/json", strings.NewReader(body))
+	us := time.Since(t0).Microseconds()
 	if err != nil {
+		postErr.Add(1)
 		log.Printf("local rpc: %v", err)
-		return
+	} else {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
+	postBusy.Add(-1)
+	postN.Add(1)
+	postUsSum.Add(us)
+	for {
+		old := postUsMax.Load()
+		if us <= old || postUsMax.CompareAndSwap(old, us) {
+			break
+		}
+	}
+}
+
+// hidStatsLoop prints a per-2s delta line: what arrived, where it went, how slow :8000 was.
+func hidStatsLoop() {
+	var lastTypes [nHidCh][256]int64
+	var lastN, lastErr, lastSum int64
+	chName := [nHidCh]string{"可靠", "不重传-有序", "不重传-乱序", "其它"}
+	for {
+		time.Sleep(2 * time.Second)
+		var parts []string
+		var total int64
+		for c := 0; c < nHidCh; c++ {
+			var sub []string
+			var ctotal int64
+			for t := 0; t < 256; t++ {
+				now := hidTypes[c][t].Load()
+				if d := now - lastTypes[c][t]; d > 0 {
+					sub = append(sub, fmt.Sprintf("0x%02x=%d", t, d))
+					ctotal += d
+				}
+				lastTypes[c][t] = now
+			}
+			total += ctotal
+			if ctotal > 0 {
+				parts = append(parts, fmt.Sprintf("%s:%d[%s]", chName[c], ctotal, strings.Join(sub, " ")))
+			}
+		}
+		n := postN.Load()
+		errn := postErr.Load()
+		sum := postUsSum.Load()
+		mx := postUsMax.Load()
+		post := n - lastN
+		avg := int64(0)
+		if post > 0 {
+			avg = (sum - lastSum) / post
+		}
+		if total > 0 || post > 0 || n == 0 {
+			log.Printf("hid stats: 收=%d (%s) 合并丢=%d 转发=%d 平均=%dus 最慢=%dus 在途=%d 错=%d",
+				total, strings.Join(parts, " "), coalesced.Swap(0), post, avg, mx, postBusy.Load(), errn-lastErr)
+		}
+		lastN, lastErr, lastSum = n, errn, sum
+	}
+}
+
+// ---- 只发最新位置（和 LAN 网关 board/gw 的 coalescing 同一套做法）----
+// 手机一指头能甩出 60~120 条/秒，而板内 POST :8000 一跳实测 ~25 ms ⇒ 全排队就会
+// "手指抬起来了光标还在滑"。指针/键盘都是**状态**报告，丢中间值不影响正确性；
+// keypress 是**事件**（按下/抬起成对），不能丢，走 FIFO。
+var (
+	ptrSlot   atomic.Pointer[string]
+	kbdSlot   atomic.Pointer[string]
+	pressQ    = make(chan string, 128)
+	coalesced atomic.Int64
+)
+
+func enqueueHID(kind byte, body string) {
+	switch kind {
+	case 0x03:
+		if old := ptrSlot.Swap(&body); old != nil {
+			coalesced.Add(1)
+		}
+	case 0x02:
+		if old := kbdSlot.Swap(&body); old != nil {
+			coalesced.Add(1)
+		}
+	default:
+		select {
+		case pressQ <- body:
+		default:
+			log.Printf("hid keypress 队列满了，丢掉 1 条")
+		}
+	}
+}
+
+// hidWorker is the only place that talks to :8000 for HID, so the datachannel
+// callback never blocks (a blocking OnMessage stalls the whole SCTP association).
+func hidWorker() {
+	tick := time.NewTicker(16 * time.Millisecond)
+	defer tick.Stop()
+	for range tick.C {
+		if p := ptrSlot.Swap(nil); p != nil {
+			postLocal(*p)
+		}
+		if k := kbdSlot.Swap(nil); k != nil {
+			postLocal(*k)
+		}
+	drain:
+		for {
+			select {
+			case b := <-pressQ:
+				postLocal(b)
+			default:
+				break drain
+			}
+		}
+	}
 }
 
 // handleHID maps JetKVM's hidrpc binary framing to the JSON-RPC calls kvm_server.py serves.
 // Layout matches board/gw/hid.go: [type][payload...].
-func handleHID(data []byte) {
+func handleHID(label string, data []byte) {
 	if len(data) < 1 {
 		return
+	}
+	ch := hidChIndex(label)
+	hidTypes[ch][data[0]].Add(1)
+	if f := hidFrames.Add(1); f <= 6 { // 会话头几帧留个原始样本，好核对打包格式
+		n := len(data)
+		if n > 12 {
+			n = 12
+		}
+		log.Printf("hid 样本 #%d [%s]: % x", f, label, data[:n])
 	}
 	switch data[0] {
 	case 0x03: // PointerReport: x int32 BE, y int32 BE, buttons u8
@@ -101,7 +253,10 @@ func handleHID(data []byte) {
 		}
 		x := int32(binary.BigEndian.Uint32(data[1:5]))
 		y := int32(binary.BigEndian.Uint32(data[5:9]))
-		postLocal(fmt.Sprintf(`{"id":0,"method":"absMouseReport","params":{"x":%d,"y":%d,"buttons":%d}}`,
+		if prev := lastBtn.Swap(int64(data[9])); prev != int64(data[9]) {
+			log.Printf("指针按键: %d -> %d（通道=%s，坐标 %d,%d）", prev, data[9], label, x, y)
+		}
+		enqueueHID(0x03, fmt.Sprintf(`{"id":0,"method":"absMouseReport","params":{"x":%d,"y":%d,"buttons":%d}}`,
 			x, y, data[9]))
 	case 0x02: // KeyboardReport: modifiers u8, keys...
 		if len(data) < 3 {
@@ -111,13 +266,13 @@ func handleHID(data []byte) {
 		for _, k := range data[2:] {
 			keys = append(keys, strconv.Itoa(int(k)))
 		}
-		postLocal(fmt.Sprintf(`{"id":0,"method":"keyboardReport","params":{"modifiers":%d,"keys":[%s]}}`,
+		enqueueHID(0x02, fmt.Sprintf(`{"id":0,"method":"keyboardReport","params":{"modifiers":%d,"keys":[%s]}}`,
 			data[1], strings.Join(keys, ",")))
 	case 0x05: // KeypressReport: key u8, pressed u8
 		if len(data) < 3 {
 			return
 		}
-		postLocal(fmt.Sprintf(`{"id":0,"method":"keypressReport","params":{"keyCode":%d,"pressed":%t,"modifiers":0}}`,
+		enqueueHID(0x05, fmt.Sprintf(`{"id":0,"method":"keypressReport","params":{"keyCode":%d,"pressed":%t,"modifiers":0}}`,
 			data[1], data[2] == 1))
 	default:
 		log.Printf("hid type 0x%02x not handled (%d bytes)", data[0], len(data))
@@ -189,6 +344,9 @@ func main() {
 		log.Fatalf("state: %v", err)
 	}
 	go feedRTP()
+	go hidWorker()
+	lastBtn.Store(-1)
+	go hidStatsLoop()
 
 	hdr := http.Header{}
 	hdr.Set("Authorization", "Bearer "+st.Secret)
@@ -340,7 +498,7 @@ func handleOffer(ctx context.Context, c *websocket.Conn, raw json.RawMessage) er
 					return
 				}
 				if strings.HasPrefix(dc.Label(), "hidrpc") {
-					handleHID(m.Data)
+					handleHID(dc.Label(), m.Data)
 					return
 				}
 				log.Printf("dc[%s] <- binary %d bytes: %x", dc.Label(), len(m.Data), m.Data[:min(len(m.Data), 16)])
