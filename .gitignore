@@ -50,5 +50,6 @@ Thumbs.db
 26_k11c_kvm/host/k11c-gw
 26_k11c_kvm/board/gw/k11c-gw
 26_k11c_kvm/board/vo/fakevo
+26_k11c_kvm/board/cloudkvm/k11c-cloud
 # 出固件的临时拼装树（里面有 netplan 明文口令，绝不进仓）
 26_k11c_kvm/build/
