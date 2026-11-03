@@ -63,6 +63,15 @@ SDK git：`master` = `a11afccc2`，**和 `origin/master` 齐平、没有任何�
 ② **Go 的 PATH 没写进 `~/.bashrc`** ⇒ 调 go 必须显式 `PATH=$HOME/go-toolchain/go/bin:$PATH GOPATH=$HOME/gopath GOCACHE=$HOME/gocache`。
 `~/k11c-gw` 是 Go 工程目录（源码在 git，产物不在）。
 
+**【11-03 Go 版本这条坑，别再手敲 toolchain 路径】** VM 上解的是 Go 1.23.4，而 `pion/rtp v1.10.5` 要求 `go >= 1.24`。
+`GOTOOLCHAIN=auto` **只看主模块 go.mod 里的 `go` 行，不看依赖的要求** ⇒ go.mod 写 `go 1.23` 就会直接报
+`requires go >= 1.24.0 (running go 1.23.4)`，看起来像"版本装错了"。
+**正解：主模块 go.mod 写 `go 1.24.0`**（和 `board/gw` 一致），Go 会自动切到已缓存的
+`~/gopath/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.0.linux-amd64`，`go build` 一句就过。
+**别用 `GOSUMDB=off` 去绕** —— 那会让 toolchain 模块的校验失败（`verifying module: checksum database disabled`），反而编不了。
+`cloudkvm` 现在有 `build.sh`（照 `board/gw/build.sh`），产物和 `go.sum` 都齐了；
+脚本里 VM 目录写**相对路径** `D=k11c-cloud`，写 `~/k11c-cloud` 会被 Git Bash 展开成 Windows 家目录、scp 直接失败。
+
 
 - 🔴 **不要和安卓编译 VM 同时开机**：安卓那台占 43G，加这台 15.6G 已超宿主机 64G；官方文档也写"一次只能开一台虚拟机"。
 - SDK **不能放在共享目录**里编译；不能以 root 登录编译（用 `rk` 用户即合规）。
