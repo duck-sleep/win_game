@@ -1,0 +1,17 @@
+{
+  "mode": "balanced",
+  "gain": 0.546,
+  "user_index": 0,
+  "audio_device": null,
+  "vibration_on": true,
+  "encoder": "ours",
+  "custom_overrides": {
+    "gate": 0.03,
+    "band_scale": 0.7,
+    "gamma": 3.0,
+    "transient_vol": 0.5,
+    "freq_win": 0.1,
+    "amp_win": 0.04
+  },
+  "mode_band_gains": {}
+}

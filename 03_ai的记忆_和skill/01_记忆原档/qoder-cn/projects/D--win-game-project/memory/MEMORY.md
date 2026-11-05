@@ -11,3 +11,4 @@
 - [K11C(RK3566) Linux 线](k11c-rk3566-line.md) — 板 V1.2 无屏走HDMI；选6.1；官方路线是overlay；10-15全量编译成功**已烧板并串口验证**
 - [K11C 做 IP-KVM 线](k11c-ip-kvm-line.md) — 11-01：15_ 图全换 mermaid + §9 自搭云六步；🔴未修:不清HID、/offer踢人、本地与云抢鼠标
 - [RK 编译 VM（rk-vm）](rk-vm-k11c.md) — rk@rk-vmachine 192.168.234.141，免密+依赖齐，SDK 23G 在 ~/k11c；勿与安卓 VM 同开
+- [机械师 G6 V2 HD 振动线](machenike-g6v2-hd-rumble-line.md) — NS 0x10 协议/11 测试全过/小星星唱通了；🔴待拍板：HF 夹歪 54 块、单侧不震

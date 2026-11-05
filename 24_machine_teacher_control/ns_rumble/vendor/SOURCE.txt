@@ -1,0 +1,19 @@
+本目录下的三个 .py 是从雷云对齐那条线**原样复制**过来的，不是我们写的。
+
+来源仓库   : D:\win_game_project\25_xbox_control\hapticx\
+来源提交   : 1852c3c
+复制日期   : 2026-11-04
+复制的文件 : a2h_encoder.py  har_pack.py  wasapi_loopback.py
+
+唯一允许的改动（1 处）：
+  a2h_encoder.py 第 17 行
+    - from har_pack import Transient, frame_from_block, freq_skirt
+    + from .har_pack import Transient, frame_from_block, freq_skirt
+  原因：复制进来后它们在 ns_rumble.vendor 包里，平级导入会 ModuleNotFoundError。
+  除此之外一个字都不许改。对齐证据在 25_xbox_control\03_使用说明.md：
+  该编码器与雷云 RzInterhapticsHapticEncoder v2.0.1.11 逐帧对过，
+  纯音 17/17、稳态/突发/扫频/左右不同全部 0 不一致。
+
+本目录另有两个我们自己的文件，不属于复制品：
+  __init__.py   空包标记
+  （golden 测试在 ..\..\tests\test_a2h_golden.py）

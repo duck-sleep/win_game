@@ -1,0 +1,10 @@
+﻿enumerate 057e:2009 -> 1
+  path=b'\\\\?\\HID#VID_057E&PID_2009#6&35c399e5&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}' manufacturer='Nintendo Co., Ltd.' product='Pro Controller' serial='000000000001' usage_page=0x1 usage=0x4 if=0
+握手前读到 30 62 91 00 80 00 00 f8 7f 00 f8 7f
+80 01  write=64  reply=无
+80 02  write=64  reply=81 02 00 00 00 00 00 00 00 00 00 00
+80 03  write=64  reply=81 03 00 00 00 00 00 00 00 00 00 00
+80 02  write=64  reply=81 02 00 00 00 00 00 00 00 00 00 00
+80 04  write=64  reply=无
+子命令 48 01（开振动） write=64 reply=21 a1 91 00 80 00 00 f8 7f 00 f8 7f 0c 80 48 00
+握手后 0.5 秒收到的输入报告号 {'30': 63}
