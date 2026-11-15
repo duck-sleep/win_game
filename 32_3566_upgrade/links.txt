@@ -1,0 +1,8 @@
+etc/systemd/system/multi-user.target.wants/k11c-gadget.service ../k11c-gadget.service
+etc/systemd/system/sysinit.target.wants/k11c-grow.service ../k11c-grow.service
+etc/systemd/system/sysinit.target.wants/k11c-ab-mark.service ../k11c-ab-mark.service
+etc/systemd/system/getty.target.wants/serial-getty@ttyGS0.service /usr/lib/systemd/system/serial-getty@.service
+etc/systemd/system/multi-user.target.wants/wpa_supplicant-nl80211@wlan0.service /usr/lib/systemd/system/wpa_supplicant-nl80211@.service
+etc/systemd/system/multi-user.target.wants/dhcpcd.service /usr/lib/systemd/system/dhcpcd.service
+etc/systemd/system/multi-user.target.wants/dropbear.service /usr/lib/systemd/system/dropbear.service
+etc/systemd/system/multi-user.target.wants/avahi-daemon.service /usr/lib/systemd/system/avahi-daemon.service

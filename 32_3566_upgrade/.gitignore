@@ -1,0 +1,2 @@
+overlay/etc/wpa_supplicant/*.conf
+**/authorized_keys

@@ -1,0 +1,1 @@
+kickpi -1 kickpi -1 - /home/kickpi /bin/sh - KickPi

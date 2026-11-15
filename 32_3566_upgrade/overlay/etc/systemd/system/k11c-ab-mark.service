@@ -1,0 +1,13 @@
+[Unit]
+Description=Mark the booted A/B slot successful
+DefaultDependencies=no
+After=local-fs.target systemd-udevd.service
+Before=dropbear.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/k11c-ab-mark.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,24 @@
+diff --git a/kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi b/kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+index 0031c0cd2..005bec6d6 100755
+--- a/kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
++++ b/kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+@@ -281,3 +281,7 @@ &rknpu_mmu {
+ &vp0 {
+ 	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
+ };
++
++&usbdrd_dwc3 {
++	dr_mode = "peripheral";
++};
+diff --git a/kernel-6.1/arch/arm64/configs/rockchip_linux_defconfig b/kernel-6.1/arch/arm64/configs/rockchip_linux_defconfig
+index d65f1f1a8..9235a1b9d 100644
+--- a/kernel-6.1/arch/arm64/configs/rockchip_linux_defconfig
++++ b/kernel-6.1/arch/arm64/configs/rockchip_linux_defconfig
+@@ -503,6 +503,7 @@ CONFIG_USB_CONFIGFS_ACM=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_CONFIGFS_F_UVC=y
++CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_TYPEC_TCPM=y
+ CONFIG_TYPEC_TCPCI=y
+ CONFIG_TYPEC_HUSB311=y

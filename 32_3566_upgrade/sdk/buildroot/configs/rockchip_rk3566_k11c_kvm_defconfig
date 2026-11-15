@@ -1,0 +1,34 @@
+#include "base/base.config"
+#include "chips/rk3566_rk3568_aarch64.config"
+#include "fs/vfat.config"
+#include "fs/exfat.config"
+#include "multimedia/mpp.config"
+#include "wifibt/wireless.config"
+
+# systemd, so the Ubuntu service files can be copied as-is
+BR2_INIT_SYSTEMD=y
+
+# JetKVM runtime
+BR2_PACKAGE_PYTHON3=y
+BR2_PACKAGE_LIBDRM=y
+BR2_PACKAGE_GSTREAMER1=y
+BR2_PACKAGE_GSTREAMER1_INSTALL_TOOLS=y
+BR2_PACKAGE_GST1_PLUGINS_BASE=y
+BR2_PACKAGE_GST1_PLUGINS_BASE_PLUGIN_APP=y
+BR2_PACKAGE_GST1_PLUGINS_GOOD=y
+BR2_PACKAGE_GST1_PLUGINS_GOOD_PLUGIN_RTP=y
+BR2_PACKAGE_GST1_PLUGINS_GOOD_PLUGIN_UDP=y
+BR2_PACKAGE_GST1_PLUGINS_BAD=y
+BR2_PACKAGE_GST1_PLUGINS_BAD_PLUGIN_VIDEOPARSERS=y
+BR2_PACKAGE_GSTREAMER1_ROCKCHIP=y
+
+# upgrade tool on the main system
+BR2_PACKAGE_RKTOOLKIT=y
+
+# kickpi.local
+BR2_PACKAGE_AVAHI=y
+BR2_PACKAGE_AVAHI_DAEMON=y
+
+# our files and the kickpi user
+BR2_ROOTFS_OVERLAY+="/home/rk/k11c/k11c-br-overlay"
+BR2_ROOTFS_USERS_TABLES="/home/rk/k11c/k11c-br-users.txt"

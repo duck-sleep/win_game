@@ -1,0 +1,12 @@
+diff --git a/buildroot/package/libxcrypt/libxcrypt.mk b/buildroot/package/libxcrypt/libxcrypt.mk
+index 9ad030fbd..ce805f637 100644
+--- a/buildroot/package/libxcrypt/libxcrypt.mk
++++ b/buildroot/package/libxcrypt/libxcrypt.mk
+@@ -18,3 +18,7 @@ LIBXCRYPT_CONF_OPTS = --disable-werror
+ LIBXCRYPT_CONF_OPTS += --disable-obsolete_api
+ 
+ $(eval $(autotools-package))
++
++HOST_LIBXCRYPT_CONF_OPTS = --disable-werror --disable-obsolete_api
++
++$(eval $(host-autotools-package))
