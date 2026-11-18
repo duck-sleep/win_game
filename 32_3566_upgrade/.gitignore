@@ -1,2 +1,3 @@
 overlay/etc/wpa_supplicant/*.conf
 **/authorized_keys
+**/cloud.json

@@ -1,4 +1,8 @@
 etc/systemd/system/multi-user.target.wants/k11c-gadget.service ../k11c-gadget.service
+etc/systemd/system/multi-user.target.wants/k11c-fakevo.service ../k11c-fakevo.service
+etc/systemd/system/multi-user.target.wants/k11c-gw.service ../k11c-gw.service
+etc/systemd/system/multi-user.target.wants/k11c-kvm.service ../k11c-kvm.service
+etc/systemd/system/multi-user.target.wants/k11c-cloud.service ../k11c-cloud.service
 etc/systemd/system/sysinit.target.wants/k11c-grow.service ../k11c-grow.service
 etc/systemd/system/sysinit.target.wants/k11c-ab-mark.service ../k11c-ab-mark.service
 etc/systemd/system/getty.target.wants/serial-getty@ttyGS0.service /usr/lib/systemd/system/serial-getty@.service

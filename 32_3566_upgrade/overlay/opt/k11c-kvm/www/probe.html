@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>K11C 手机 H.265 能力探测</title>
+<style>
+  body { margin: 0; padding: 14px; background: #111417; color: #e8eaed; font: 14px/1.6 ui-monospace, monospace; }
+  h1 { font-size: 16px; margin: 0 0 10px; }
+  pre { white-space: pre-wrap; word-break: break-all; background: #1b1f24; padding: 12px; border-radius: 8px; margin: 0; }
+  #tip { color: #9aa0a6; font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>手机能不能收 H.265（T10 闸门）</h1>
+<pre id="o">检测中…</pre>
+<div id="tip">把上面这一整块文字截图或拍照发给 AI。关键看 <b>webrtc H265</b> 那行是 true 还是 false。</div>
+<script>
+var out = [];
+out.push('UA: ' + navigator.userAgent);
+out.push('secure: ' + window.isSecureContext);
+var c = (RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video')) || { codecs: [] };
+out.push('webrtc recv: ' + Array.from(new Set(c.codecs.map(function (x) { return x.mimeType; }))).join(' '));
+out.push('webrtc H265: ' + c.codecs.some(function (x) { return x.mimeType.toLowerCase() === 'video/h265'; }));
+out.push('MSE hvc1: ' + (window.MediaSource ? MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L123.B0"') : 'no MSE'));
+out.push('WebCodecs: ' + (typeof VideoDecoder));
+document.getElementById('o').textContent = out.join('\n');
+</script>
+</body>
+</html>
