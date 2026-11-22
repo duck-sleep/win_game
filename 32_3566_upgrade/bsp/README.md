@@ -9,10 +9,32 @@
 
 ## 前提
 
-- Linux x86_64 编译机，≥150GB 空闲磁盘；git、curl、tar、python3、bash。
-- RK Buildroot 编译依赖（参考 KickPI 文档「SDK 编译」章节装 host 依赖）。
-- 编译机可访问 github.com / gitlab.com / developer.arm.com（fetch 约 1~2GB 下载）。
+- Ubuntu 22.04 x86_64，不要用 root 账号编译。磁盘空闲 ≥150GB。能访问 github.com、gitlab.com、developer.arm.com（`fetch.sh` 大约再下 1~2GB）。
 - 本仓库的 `overlay/`、`patches/` 原目录保持不动；本包只新增 `bsp/`。
+
+主机依赖（Buildroot 不带这些，是 Ubuntu 自己的包）。清单在 Ubuntu 22.04 上装通过。`libncurses-dev:i386` 需要先开 i386。`python-pip` 不要装，它和 `python3-pip` 冲突，冲突时整批一个都不装。
+
+```bash
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install -y \
+  autoconf bc binfmt-support bison build-essential bzip2 \
+  chrpath cmake cpp-aarch64-linux-gnu curl device-tree-compiler diffstat \
+  expat expect tcl8.6-dev fakeroot flex \
+  g++ g++-multilib gawk gcc gcc-multilib git gnupg gperf gpgv2 imagemagick \
+  libncurses-dev libncurses-dev:i386 lib32readline-dev lib32z1-dev libgmp-dev \
+  libgucharmap-2-90-dev liblz4-tool libmpc-dev \
+  libncurses5-dev libsdl1.2-dev libssl-dev libwxgtk3.0-gtk3-dev \
+  libxml2 libxml2-utils live-build lzop \
+  make module-assistant openjdk-8-jdk \
+  patchelf pngcrush python2 python-is-python3 python3-pip \
+  qemu-user-static rsync schedtool squashfs-tools ssh sudo \
+  texinfo u-boot-tools unzip xsltproc yasm zip zlib1g-dev \
+  gettext cpio file pkg-config libtool dpkg-dev
+python3 -m pip install --user pyelftools
+sudo apt-get install -y --reinstall binfmt-support qemu-user-static
+sudo ln -sf /usr/bin/python2 /usr/bin/python
+```
 
 ## 步骤（fetch → update.img）
 
