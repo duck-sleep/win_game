@@ -1,0 +1,36 @@
+From e4989212e6cb5a3545a177c1dbd338cd7b9df31a Mon Sep 17 00:00:00 2001
+From: xie <swxie@kickpi.com>
+Date: Fri, 10 Jul 2026 11:30:46 +0800
+Subject: [PATCH 5/5] feat(K8C): add K8C (RK3588+LPDDR5) board support for
+ Linux
+
+Add BoardConfig defconfigs (debian/ubuntu) and kernel DTS files for
+K8C board in rk-linux6.1 SDK, ported from android14 adaptation.
+
+- Board defconfig: rockchip_rk3588_kickpi_k8c_debian/ubuntu_defconfig
+- Kernel DTS: rk3588-kickpi-k8c-linux.dts, rk3588-kickpi-k8c.dtsi,
+  rk3588-kickpi-k8c-evb.dtsi (RK806 PMIC, CPU/NPU regulators, SDMMC)
+- DTS add-ons: gmac0/1 (dual RTL8211F RGMII), PCIe (M.2, combphy),
+  30-pin extension header (SPI0, PWM12, CAN1, UART1/4/6, I2C4/8),
+  HDMI1 output
+
+Origin: kickpi f5fd0034ed5b981a6e180ea1aa7ee4d8120515d2
+---
+ arch/arm/mach-rockchip/rk_hwid.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/mach-rockchip/rk_hwid.c b/arch/arm/mach-rockchip/rk_hwid.c
+index c593b06..f7d4eec 100644
+--- a/arch/arm/mach-rockchip/rk_hwid.c
++++ b/arch/arm/mach-rockchip/rk_hwid.c
+@@ -3,6 +3,7 @@
+  *
+  * SPDX-License-Identifier:     GPL-2.0+
+  */
++#define DEBUG
+ #include <common.h>
+ #include <adc.h>
+ #include <asm/io.h>
+-- 
+2.34.1
+

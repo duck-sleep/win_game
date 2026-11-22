@@ -1,0 +1,114 @@
+From 12161960f2feefb338951e54d0a70f70b70254e2 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 26 May 2026 15:29:58 +0800
+Subject: [PATCH 72/73] wifi-bt: fix null-pointer check and improve seekwave
+ suspend/resume
+
+- Add null check for pin_val kzalloc in skw_pin_config
+- Add null check for usb_boot_data before accessing nv_mem_pnfg_data
+- Skip HW reset for Seekwave BT (driver manages its own state)
+- Unblock Bluetooth and power on after init
+- Unload/reload Seekwave Wi-Fi module during suspend/resume
+
+Origin: kickpi c783abbee766d1bca5a45062830af2fbcfba9e4d
+---
+ .../seekwaveplatform_lite/usb/skw_usb_io.c    |  6 +++-
+ scripts/wifibt-init.sh                        | 30 +++++++++++++++++++
+ 2 files changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/skw6621s/seekwaveplatform_lite/usb/skw_usb_io.c b/drivers/skw6621s/seekwaveplatform_lite/usb/skw_usb_io.c
+index 39e2e85..52f9cf2 100755
+--- a/drivers/skw6621s/seekwaveplatform_lite/usb/skw_usb_io.c
++++ b/drivers/skw6621s/seekwaveplatform_lite/usb/skw_usb_io.c
+@@ -1722,6 +1722,10 @@ int skw_pin_config(struct usb_port_struct *port, char *buffer)
+ 	char off_str[3];
+ 
+ 	pin_val = (u32 *)kzalloc(PN_CNT * sizeof(u32), GFP_KERNEL);
++	if (!pin_val) {
++		skw_usb_err("pin_val alloc failed\n");
++		return -ENOMEM;
++	}
+ 
+ 	while (g_offset < usb_boot_data->nv_mem_pnfg_size) {
+ 		//1. pin offset
+@@ -1890,7 +1894,7 @@ static int usb_loopcheck_entry(void *para)
+ 			count = 0;
+ 			schedule_work(&add_device_work);
+ 			bulkout_write_timeout(port->portno, buffer+256,9, &size, 300);
+-			if (usb_boot_data->nv_mem_pnfg_data != NULL && usb_boot_data->nv_mem_pnfg_size != 0) {
++			if (usb_boot_data != NULL && usb_boot_data->nv_mem_pnfg_data != NULL && usb_boot_data->nv_mem_pnfg_size != 0) {
+ 				skw_usb_info("UPDATE '%s' PINCFG from %s\n", skw_chipid, usb_boot_data->skw_nv_name);
+ 				skw_pin_config(port, buffer);
+ 			}
+diff --git a/scripts/wifibt-init.sh b/scripts/wifibt-init.sh
+index ce355ef..048e338 100755
+--- a/scripts/wifibt-init.sh
++++ b/scripts/wifibt-init.sh
+@@ -180,6 +180,14 @@ do_init_bt()
+ {
+ 	cd "${WIFIBT_MODULE_DIR:-/lib/modules}"
+ 
++	# Skip HW reset for Seekwave (skwbt driver manages its own state)
++	case "$WIFIBT_VENDOR" in
++		SeekwaveU|SeekwaveS)
++			log "Seekwave BT: skip HW reset"
++			return 0
++			;;
++	esac
++
+ 	# Reset BT
+ 	stop_bt
+ 	local RFKILL=$(grep -rl "^bluetooth" /sys/class/rfkill/*/type | \
+@@ -328,6 +336,8 @@ start_wifibt()
+ 			log "Starting Wi-Fi/BT..."
+ 			start_wifi
+ 			do_init_bt
++			rfkill unblock bluetooth 2>/dev/null || true
++			case "$WIFIBT_VENDOR" in SeekwaveU|SeekwaveS) hciconfig hci0 up 2>/dev/null || true ;; *) bluetoothctl power on 2>/dev/null || true ;; esac
+ 			log "Done"
+ 			;;
+ 		start_wifi)
+@@ -338,6 +348,8 @@ start_wifibt()
+ 		start_bt)
+ 			log "Starting BT..."
+ 			do_init_bt
++			rfkill unblock bluetooth 2>/dev/null || true
++			case "$WIFIBT_VENDOR" in SeekwaveU|SeekwaveS) hciconfig hci0 up 2>/dev/null || true ;; *) bluetoothctl power on 2>/dev/null || true ;; esac
+ 			log "Done"
+ 			;;
+ 	esac
+@@ -439,6 +451,13 @@ suspend_wifibt()
+ 	case "$WIFIBT_QUIRK" in
+ 		suspend-reload) unload_wifibt ;;
+ 	esac
++
++	case "$WIFIBT_VENDOR" in
++		SeekwaveU|SeekwaveS)
++			log "Unloading Seekwave Wi-Fi for suspend..."
++			rmmod swt6621u_wifi 2>/dev/null || true
++			;;
++	esac
+ }
+ 
+ resume_wifibt()
+@@ -448,6 +467,17 @@ resume_wifibt()
+ 	esac
+ 
+ 	# Retore enabled Wi-Fi interfaces
++	case "$WIFIBT_VENDOR" in
++		SeekwaveU|SeekwaveS)
++			log "Re-init Seekwave Wi-Fi after resume..."
++			cd "${WIFIBT_MODULE_DIR:-/lib/modules}"
++			sleep 1
++			try_insmod skw_usb_lite
++			do_insmod $(echo $WIFIBT_MODULE | tr ":" " ")
++			wait_wifi
++			;;
++	esac
++
+ 	enable_wifi
+ 
+ 	case "$WIFIBT_VENDOR" in
+-- 
+2.34.1
+

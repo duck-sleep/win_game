@@ -1,0 +1,26 @@
+From 7e51b8cd668b494d9bb47e9e89d2de9f4958eafb Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 22 Apr 2026 09:15:52 +0800
+Subject: [PATCH 3/5] feat(k1mini): add k1mini multi config
+
+Origin: kickpi 9ff05d8eabf48ea2eeb276a1f0376c9cdcd9af7e
+---
+ drivers/adc/rockchip-saradc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/adc/rockchip-saradc.c b/drivers/adc/rockchip-saradc.c
+index a2856db..7ac5e17 100644
+--- a/drivers/adc/rockchip-saradc.c
++++ b/drivers/adc/rockchip-saradc.c
+@@ -158,7 +158,7 @@ static const struct rockchip_saradc_data rk3066_tsadc_data = {
+ 
+ static const struct rockchip_saradc_data rk3399_saradc_data = {
+ 	.num_bits = 10,
+-	.num_channels = 6,
++	.num_channels = 8,
+ 	.clk_rate = 1000000,
+ };
+ 
+-- 
+2.34.1
+

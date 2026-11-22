@@ -1,0 +1,42 @@
+From bf8000093054b5f20c628960939bc07d7777f9af Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 27 May 2026 16:41:39 +0800
+Subject: [PATCH 32/34] fix: update DeviceTest binary/config and build scripts
+
+- Update DeviceTest binary with UI fixes (camera preview, audio playback, button layout)
+- Update DeviceTestConfig for K8D: comment infoPost, add Headset Mic test
+- Remove deprecated DeviceTestConfig-kickpi-k8d.xml
+- Update build.sh changes
+
+Origin: kickpi 6d6888df4494d8ef68b45f54440f324d928ee93c
+---
+ common/scripts/build.sh | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/common/scripts/build.sh b/common/scripts/build.sh
+index d698126..7305e8a 100755
+--- a/common/scripts/build.sh
++++ b/common/scripts/build.sh
+@@ -822,10 +822,15 @@ main()
+ 		chmod +x "$ASKPASS_FILE"
+ 		export SUDO_ASKPASS="$ASKPASS_FILE"
+ 		export SUDO_PASS
+-		trap 'rm -f "$ASKPASS_FILE"; unset SUDO_PASS' EXIT
+-		# Override sudo to use -A (askpass) mode
+-		sudo() { command sudo -A "$@"; }
+-		export -f sudo
++		trap 'rm -f "$ASKPASS_FILE"; unset SUDO_PASS; rm -rf "$SUDO_WRAPPER_DIR"' EXIT
++		# Create sudo wrapper in PATH to always pass -A (works in all shells)
++		SUDO_WRAPPER_DIR=$(mktemp -d)
++		cat > "$SUDO_WRAPPER_DIR/sudo" <<- 'SUDOWREOF'
++		#!/bin/sh
++		exec /usr/bin/sudo -A "$@"
++		SUDOWREOF
++		chmod +x "$SUDO_WRAPPER_DIR/sudo"
++		export PATH="$SUDO_WRAPPER_DIR:$PATH"
+ 	fi
+ 
+ 	# Pre-build stage (submodule configuring, etc.)
+-- 
+2.34.1
+

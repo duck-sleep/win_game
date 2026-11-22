@@ -1,0 +1,400 @@
+From ddb279f5ec77dd32948e13d0226575d6503a7567 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 10:38:25 +0800
+Subject: [PATCH 16/50] feat(multi_dtb): add multi dtb config v1
+
+Origin: kickpi 7f16dc977278f80be1efa41d122c8aed1e974f70
+---
+ scripts/build_multi_dtb.sh | 186 +++++++++++++++++++++++++++++++++++++
+ scripts/mkimg              |   7 ++
+ scripts/mkmultidtb.py      | 163 ++++++++++++++++++++++++++++++++
+ 3 files changed, 356 insertions(+)
+ create mode 100755 kernel-6.1/scripts/build_multi_dtb.sh
+
+diff --git a/scripts/build_multi_dtb.sh b/scripts/build_multi_dtb.sh
+new file mode 100755
+index 0000000..d6b2637
+--- /dev/null
++++ b/scripts/build_multi_dtb.sh
+@@ -0,0 +1,186 @@
++#!/bin/bash -e
++
++# Linux SDK 默认定义变量，device/rockchip/common/configs/Config.in.kernel
++# RK_KERNEL_DTS_DIR  DTS文件夹目录，例如:kernel/arch/arm64/boot/dts/rockchip
++# RK_KERNEL_DTS_NAME DTS文件名称，例如:rk3568-kickpi-k1-linux
++# RK_KERNEL_DTS      DTS文件目录，例如:kernel/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1-linux.dts
++# RK_KERNEL_DTB      DTS文件目录，例如:kernel/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1-linux.dtb
++
++CUR_PWD=`pwd`
++echo "cur_pwd: $CUR_PWD"
++
++KICKPI_DTS_DIR="$CUR_PWD/arch/arm64/boot/dts/rockchip"
++KICKPI_DTS_NAME=$RK_KERNEL_DTS_NAME
++KICKPI_DTS=$KICKPI_DTS_DIR/$KICKPI_DTS_NAME.dts
++
++# DTSI文件名称（自定义），例如：rk3568-kickpi-k1
++KICKPI_DTSI_NAME=`echo $KICKPI_DTS_NAME | rev | cut -d '-' -f 2- | rev`
++# DTSI文件目录（自定义），例如：kernel/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi
++KICKPI_DTSI=$KICKPI_DTS_DIR/$KICKPI_DTSI_NAME.dtsi
++
++RUN_RET=0
++
++function null_line {
++	echo "Find Null Line In DTSI"
++	DTS_LINE=`grep -rn "kickpi-lcd" ${KICKPI_DTSI} | awk 'END {print}' | cut -d ":" -f 1`
++	NULL_LINE=`expr $DTS_LINE + 1`
++	STRING=`cat $KICKPI_DTSI | tail -n +$NULL_LINE | head -1`
++	echo -n $NULL_LINE
++	echo " is Null Line"
++	echo ""
++}
++
++
++function get_lcd_dtsi {
++	echo "Get Raw Data For LCD DTSI"
++	LCD_DTSI_NUM=0
++	IFS=$'\n'
++	for line in `grep -r "kickpi-lcd" $KICKPI_DTSI | sed 's/\///g'`
++	do
++		echo -n "LCD Num"
++		echo -n $LCD_DTSI_NUM
++		echo " Info"
++
++		# Raw Data,Such As: #include "rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi"
++		echo $line
++
++        if [[ $line =~ "hdmi" || $line =~ "multi" ]]; then
++            echo "jump this LCD !"
++            continue
++        fi
++
++		LCD_DTSI_RAW_ARRAY[${LCD_DTSI_NUM}]=$line
++
++		# DTB File Name ,Such As: rk3568-kickpi-k1a-mipi0-10.1-800-1280
++		info=${line#*lcd-}
++		info=${info%.*}
++		DTS_NAME_ARRAY[${LCD_DTSI_NUM}]=${KICKPI_DTS_NAME}-${info}
++		echo ${DTS_NAME_ARRAY[${LCD_DTSI_NUM}]}
++
++		let LCD_DTSI_NUM=${LCD_DTSI_NUM}+1
++	done
++	unset IFS
++	echo ""
++}
++
++function build_multi_dtb {
++    echo '#define MULTI_NAME "hdmi"' > $MULTI_DTS_PATH
++    cpp -nostdinc -I $CUR_PWD/include -undef -x assembler-with-cpp ${KICKPI_DTS} > ${KICKPI_DTS_DIR}/.temp.dts
++    /usr/bin/dtc -I dts -O dtb -o ${KICKPI_DTS_DIR}/${KICKPI_DTS_NAME}-hdmi.dtb ${KICKPI_DTS_DIR}/.temp.dts
++
++    echo "*******************************************************************************************"
++    echo " RK_CHIP = $RK_CHIP "
++    echo "*******************************************************************************************"
++    if [[  $RK_CHIP =~ "rk3566" ]]; then
++        echo "*******************************************************************************************"
++        echo "      rk3566 only one vop remove hdmi ! "
++        echo "*******************************************************************************************"
++        sed -i '/kickpi-lcd-hdmi/ s/^/\/\//' $KICKPI_DTSI
++    fi
++
++	for((num=0;num<$LCD_DTSI_NUM;num++));
++	do
++        echo "build kickpi common ${KICKPI_DTS_DIR}/${DTS_NAME_ARRAY[$num]}.dtb"
++        echo "${LCD_DTSI_RAW_ARRAY[$num]}" > $MULTI_DTS_PATH
++		#sed -i -e "${NULL_LINE}s/.*$/${LCD_DTSI_RAW_ARRAY[$num]}/" $KICKPI_DTSI
++		cpp -nostdinc -I $CUR_PWD/include -undef -x assembler-with-cpp ${KICKPI_DTS} > ${KICKPI_DTS_DIR}/.temp.dts
++		/usr/bin/dtc -I dts -O dtb -o ${KICKPI_DTS_DIR}/${DTS_NAME_ARRAY[$num]}.dtb ${KICKPI_DTS_DIR}/.temp.dts
++        if [ $? -eq 0 ]; then
++            echo "Build ${DTS_NAME_ARRAY[$num]}.dtb ok!"
++        else
++            echo "Build ${DTS_NAME_ARRAY[$num]}.dtb failed!"
++            RUN_RET=1
++            return
++        fi
++	done
++
++    echo "*******************************************************************************************"
++    echo "      build multi dtb success ! "
++    echo "*******************************************************************************************"
++    if [[  $RK_CHIP =~ "rk3588" && $RK_CHIP != *"rk3588s"* ]]; then
++        build_multi_dtb_rk3588
++    fi
++}
++
++function build_multi_dtb_rk3588 {
++
++    txt_file="k8_lcd_multi.txt"
++    input_file=${KICKPI_DTS_DIR}/$txt_file
++
++    if [ ! -f "$input_file" ]; then
++        echo "can't find $input_file !!"
++        RUN_RET=1
++        return
++    fi
++
++    target_name=""
++    build_target=""
++    while IFS= read -r line; do
++        if [[ $line =~ ^\[([^\]]+)\]$ ]]; then
++            build_target=$target_name
++            target_name="${BASH_REMATCH[1]}"
++            if [ -n "$build_target" ]; then
++                echo "build kickpi $build_target.dtb"
++                cpp -nostdinc -I ./kernel/include -undef -x assembler-with-cpp ${KICKPI_DTS} > ${KICKPI_DTS_DIR}/.temp.dts
++                /usr/bin/dtc -I dts -O dtb -o ${KICKPI_DTS_DIR}/${KICKPI_DTS_NAME}-$build_target.dtb ${KICKPI_DTS_DIR}/.temp.dts
++                if [ $? -eq 0 ]; then
++                    echo "Build ${KICKPI_DTS_NAME}-$build_target.dtb ok!"
++                else
++                    echo "Build ${KICKPI_DTS_NAME}-$build_target.dtb failed!"
++                    RUN_RET=1
++                    return
++                fi
++            else
++                echo "" > $MULTI_DTS_PATH
++            fi
++        elif [[ -n $target_name ]]; then
++            if [[ $line =~ \.dtsi$ ]]; then
++                if [ -f $KICKPI_DTS_DIR/$line ] ; then
++                    echo "#include \"$line\"" >> $MULTI_DTS_PATH
++                else
++                    echo "can't find $KICKPI_DTSI/$line !"
++                fi
++            fi
++        fi
++    done < "$input_file"
++
++    echo "*******************************************************************************************"
++    echo "      build multi rk3588 dtb success ! "
++    echo "*******************************************************************************************"
++}
++
++function build_resource_img {
++	./scripts/mkmultidtb.py ${KICKPI_DTS_NAME}
++	cp resource.img resource_multi_dtb.img
++}
++
++function modify_common {
++    # rm -vf ${KICKPI_DTS_DIR}/*.dtb
++
++    sed -i '/kickpi-lcd/ s/^/\/\//' $KICKPI_DTSI
++    sed -i '/kickpi-lcd-hdmi/ s,^//,,' $KICKPI_DTSI
++    if [[ $KICKPI_DTS =~ "rk3588" ]]; then
++        sed -i '/kickpi-lcd-dp/ s,^//,,' $KICKPI_DTSI
++    fi
++
++    echo "" >> $KICKPI_DTSI
++    echo '#include "kickpi-lcd-multi.dtsi"' >> $KICKPI_DTSI
++
++    MULTI_DTS_PATH=${KICKPI_DTS_DIR}/kickpi-lcd-multi.dtsi
++    echo '#define MULTI_NAME "null"' > $MULTI_DTS_PATH
++}
++
++function recover_common {
++    sed -i '/kickpi-lcd/ s,^//,,' $KICKPI_DTSI
++    sed -i '$d' $KICKPI_DTSI
++    sed -i '$d' $KICKPI_DTSI
++    rm $MULTI_DTS_PATH
++}
++
++#null_line
++modify_common
++get_lcd_dtsi
++build_multi_dtb
++build_resource_img
++recover_common
++exit $RUN_RET
+diff --git a/scripts/mkimg b/scripts/mkimg
+index 1d89560..cea48b1 100755
+--- a/scripts/mkimg
++++ b/scripts/mkimg
+@@ -249,6 +249,13 @@ fi
+ scripts/resource_tool ${DTB_PATH} ${LOGO} ${LOGO_KERNEL} >/dev/null
+ echo "  Image:  resource.img (with ${DTB} ${LOGO} ${LOGO_KERNEL}) is ready"
+ 
++if [ -f "./scripts/build_multi_dtb.sh" ]; then
++	echo "Warning: ./scripts/build_multi_dtb.sh found, run."
++    # ./scripts/build_multi_dtb.sh
++else
++    echo "Warning: ./scripts/build_multi_dtb.sh not found, skip."
++fi
++
+ if [ -f "${BOOT_IMG}" ]; then
+ 	if file -L -p -b ${BOOT_IMG} | grep -q 'Device Tree Blob' ; then
+ 		repack_itb;
+diff --git a/scripts/mkmultidtb.py b/scripts/mkmultidtb.py
+index fcf41ef..c77807a 100755
+--- a/scripts/mkmultidtb.py
++++ b/scripts/mkmultidtb.py
+@@ -26,6 +26,169 @@ DTBS['RK3308-EVB'] = OrderedDict([('rk3308-evb-dmic-i2s-v10', '#_saradc_ch3=288'
+ 				  ('rk3308-evb-dmic-pdm-v10', '#_saradc_ch3=1024'),
+ 				  ('rk3308-evb-amic-v10', '#_saradc_ch3=407')])
+ 
++DTBS['rk3568-kickpi-k1-android'] = OrderedDict([
++				('rk3568-kickpi-k1-android-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1-android-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++ 				('rk3568-kickpi-k1-android-mipi1-10.1-800-1280', '#_saradc_ch6=115'),
++                ('rk3568-kickpi-k1-android-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++ 				('rk3568-kickpi-k1-android-mipi1-10.1-800-1280-v2', '#_saradc_ch6=191'),
++                ('rk3568-kickpi-k1-android-mipi0-8-800-1280', '#_saradc_ch5=270'),
++ 				('rk3568-kickpi-k1-android-mipi1-8-800-1280', '#_saradc_ch6=270'),
++                ('rk3568-kickpi-k1-android-mipi0-5-720-1280', '#_saradc_ch5=360'),
++ 				('rk3568-kickpi-k1-android-mipi1-5-720-1280', '#_saradc_ch6=360'),
++ 				('rk3568-kickpi-k1-android-edp-15.6-1920-1080', '#_saradc_ch7=15'),
++				('rk3568-kickpi-k1-android-lvds0-7-1024-600', '#_saradc_ch5=15'),
++				('rk3568-kickpi-k1-android-lvds1-7-1024-600', '#_saradc_ch6=15')])
++
++DTBS['rk3568-kickpi-k1Mini-android'] = OrderedDict([
++				('rk3568-kickpi-k1Mini-android-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1Mini-android-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++ 				('rk3568-kickpi-k1Mini-android-mipi1-10.1-800-1280', '#_saradc_ch6=115'),
++                ('rk3568-kickpi-k1Mini-android-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++ 				('rk3568-kickpi-k1Mini-android-mipi1-10.1-800-1280-v2', '#_saradc_ch6=191'),
++                ('rk3568-kickpi-k1Mini-android-mipi0-8-800-1280', '#_saradc_ch5=270'),
++ 				('rk3568-kickpi-k1Mini-android-mipi1-8-800-1280', '#_saradc_ch6=270'),
++                ('rk3568-kickpi-k1Mini-android-mipi0-5-720-1280', '#_saradc_ch5=360'),
++ 				('rk3568-kickpi-k1Mini-android-mipi1-5-720-1280', '#_saradc_ch6=360'),
++ 				('rk3568-kickpi-k1Mini-android-edp-15.6-1920-1080', '#_saradc_ch7=15'),
++				('rk3568-kickpi-k1Mini-android-lvds0-7-1024-600', '#_saradc_ch5=15'),
++				('rk3568-kickpi-k1Mini-android-lvds1-7-1024-600', '#_saradc_ch6=15')])
++
++DTBS['rk3568-kickpi-k1-linux'] = OrderedDict([
++				('rk3568-kickpi-k1-linux-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1-linux-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++ 				('rk3568-kickpi-k1-linux-mipi1-10.1-800-1280', '#_saradc_ch6=115'),
++                ('rk3568-kickpi-k1-linux-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++ 				('rk3568-kickpi-k1-linux-mipi1-10.1-800-1280-v2', '#_saradc_ch6=191'),
++                ('rk3568-kickpi-k1-linux-mipi0-8-800-1280', '#_saradc_ch5=270'),
++ 				('rk3568-kickpi-k1-linux-mipi1-8-800-1280', '#_saradc_ch6=270'),
++                ('rk3568-kickpi-k1-linux-mipi0-5-720-1280', '#_saradc_ch5=360'),
++ 				('rk3568-kickpi-k1-linux-mipi1-5-720-1280', '#_saradc_ch6=360'),
++ 				('rk3568-kickpi-k1-linux-edp-15.6-1920-1080', '#_saradc_ch7=15'),
++				('rk3568-kickpi-k1-linux-lvds0-7-1024-600', '#_saradc_ch5=15'),
++				('rk3568-kickpi-k1-linux-lvds1-7-1024-600', '#_saradc_ch6=15')])
++
++DTBS['rk3568-kickpi-k1b-android'] = OrderedDict([
++				('rk3568-kickpi-k1b-android-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1b-android-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++                ('rk3568-kickpi-k1b-android-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++                ('rk3568-kickpi-k1b-android-mipi0-8-800-1280', '#_saradc_ch5=270'),
++                ('rk3568-kickpi-k1b-android-mipi0-5-720-1280', '#_saradc_ch5=360'),
++				('rk3568-kickpi-k1b-android-lvds0-7-1024-600', '#_saradc_ch5=15')])
++
++DTBS['rk3568-kickpi-k1b-linux'] = OrderedDict([
++				('rk3568-kickpi-k1b-linux-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1b-linux-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++                ('rk3568-kickpi-k1b-linux-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++                ('rk3568-kickpi-k1b-linux-mipi0-8-800-1280', '#_saradc_ch5=270'),
++                ('rk3568-kickpi-k1b-linux-mipi0-5-720-1280', '#_saradc_ch5=360'),
++				('rk3568-kickpi-k1b-linux-lvds0-7-1024-600', '#_saradc_ch5=15')])
++
++DTBS['rk3562-kickpi-k3-android'] = OrderedDict([
++				('rk3562-kickpi-k3-android-duallvds-6-1920-1080', '#_saradc_ch0=500'),
++				('rk3562-kickpi-k3-android-mipi-10.1-800-1280', '#_saradc_ch3=115'),
++                ('rk3562-kickpi-k3-android-mipi-10.1-800-1280-v2', '#_saradc_ch3=178'),
++                ('rk3562-kickpi-k3-android-mipi-8-800-1280', '#_saradc_ch3=255'),
++                ('rk3562-kickpi-k3-android-mipi-5-720-1280', '#_saradc_ch3=350'),
++				('rk3562-kickpi-k3-android-lvds-7-1024-600', '#_saradc_ch3=15')])
++
++DTBS['rk3562-kickpi-k3-linux'] = OrderedDict([
++				('rk3562-kickpi-k3-linux-duallvds-6-1920-1080', '#_saradc_ch0=500'),
++				('rk3562-kickpi-k3-linux-mipi-10.1-800-1280', '#_saradc_ch3=100'),
++                ('rk3562-kickpi-k3-linux-mipi-10.1-800-1280-v2', '#_saradc_ch3=178'),
++                ('rk3562-kickpi-k3-linux-mipi-8-800-1280', '#_saradc_ch3=255'),
++                ('rk3562-kickpi-k3-linux-mipi-5-720-1280', '#_saradc_ch3=350'),
++				('rk3562-kickpi-k3-linux-lvds-7-1024-600', '#_saradc_ch3=15')])
++
++DTBS['rk3562-kickpi-k3b-linux'] = OrderedDict([
++                ('rk3562-kickpi-k3b-linux-k3b-mipi-10.1-800-1280-v2', '#_saradc_ch5=178'),
++				('rk3562-kickpi-k3b-linux-k3b-mipi-10.1-800-1280', '#_saradc_ch5=100'),
++                ('rk3562-kickpi-k3b-linux-k3b-mipi-8-800-1280', '#_saradc_ch5=255'),
++                ('rk3562-kickpi-k3b-linux-k3b-mipi-5-720-1280', '#_saradc_ch5=350'),
++				('rk3562-kickpi-k3b-linux-k3b-lvds-7-1024-600', '#_saradc_ch5=15')])
++
++DTBS['rk3588-kickpi-k8-android'] = OrderedDict([
++				('rk3588-kickpi-k8-android-hdmi', '#_saradc_ch0=500'),
++                ('rk3588-kickpi-k8-android-AT101DS40I-AT101DS40I', '#_saradc_ch6=373#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-android-AT101DS40I-MX101BA1340', '#_saradc_ch6=373#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-android-AT101DS40I-MX080B2140', '#_saradc_ch6=373#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-android-AT101DS40I-F050008M01', '#_saradc_ch6=373#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-android-MX101BA1340-AT101DS40I', '#_saradc_ch6=690#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-android-MX101BA1340-MX101BA1340', '#_saradc_ch6=690#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-android-MX101BA1340-MX080B2140', '#_saradc_ch6=690#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-android-MX101BA1340-F050008M01', '#_saradc_ch6=690#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-android-MX080B2140-AT101DS40I', '#_saradc_ch6=1006#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-android-MX080B2140-MX101BA1340', '#_saradc_ch6=1006#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-android-MX080B2140-MX080B2140', '#_saradc_ch6=1006#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-android-MX080B2140-F050008M01', '#_saradc_ch6=1006#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-android-F050008M01-AT101DS40I', '#_saradc_ch6=1389#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-android-F050008M01-MX101BA1340', '#_saradc_ch6=1389#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-android-F050008M01-MX080B2140', '#_saradc_ch6=1389#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-android-F050008M01-F050008M01', '#_saradc_ch6=1389#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-android-mipi0-10.1-800-1280-AT101DS40I', '#_saradc_ch6=373'),
++                ('rk3588-kickpi-k8-android-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch6=690'),
++                ('rk3588-kickpi-k8-android-mipi0-8-800-1280-MX080B2140', '#_saradc_ch6=1006'),
++                ('rk3588-kickpi-k8-android-mipi0-5-720-1280-F050008M01', '#_saradc_ch6=1389'),
++                ('rk3588-kickpi-k8-android-mipi1-10.1-800-1280-AT101DS40I', '#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-android-mipi1-10.1-800-1280-MX101BA1340', '#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-android-mipi1-8-800-1280-MX080B2140', '#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-android-mipi1-5-720-1280-F050008M01', '#_saradc_ch7=1389')])
++
++DTBS['rk3588-kickpi-k8-linux'] = OrderedDict([
++				('rk3588-kickpi-k8-linux-hdmi', '#_saradc_ch0=500'),
++                ('rk3588-kickpi-k8-linux-AT101DS40I-AT101DS40I', '#_saradc_ch6=373#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-linux-AT101DS40I-MX101BA1340', '#_saradc_ch6=373#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-linux-AT101DS40I-MX080B2140', '#_saradc_ch6=373#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-linux-AT101DS40I-F050008M01', '#_saradc_ch6=373#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-linux-MX101BA1340-AT101DS40I', '#_saradc_ch6=690#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-linux-MX101BA1340-MX101BA1340', '#_saradc_ch6=690#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-linux-MX101BA1340-MX080B2140', '#_saradc_ch6=690#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-linux-MX101BA1340-F050008M01', '#_saradc_ch6=690#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-linux-MX080B2140-AT101DS40I', '#_saradc_ch6=1006#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-linux-MX080B2140-MX101BA1340', '#_saradc_ch6=1006#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-linux-MX080B2140-MX080B2140', '#_saradc_ch6=1006#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-linux-MX080B2140-F050008M01', '#_saradc_ch6=1006#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-linux-F050008M01-AT101DS40I', '#_saradc_ch6=1389#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-linux-F050008M01-MX101BA1340', '#_saradc_ch6=1389#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-linux-F050008M01-MX080B2140', '#_saradc_ch6=1389#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-linux-F050008M01-F050008M01', '#_saradc_ch6=1389#_saradc_ch7=1389'),
++                ('rk3588-kickpi-k8-linux-mipi0-10.1-800-1280-AT101DS40I', '#_saradc_ch6=373'),
++                ('rk3588-kickpi-k8-linux-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch6=690'),
++                ('rk3588-kickpi-k8-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch6=1006'),
++                ('rk3588-kickpi-k8-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch6=1389'),
++                ('rk3588-kickpi-k8-linux-mipi1-10.1-800-1280-AT101DS40I', '#_saradc_ch7=373'),
++                ('rk3588-kickpi-k8-linux-mipi1-10.1-800-1280-MX101BA1340', '#_saradc_ch7=690'),
++                ('rk3588-kickpi-k8-linux-mipi1-8-800-1280-MX080B2140', '#_saradc_ch7=1006'),
++                ('rk3588-kickpi-k8-linux-mipi1-5-720-1280-F050008M01', '#_saradc_ch7=1389')])
++
++DTBS['rk3588s-kickpi-k8d-android'] = OrderedDict([
++                ('rk3588s-kickpi-k8d-android-hdmi', '#_saradc_ch4=3500'),
++                ('rk3588s-kickpi-k8d-android-mipi0-10.1-800-1280-AT101DS40I', '#_saradc_ch4=450'),
++                ('rk3588s-kickpi-k8d-android-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch4=725'),
++                ('rk3588s-kickpi-k8d-android-mipi0-8-800-1280-MX080B2140', '#_saradc_ch4=1060'),
++                ('rk3588s-kickpi-k8d-android-mipi0-5-720-1280-F050008M01', '#_saradc_ch4=1425')])
++
++DTBS['rk3588s-kickpi-k8d-linux'] = OrderedDict([
++                ('rk3588s-kickpi-k8d-linux-hdmi', '#_saradc_ch4=3500'),
++                ('rk3588s-kickpi-k8d-linux-mipi0-10.1-800-1280-AT101DS40I', '#_saradc_ch4=450'),
++                ('rk3588s-kickpi-k8d-linux-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch4=725'),
++                ('rk3588s-kickpi-k8d-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch4=1060'),
++                ('rk3588s-kickpi-k8d-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch4=1425')])
++
++DTBS['rk3566-kickpi-k11c-android'] = OrderedDict([
++                ('rk3566-kickpi-k11c-android-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-android-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-android-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-android-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-android-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
++DTBS['rk3566-kickpi-k11c-linux'] = OrderedDict([
++                ('rk3566-kickpi-k11c-linux-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-linux-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-linux-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
+ def main():
+     if (len(sys.argv) < 2) or (sys.argv[1] == '-h'):
+         print(__doc__)
+-- 
+2.34.1
+

@@ -1,0 +1,642 @@
+From f56024b576c49ee15c7adf04527532c34ba501b5 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 28 May 2026 14:34:19 +0800
+Subject: [PATCH 41/50] feat(dts): add panel-name = dsi0_panel to kickpi mipi
+ gt9xx nodes
+
+Add panel-name = " dsi0_panel\; to both dsi0_panel/dsi1_panel and
+gt9xx nodes across all kickpi MIPI DTSI files for K1Mini/K3B/K8D
+and compatible boards.
+
+Origin: kickpi 891aa3bd71f23ea4c09ee6058911e90dd48604fa
+---
+ .../rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280-v2.dtsi  | 2 ++
+ .../dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280.dtsi | 2 ++
+ .../dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-5-720-1280.dtsi    | 2 ++
+ .../dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-8-800-1280.dtsi    | 2 ++
+ .../dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280-v2.dtsi  | 2 ++
+ .../dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280.dtsi     | 2 ++
+ .../boot/dts/rockchip/rk3562-kickpi-lcd-mipi-5-720-1280.dtsi   | 2 ++
+ .../boot/dts/rockchip/rk3562-kickpi-lcd-mipi-8-800-1280.dtsi   | 2 ++
+ .../rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi         | 2 ++
+ .../dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi | 2 ++
+ .../dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi    | 2 ++
+ .../boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi  | 2 ++
+ .../boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi  | 2 ++
+ .../dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi | 3 +++
+ .../dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi    | 3 +++
+ .../boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi  | 3 +++
+ .../boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi  | 3 +++
+ .../rk3588-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi      | 3 +++
+ .../rk3588-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi     | 3 +++
+ .../rk3588-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi         | 3 +++
+ .../rk3588-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi         | 3 +++
+ .../rk3588-kickpi-lcd-mipi1-10.1-800-1280-AT101DS40I.dtsi      | 3 +++
+ .../rk3588-kickpi-lcd-mipi1-10.1-800-1280-MX101BA1340.dtsi     | 3 +++
+ .../rk3588-kickpi-lcd-mipi1-5-720-1280-F050008M01.dtsi         | 3 +++
+ .../rk3588-kickpi-lcd-mipi1-8-800-1280-MX080B2140.dtsi         | 3 +++
+ .../rk3588s-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi     | 3 +++
+ .../rk3588s-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi    | 3 +++
+ .../rk3588s-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi        | 3 +++
+ .../rk3588s-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi        | 3 +++
+ 29 files changed, 74 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280-v2.dtsi
+index 73334ab..d7c812c 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280-v2.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -355,6 +356,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280.dtsi
+index 02d3107..2fe4418 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-10.1-800-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -360,6 +361,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-5-720-1280.dtsi
+index 8a0b0b3..926bcf3 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-5-720-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -360,6 +361,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-8-800-1280.dtsi
+index 53ec5e2..23ced1a 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-k3b-mipi-8-800-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -353,6 +354,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280-v2.dtsi
+index 649fb34..8e0ab01 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280-v2.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -355,6 +356,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280.dtsi
+index 02d3107..2fe4418 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-10.1-800-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -360,6 +361,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-5-720-1280.dtsi
+index 4bfd6f0..5326e3e 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-5-720-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -360,6 +361,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-8-800-1280.dtsi
+index 4cdaf4f..9da3102 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-lcd-mipi-8-800-1280.dtsi
+@@ -70,6 +70,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -353,6 +354,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+index 1bf673d..89d3ed9 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+@@ -65,6 +65,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -361,6 +362,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
+index c1d3739..070fe68 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
+@@ -69,6 +69,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -358,6 +359,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
+index c52b372..4c5876f 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
+@@ -69,6 +69,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -363,6 +364,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
+index d2eafce..d5d5329 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
+@@ -69,6 +69,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -362,6 +363,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <720>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
+index 147e48d..99c3d9d 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
+@@ -69,6 +69,7 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
+ 		backlight = <&backlight_dsi0>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -356,6 +357,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
+index ab2b1c9..9d1948b 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
+@@ -69,6 +69,8 @@ dsi1_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight_dsi1>;
+ 		power-supply = <&vcc3v3_lcd1_n>;
+ 
+@@ -358,6 +360,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
+index 67bbb2a..7c3c208 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
+@@ -68,6 +68,8 @@ dsi1_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight_dsi1>;
+ 		power-supply = <&vcc3v3_lcd1_n>;
+ 		reset-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>;
+@@ -362,6 +364,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
+index e29d9d9..1ec2032 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
+@@ -68,6 +68,8 @@ dsi1_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight_dsi1>;
+ 		power-supply = <&vcc3v3_lcd1_n>;
+ 		reset-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>;
+@@ -361,6 +363,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
+index a767d76..9e57043 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
+@@ -68,6 +68,8 @@ dsi1_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight_dsi1>;
+ 		power-supply = <&vcc3v3_lcd1_n>;
+ 		reset-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_LOW>;
+@@ -355,6 +357,7 @@ gt9xx:gt9xx@5d {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x5d>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+index d52c5b5..c043023 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+@@ -78,6 +78,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -382,6 +384,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+index 748cb40..6938102 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+@@ -78,6 +78,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -376,6 +378,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+index 8a2f8db..d51548b 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+@@ -78,6 +78,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+ 		power-supply = <&vcc3v3_lcd0_n>;
+@@ -376,6 +378,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+index cb37362..780c27b 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+@@ -78,6 +78,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+ 		power-supply = <&vcc3v3_lcd0_n>;
+@@ -371,6 +373,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-AT101DS40I.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-AT101DS40I.dtsi
+index ec8f8c5..9e469f6 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-AT101DS40I.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-AT101DS40I.dtsi
+@@ -78,6 +78,8 @@ dsi1_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight1>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -379,6 +381,7 @@ gt9xx1:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-MX101BA1340.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-MX101BA1340.dtsi
+index 9681592..5faef00 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-MX101BA1340.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-10.1-800-1280-MX101BA1340.dtsi
+@@ -78,6 +78,8 @@ dsi1_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight1>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -375,6 +377,7 @@ gt9xx1:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-5-720-1280-F050008M01.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-5-720-1280-F050008M01.dtsi
+index 817516a..0575355 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-5-720-1280-F050008M01.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-5-720-1280-F050008M01.dtsi
+@@ -78,6 +78,8 @@ dsi1_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight1>;
+ 
+ 		power-supply = <&vcc3v3_lcd1_n>;
+@@ -375,6 +377,7 @@ gt9xx1:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-8-800-1280-MX080B2140.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-8-800-1280-MX080B2140.dtsi
+index 9f28fdd..f95fe88 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-8-800-1280-MX080B2140.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-lcd-mipi1-8-800-1280-MX080B2140.dtsi
+@@ -78,6 +78,8 @@ dsi1_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight1>;
+ 
+ 		power-supply = <&vcc3v3_lcd1_n>;
+@@ -370,6 +372,7 @@ gt9xx1:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+index 412f4cd..f6ef895 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+@@ -69,6 +69,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -373,6 +375,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+index 43ecab8..0947d18 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+@@ -69,6 +69,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+         kickpi,cmd-uboot = "uboot_rst_probe";
+@@ -367,6 +369,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+index bea5d24..eda54ad 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi
+@@ -68,6 +68,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+ 		power-supply = <&vcc3v3_lcd0_n>;
+@@ -366,6 +368,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "disabled";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+index 0ef1dcb..63da2f2 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+@@ -69,6 +69,8 @@ dsi0_panel: panel@0 {
+ 		status = "okay";
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight0>;
+ 
+ 		power-supply = <&vcc3v3_lcd0_n>;
+@@ -362,6 +364,7 @@ gt9xx0:gt9xx@14 {
+ 		compatible = "goodix,gt9xx";
+ 		status = "okay";
+ 		reg = <0x14>;
++		panel-name = "dsi0_panel";
+ 
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+-- 
+2.34.1
+

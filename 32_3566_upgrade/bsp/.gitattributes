@@ -1,0 +1,2 @@
+# patch 里含故意保留的 CRLF（SDK 源文件），blob 有二进制：一律不做行尾转换
+* -text

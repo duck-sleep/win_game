@@ -1,0 +1,38 @@
+From 803cfd4a76a9ae578560cfe258b207f090f3dfad Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 22 Apr 2026 09:15:52 +0800
+Subject: [PATCH 26/50] feat(k1mini): add k1mini multi config
+
+Origin: kickpi 9ff05d8eabf48ea2eeb276a1f0376c9cdcd9af7e
+---
+ scripts/mkmultidtb.py | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/scripts/mkmultidtb.py b/scripts/mkmultidtb.py
+index c77807a..4bc9de8 100755
+--- a/scripts/mkmultidtb.py
++++ b/scripts/mkmultidtb.py
+@@ -68,6 +68,20 @@ DTBS['rk3568-kickpi-k1-linux'] = OrderedDict([
+ 				('rk3568-kickpi-k1-linux-lvds0-7-1024-600', '#_saradc_ch5=15'),
+ 				('rk3568-kickpi-k1-linux-lvds1-7-1024-600', '#_saradc_ch6=15')])
+ 
++DTBS['rk3568-kickpi-k1Mini-linux'] = OrderedDict([
++				('rk3568-kickpi-k1Mini-linux-hdmi', '#_saradc_ch0=500'),
++				('rk3568-kickpi-k1Mini-linux-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
++ 				('rk3568-kickpi-k1Mini-linux-mipi1-10.1-800-1280', '#_saradc_ch6=115'),
++                ('rk3568-kickpi-k1Mini-linux-mipi0-10.1-800-1280-v2', '#_saradc_ch5=191'),
++ 				('rk3568-kickpi-k1Mini-linux-mipi1-10.1-800-1280-v2', '#_saradc_ch6=191'),
++                ('rk3568-kickpi-k1Mini-linux-mipi0-8-800-1280', '#_saradc_ch5=270'),
++ 				('rk3568-kickpi-k1Mini-linux-mipi1-8-800-1280', '#_saradc_ch6=270'),
++                ('rk3568-kickpi-k1Mini-linux-mipi0-5-720-1280', '#_saradc_ch5=360'),
++ 				('rk3568-kickpi-k1Mini-linux-mipi1-5-720-1280', '#_saradc_ch6=360'),
++ 				('rk3568-kickpi-k1Mini-linux-edp-15.6-1920-1080', '#_saradc_ch7=15'),
++				('rk3568-kickpi-k1Mini-linux-lvds0-7-1024-600', '#_saradc_ch5=15'),
++				('rk3568-kickpi-k1Mini-linux-lvds1-7-1024-600', '#_saradc_ch6=15')])
++
+ DTBS['rk3568-kickpi-k1b-android'] = OrderedDict([
+ 				('rk3568-kickpi-k1b-android-hdmi', '#_saradc_ch0=500'),
+ 				('rk3568-kickpi-k1b-android-mipi0-10.1-800-1280', '#_saradc_ch5=115'),
+-- 
+2.34.1
+

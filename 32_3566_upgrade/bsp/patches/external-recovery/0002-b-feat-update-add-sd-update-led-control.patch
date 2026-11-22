@@ -1,0 +1,62 @@
+From a50a42f84c8d6039b875a0e9a3410ed44e4db5fa Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 3 Apr 2026 11:33:42 +0800
+Subject: [PATCH 1/2] feat(update): add sd update led control
+
+Origin: kickpi 8c711d2a346516b25ad443c9a8abcd7e4324b710
+---
+ rkupdate.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/rkupdate.c b/rkupdate.c
+index 100bb09..4ff83f1 100644
+--- a/rkupdate.c
++++ b/rkupdate.c
+@@ -156,6 +156,34 @@ int do_rk_updateEngine(const char *binary, const char *path)
+     return start_main(binary, args, pipefd);
+ 
+ }
++
++void do_led_update(void)
++{
++#define LED_TRIGGER_PATH    "/sys/class/leds/work-led/trigger"
++#define LED_DELAY_ON_PATH   "/sys/class/leds/work-led/delay_on"
++#define LED_DELAY_OFF_PATH  "/sys/class/leds/work-led/delay_off"
++
++    FILE *led_file;
++
++    led_file = fopen(LED_TRIGGER_PATH, "w");
++    if (led_file != NULL) {
++        fputs("timer", led_file);
++        fclose(led_file);
++    }
++
++    led_file = fopen(LED_DELAY_ON_PATH, "w");
++    if (led_file != NULL) {
++        fputs("1000", led_file);
++        fclose(led_file);
++    }
++
++    led_file = fopen(LED_DELAY_OFF_PATH, "w");
++    if (led_file != NULL) {
++        fputs("1000", led_file);
++        fclose(led_file);
++    }
++}
++
+ int do_rk_update(const char *binary, const char *path)
+ {
+     LOGI("[%s] start with main.\n", __func__);
+@@ -175,6 +203,9 @@ int do_rk_update(const char *binary, const char *path)
+     args[4] = args_4;
+     sprintf(args[4], "%d", (int)bSDBootUpdate);
+     args[5] = NULL;
++
++    do_led_update();
++
+     return start_main(binary, args, pipefd);
+ 
+ #if 0
+-- 
+2.34.1
+

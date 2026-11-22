@@ -1,0 +1,48 @@
+From 818b917b34a9fbcb6b498938aa5d620ff819551b Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 26 Mar 2026 13:36:16 +0800
+Subject: [PATCH 06/50] feat(rtc): fix hym8563 to rtc0
+
+Origin: kickpi df9626703f83a16bd4f2ebbaa9a69b79219c4080
+---
+ arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi | 4 ++++
+ drivers/rtc/rtc-rk808.c                              | 8 +++++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
+index a810382..ccfc5e8 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
+@@ -32,6 +32,10 @@ / {
+ 	model = "Rockchip RK3566 KICKPI K11C Board";
+ 	compatible = "rockchip,rk3566-kickpi-k11c", "rockchip,rk3566";
+ 
++	aliases {
++		rtc0 = &hym8563;
++	};
++
+ 	adc_keys: adc-keys {
+ 		compatible = "adc-keys";
+ 		io-channels = <&saradc 0>;
+diff --git a/drivers/rtc/rtc-rk808.c b/drivers/rtc/rtc-rk808.c
+index c2c75ea..42b1ba5 100644
+--- a/drivers/rtc/rtc-rk808.c
++++ b/drivers/rtc/rtc-rk808.c
+@@ -507,7 +507,13 @@ static struct platform_driver rk808_rtc_driver = {
+ 	},
+ };
+ 
+-module_platform_driver(rk808_rtc_driver);
++// module_platform_driver(rk808_rtc_driver);
++
++static int __init rk808_rtc_init(void)
++{
++    return platform_driver_register(&rk808_rtc_driver);
++}
++late_initcall(rk808_rtc_init);
+ 
+ MODULE_DESCRIPTION("RTC driver for the rk808 series PMICs");
+ MODULE_AUTHOR("Chris Zhong <zyw@rock-chips.com>");
+-- 
+2.34.1
+

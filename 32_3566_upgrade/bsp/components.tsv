@@ -1,0 +1,18 @@
+# comp	path	kind	subset
+# kind: full=整目录基线; subset=只取基线的一部分; empty=无公开基线(A层全量新增)
+# subset: "-"=整目录; 文件名=bsp/ 下的文件清单; 目录路径=基线内的目录子集
+kernel-6.1	kernel-6.1	full	-
+u-boot	u-boot	full	-
+buildroot	buildroot	full	-
+device-rockchip	device/rockchip	full	-
+sdk-top	.	empty	-
+external-mpp	external/mpp	full	-
+external-linux-rga	external/linux-rga	full	-
+external-gstreamer-rockchip	external/gstreamer-rockchip	full	-
+external-rktoolkit	external/rktoolkit	full	-
+external-rkwifibt	external/rkwifibt	full	-
+external-recovery	external/recovery	full	-
+external-rkupdate	external/rkupdate	full	-
+rkbin	rkbin	subset	rkbin-subset.txt
+tools	tools/linux/Linux_Pack_Firmware	subset	linux/Linux_Pack_Firmware
+prebuilts	prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu	full	-

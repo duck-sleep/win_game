@@ -1,0 +1,25 @@
+From f3fdf3e0ac923c9f4e1f4a5f2729d1db9de5d460 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 29 Apr 2026 11:37:22 +0800
+Subject: [PATCH 32/50] fix(rk817): fix unbalanced disables for otg_switch err
+
+Origin: kickpi 26cc21454ed6fa613833bd4bccc87d1d6f9d931c
+---
+ drivers/power/supply/rk817_charger.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/power/supply/rk817_charger.c b/drivers/power/supply/rk817_charger.c
+index d063d61..f77e2a2 100644
+--- a/drivers/power/supply/rk817_charger.c
++++ b/drivers/power/supply/rk817_charger.c
+@@ -1307,6 +1307,7 @@ static void rk817_charge_pre_init(struct rk817_charger *charge)
+ 	rk817_charge_set_chrg_current(charge, charge->max_chrg_current);
+ 
+ 	rk817_charge_set_chrg_finish_condition(charge);
++	rk817_charge_otg_enable(charge);
+ 
+ 	if (rk817_charge_get_otg_state(charge))
+ 		rk817_charge_otg_disable(charge);
+-- 
+2.34.1
+

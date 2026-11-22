@@ -1,0 +1,201 @@
+From 0324e297d8179b3cdef205b2931cc9bcdc105f99 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 22 Apr 2026 09:15:05 +0800
+Subject: [PATCH 25/50] fix(k1mini): fix lcd build err
+
+Origin: kickpi e9312f9454e6b77e2cc106d607df5a11eff7d977
+---
+ arch/arm64/boot/dts/rockchip/kickpi-lcd-multi.dtsi  |  1 -
+ arch/arm64/boot/dts/rockchip/rk3568-kickpi-evb.dtsi |  4 ++--
+ .../rk3568-kickpi-lcd-dual-lvds-32-1920-1080.dtsi   |  8 ++++----
+ .../rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi         | 13 +++++++++++++
+ .../rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi   |  2 +-
+ .../rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi      |  2 +-
+ .../rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi         |  2 +-
+ .../rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi         |  2 +-
+ .../rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi   |  2 +-
+ .../rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi      |  2 +-
+ .../rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi         |  2 +-
+ .../rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi         |  2 +-
+ 12 files changed, 27 insertions(+), 15 deletions(-)
+ delete mode 100644 kernel-6.1/arch/arm64/boot/dts/rockchip/kickpi-lcd-multi.dtsi
+
+diff --git a/arch/arm64/boot/dts/rockchip/kickpi-lcd-multi.dtsi b/arch/arm64/boot/dts/rockchip/kickpi-lcd-multi.dtsi
+deleted file mode 100644
+index 5004066..0000000
+--- a/arch/arm64/boot/dts/rockchip/kickpi-lcd-multi.dtsi
++++ /dev/null
+@@ -1 +0,0 @@
+-#include "rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi"
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-evb.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-evb.dtsi
+index a99bebb..a1c9988 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-evb.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-evb.dtsi
+@@ -430,7 +430,7 @@ dsi0_panel: panel@0 {
+ 		unprepare-delay-ms = <60>;
+ 		disable-delay-ms = <60>;
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+@@ -762,7 +762,7 @@ dsi1_panel: panel@0 {
+ 		unprepare-delay-ms = <60>;
+ 		disable-delay-ms = <60>;
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-dual-lvds-32-1920-1080.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-dual-lvds-32-1920-1080.dtsi
+index 3b448af..b938f39 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-dual-lvds-32-1920-1080.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-dual-lvds-32-1920-1080.dtsi
+@@ -184,10 +184,10 @@ &route_lvds {
+ 	connect = <&vp1_out_lvds>;
+ };
+ 
+-&route_lvds1 {
+-	status = "disabled";
+-	connect = <&vp1_out_lvds1>;
+-};
++// &route_lvds1 {
++// 	status = "disabled";
++// 	connect = <&vp1_out_lvds1>;
++// };
+ 
+ /* enable hdmi */
+ &hdmi_in_vp1 {
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi
+index 520d4a4..844c34e 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi
+@@ -148,6 +148,19 @@ &lvds1_in_vp2 {
+ 	status = "disabled";
+ };
+ 
++&display_subsystem {
++	route {
++		route_lvds1: route-lvds1 {
++			status = "disabled";
++			logo,uboot = "logo.bmp";
++			logo,kernel = "logo_kernel.bmp";
++			logo,mode = "center";
++			charge_logo,mode = "center";
++			connect = <&vp2_out_lvds1>;
++		};
++	};
++};
++
+ &route_lvds1 {
+ 	status = "okay";
+ 	connect = <&vp1_out_lvds1>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
+index bb6c4c7..c1d3739 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi
+@@ -82,7 +82,7 @@ dsi0_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
+index 78deea0..c52b372 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi
+@@ -82,7 +82,7 @@ dsi0_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
+index 03b3f9a..d2eafce 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi
+@@ -82,7 +82,7 @@ dsi0_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
+index 6503e71..147e48d 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi
+@@ -82,7 +82,7 @@ dsi0_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
+index bb67846..ab2b1c9 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi
+@@ -82,7 +82,7 @@ dsi1_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
+index fdd63bb..67bbb2a 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi
+@@ -80,7 +80,7 @@ dsi1_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
+index 9fc09d0..e29d9d9 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi
+@@ -80,7 +80,7 @@ dsi1_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
+index 9bdbd82..a767d76 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi
+@@ -80,7 +80,7 @@ dsi1_panel: panel@0 {
+ 		disable-delay-ms = <60>;
+ 
+ 		dsi,flags = <(MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
+-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET)>;
++			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET)>;
+ 		dsi,format = <MIPI_DSI_FMT_RGB888>;
+ 		dsi,lanes  = <4>;
+ 		panel-init-sequence = [
+-- 
+2.34.1
+

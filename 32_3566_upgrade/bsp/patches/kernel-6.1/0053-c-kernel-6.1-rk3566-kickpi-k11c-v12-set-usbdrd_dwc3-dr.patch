@@ -1,0 +1,26 @@
+From 3628c591a0a5ad128c95058f8409624a81bec5ba Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:12:27 -0500
+Subject: [PATCH 2/2] kernel-6.1: rk3566-kickpi-k11c-v12: set usbdrd_dwc3
+ dr_mode to peripheral
+
+Origin: 32_3566_upgrade/patches/01-kernel-hid-and-peripheral.patch
+---
+ arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+index 0031c0cd2..a4e55cbc1 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+@@ -281,3 +281,7 @@ &rknpu_mmu {
+ &vp0 {
+ 	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
+ };
++
++&usbdrd_dwc3 {
++	dr_mode = "peripheral";
++};
+-- 
+2.34.1
+

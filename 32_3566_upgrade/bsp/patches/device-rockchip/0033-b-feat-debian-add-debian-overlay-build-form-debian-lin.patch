@@ -1,0 +1,81 @@
+From 59dc4777100eb9146b966fa33ce0b1ecfac36b8f Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 09:40:30 +0800
+Subject: [PATCH 25/34] feat(debian): add debian overlay build form
+ debian/linaro-rootfs.img
+
+Origin: kickpi 130bb71ecf4eb20a2106aca6ea3216b2ad9f170a
+---
+ common/scripts/mk-rootfs.sh | 39 +++++++++++++++++++------------------
+ 1 file changed, 20 insertions(+), 19 deletions(-)
+
+diff --git a/common/scripts/mk-rootfs.sh b/common/scripts/mk-rootfs.sh
+index ca61bb1..2b3f84d 100755
+--- a/common/scripts/mk-rootfs.sh
++++ b/common/scripts/mk-rootfs.sh
+@@ -229,22 +229,28 @@ build_debian()
+ 	fi
+ 
+ 	cd debian
+-	if [ ! -f linaro-$RK_DEBIAN_VERSION-$ARCH-$TARGET.tar.gz ]; then
+-		rm -rf linaro-$RK_DEBIAN_VERSION-*.tar.gz
+-		RELEASE=$RK_DEBIAN_VERSION TARGET=$TARGET ARCH=$ARCH \
+-			./mk-base-debian.sh
+-		ln -sf linaro-$RK_DEBIAN_VERSION-alip-*.tar.gz \
+-			linaro-$RK_DEBIAN_VERSION-$ARCH-$TARGET.tar.gz
+-	fi
++	if [ -f linaro-rootfs.img ]; then
++		message "Using overlay mode (linaro-rootfs.img found)"
++		DEBIAN_SCRIPT=mk-rootfs-$RK_DEBIAN_VERSION.sh
++		VERSION=debug ARCH=$ARCH ./$DEBIAN_SCRIPT linaro-rootfs.img
++	else
++		if [ ! -f linaro-$RK_DEBIAN_VERSION-$ARCH-$TARGET.tar.gz ]; then
++			rm -rf linaro-$RK_DEBIAN_VERSION-*.tar.gz
++			RELEASE=$RK_DEBIAN_VERSION TARGET=$TARGET ARCH=$ARCH \
++				./mk-base-debian.sh
++			ln -sf linaro-$RK_DEBIAN_VERSION-alip-*.tar.gz \
++				linaro-$RK_DEBIAN_VERSION-$ARCH-$TARGET.tar.gz
++		fi
+ 
+-	DEBIAN_SCRIPT=mk-rootfs-$RK_DEBIAN_VERSION.sh
++		DEBIAN_SCRIPT=mk-rootfs-$RK_DEBIAN_VERSION.sh
+ 
+-	if [ "$RK_DEBIAN_MIRROR" ]; then
+-		notice "Using mirror source $RK_DEBIAN_MIRROR in $DEBIAN_SCRIPT..."
+-		sed -i "s#\(http://\)[^/]*#\1$RK_DEBIAN_MIRROR#" "$DEBIAN_SCRIPT"
+-	fi
++		if [ "$RK_DEBIAN_MIRROR" ]; then
++			notice "Using mirror source $RK_DEBIAN_MIRROR in $DEBIAN_SCRIPT..."
++			sed -i "s#\(http://\)[^/]*#\1$RK_DEBIAN_MIRROR#" "$DEBIAN_SCRIPT"
++		fi
+ 
+-	VERSION=debug ARCH=$ARCH ./$DEBIAN_SCRIPT
++		VERSION=debug ARCH=$ARCH ./$DEBIAN_SCRIPT
++	fi
+ 	./mk-image.sh
+ 
+ 	if ! [ -r "$RK_LOG_DIR/post-rootfs.log" ]; then
+@@ -437,11 +443,6 @@ build_hook()
+ 	message "          Start building rootfs($ROOTFS)"
+ 	message "=========================================="
+ 
+-	case "$ROOTFS" in
+-		yocto | debian | ubuntu | buildroot) ;;
+-		*) usage ;;
+-	esac
+-
+ 	rm -rf "$ROOTFS_DIR" "$RK_OUTDIR/rootfs"
+ 	mkdir -p "$IMAGE_DIR"
+ 	ln -rsf "$ROOTFS_DIR" "$RK_OUTDIR/rootfs"
+@@ -450,7 +451,7 @@ build_hook()
+ 	case "$ROOTFS" in
+ 		yocto) build_yocto "$IMAGE_DIR" ;;
+ 		debian) 
+-			build_debian "$IMAGE_DIR" 
++			build_debian "$IMAGE_DIR"
+ 			# ln -srf debian/linaro-rootfs.img $IMAGE_DIR/$ROOTFS_IMG
+ 			;;
+ 		ubuntu)
+-- 
+2.34.1
+

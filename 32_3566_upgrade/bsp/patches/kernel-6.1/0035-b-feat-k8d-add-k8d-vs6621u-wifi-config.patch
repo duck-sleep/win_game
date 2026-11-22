@@ -1,0 +1,46 @@
+From b9d0199315070ac3386ff9ee8dddd590c53b6c93 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Mon, 18 May 2026 10:38:13 +0800
+Subject: [PATCH 34/50] feat(k8d): add k8d vs6621u wifi config
+
+Origin: kickpi 75a68c0f8df24d6ef1db601d31b1e6d2d1810c96
+---
+ .../boot/dts/rockchip/rk3588s-kickpi-k8d.dtsi     | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-k8d.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-k8d.dtsi
+index dbe15ca..1ea4562 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-k8d.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-kickpi-k8d.dtsi
+@@ -29,6 +29,17 @@ vbus5v0_typec: vbus5v0-typec {
+ 		enable-active-high;
+ 	};
+ 
++    wifi_en: wifi-en {
++		compatible = "regulator-fixed";
++		regulator-name = "wifi_chip_en";
++		regulator-boot-on;
++		regulator-always-on;
++		enable-active-high;
++		gpio = <&gpio0 RK_PC7 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&wifi_chip_en>;
++	};
++
+     vcc5v0_host: vcc5v0-host {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "vcc5v0_host";
+@@ -167,6 +178,10 @@ &usbhost_dwc3_0 {
+ 
+ &pinctrl {
+     usb {
++		wifi_chip_en: wifi-chip-en {
++			rockchip,pins = <0 RK_PC7 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
+ 		vcc5v0_host_en: vcc5v0-host-en {
+ 			rockchip,pins = <4 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+-- 
+2.34.1
+

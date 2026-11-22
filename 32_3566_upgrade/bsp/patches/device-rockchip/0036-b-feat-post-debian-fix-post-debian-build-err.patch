@@ -1,0 +1,34 @@
+From ffdb5ecccccecba9e6119a695e5417414033f6dc Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 17:42:48 +0800
+Subject: [PATCH 28/34] feat(post-debian): fix post-debian build err
+
+Origin: kickpi f03d8a7070c683d0cc9ed9045289ed80149ce70a
+---
+ common/scripts/post-debian.sh | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/common/scripts/post-debian.sh b/common/scripts/post-debian.sh
+index d0c9acd..b631b8c 100755
+--- a/common/scripts/post-debian.sh
++++ b/common/scripts/post-debian.sh
+@@ -80,13 +80,13 @@ if ! [ "$RK_DEBIAN_UNIFIED_IMAGE" ]; then
+ 
+ 	PKGS=
+ 	if [ "$CAMERA_ENGINE" ]; then
+-		PKGS="$(ls ./* | grep "camera_engine_${CAMERA_ENGINE}_.*.deb")"
++		PKGS="$(ls ./* | grep "./camera_engine_${CAMERA_ENGINE}_.*.deb")"
+ 	fi
+ 	if [ "$LIBMALI" ]; then
+-		PKGS="$PKGS $(ls ./* | grep "libmali-$LIBMALI-.*.deb")"
++		PKGS="$PKGS $(ls ./* | grep "./libmali-$LIBMALI-.*.deb")"
+ 	fi
+ 	if [ "$PKGS" ]; then
+-		message "Installing chip related packages..."
++		message "Installing chip related packages $PKGS..."
+ 
+ 		mkdir -pv var/cache/apt/archives/partial
+ 		PKGS="$(echo $PKGS | xargs)"
+-- 
+2.34.1
+

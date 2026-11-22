@@ -1,0 +1,70 @@
+From 2ff8b13c40bc611d2aa220a8a3f45226fca1b198 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:51:47 +0800
+Subject: [PATCH 63/73] feat(wifi): add build vs6621 & init config
+
+Origin: kickpi 337e1aca7003f7ca91a0caad0a09e96c587597bd
+---
+ scripts/wifibt-init.sh | 6 ++++--
+ scripts/wifibt-util.sh | 5 +++--
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/scripts/wifibt-init.sh b/scripts/wifibt-init.sh
+index dd321ae..32b625d 100755
+--- a/scripts/wifibt-init.sh
++++ b/scripts/wifibt-init.sh
+@@ -186,6 +186,7 @@ do_init_bt()
+ 	case "$WIFIBT_VENDOR" in
+ 		Rockchip) init_bt_rk_uart;;
+ 		Broadcom) init_bt_brcm;;
++		Seekwave) try_insmod skwbt ;;
+ 		Realtek)
+ 			case "$WIFIBT_BUS" in
+ 				usb) init_bt_rtk_usb;;
+@@ -261,6 +262,7 @@ init_wifi()
+ 	case "$WIFIBT_VENDOR" in
+ 		Broadcom) try_insmod dhd_static_buf ;;
+ 		Realtek) try_insmod rtkm ;;
++		Seekwave) try_insmod skw_sdio_lite ;;
+ 	esac
+ 
+ 	do_insmod $(echo $WIFIBT_MODULE | tr ':' ' ')
+@@ -305,8 +307,8 @@ start_wifibt()
+ 	case "$1" in
+ 		start | restart)
+ 			echo "Starting Wi-Fi/BT..."
+-			start_bt
+ 			start_wifi
++			do_init_bt
+ 			echo "Done"
+ 			;;
+ 		start_wifi)
+@@ -316,7 +318,7 @@ start_wifibt()
+ 			;;
+ 		start_bt)
+ 			echo "Starting BT..."
+-			start_bt
++			do_init_bt
+ 			echo "Done"
+ 			;;
+ 	esac
+diff --git a/scripts/wifibt-util.sh b/scripts/wifibt-util.sh
+index d22afe6..2799b8b 100755
+--- a/scripts/wifibt-util.sh
++++ b/scripts/wifibt-util.sh
+@@ -132,9 +132,10 @@ Realtek	RTL8822BS	024c:b822	RTL8822BS.ko
+ Realtek	RTL8822BU	0bda:b82c	RTL8822BU.ko
+ Realtek	RTL8822CE	0bda:c123	RTL8822CE.ko
+ Realtek	RTL8822CE	10ec:c822	RTL8822CE.ko
+-Realtek	RTL8822CS	024c:c822	RTL8822CS.ko
+-Realtek	RTL8822CS	0bda:c822	RTL8822CS.ko
++Realtek	RTL8822CS	024c:c822	88x2cs.ko
++Realtek	RTL8822CS	0bda:c822	88x2cs.ko
+ Realtek	RTL8852BE	10ec:b852	8852be.ko
++Seekwave	ea6x21qx	1ffe:6621	swt6621s_wifi.ko
+ Realtek	RTL8852BS	024c:b852	8852bs.ko
+ Realtek	RTL8852BU	0bda:a85b	8852bu.ko
+ Broadcom	AP6212A	02d0:a9a6	bcmdhd.ko
+-- 
+2.34.1
+

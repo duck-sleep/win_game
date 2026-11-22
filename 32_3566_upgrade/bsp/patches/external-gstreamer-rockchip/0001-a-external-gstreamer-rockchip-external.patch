@@ -1,0 +1,1863 @@
+From fa3406226d78d792571fadc8cd0a2009dd0d7d13 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:27:32 -0500
+Subject: [PATCH] external-gstreamer-rockchip: external
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/gstreamer-rockchip@ed9f828600994b174a65130f27a5f48ad1d81228, path external/gstreamer-rockchip
+---
+ gst/rkximage/gstkmsallocator.c         |  12 +-
+ gst/rkximage/gstkmsallocator.h         |   5 +-
+ gst/rkximage/gstkmsbufferpool.c        |   5 +-
+ gst/rkximage/gstkmsbufferpool.h        |   5 +-
+ gst/rkximage/gstkmsutils.c             |   5 +-
+ gst/rkximage/gstkmsutils.h             |  45 +++++-
+ gst/rkximage/ximagesink.c              | 204 ++++++++++++++---------
+ gst/rkximage/ximagesink.h              |  26 ++-
+ gst/rockchipmpp/gstmpp.c               |  36 +++--
+ gst/rockchipmpp/gstmpp.h               |  12 +-
+ gst/rockchipmpp/gstmppallocator.c      |   4 +-
+ gst/rockchipmpp/gstmppalphadecodebin.c |   8 +-
+ gst/rockchipmpp/gstmppdec.c            | 216 ++++++++++++++++++++-----
+ gst/rockchipmpp/gstmppdec.h            |  15 +-
+ gst/rockchipmpp/gstmppenc.c            | 136 +++++++++-------
+ gst/rockchipmpp/gstmppenc.h            |   5 +-
+ gst/rockchipmpp/gstmpph264enc.c        |   4 +-
+ gst/rockchipmpp/gstmpph265enc.c        |   4 +-
+ gst/rockchipmpp/gstmppjpegdec.c        |  15 +-
+ gst/rockchipmpp/gstmppjpegenc.c        |   8 +-
+ gst/rockchipmpp/gstmppvideodec.c       |  52 +++---
+ 21 files changed, 550 insertions(+), 272 deletions(-)
+
+diff --git a/gst/rkximage/gstkmsallocator.c b/gst/rkximage/gstkmsallocator.c
+index e8484dc..d4b4a4c 100644
+--- a/gst/rkximage/gstkmsallocator.c
++++ b/gst/rkximage/gstkmsallocator.c
+@@ -1,10 +1,9 @@
+ /* GStreamer
+  *
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+@@ -469,11 +468,12 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
+   GST_DEBUG_OBJECT (alloc, "bo handles: %d, %d, %d, %d", bo_handles[0],
+       bo_handles[1], bo_handles[2], bo_handles[3]);
+ 
+-  if (GST_VIDEO_INFO_IS_AFBC (vinfo)) {
++  if (GST_VIDEO_INFO_IS_AFBC (vinfo) || GST_VIDEO_INFO_IS_RFBC (vinfo)) {
+     guint64 modifiers[4] = { 0 };
+ 
+     for (i = 0; i < num_planes; i++)
+-      modifiers[i] = DRM_AFBC_MODIFIER;
++      modifiers[i] =
++        GST_VIDEO_INFO_IS_AFBC (vinfo) ? DRM_AFBC_MODIFIER : DRM_RFBC_MODIFIER;
+ 
+     if (fmt == DRM_FORMAT_NV12 || fmt == DRM_FORMAT_NV12_10 ||
+         fmt == DRM_FORMAT_NV16) {
+@@ -494,7 +494,7 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
+         _pitches[0] *= 1.5;
+       } else {
+         _fmt = DRM_FORMAT_YUYV;
+-        /* The bpp of YUYV (AFBC) is 16 */
++        /* The bpp of YUYV (FBC) is 16 */
+         _pitches[0] *= 2;
+       }
+ 
+diff --git a/gst/rkximage/gstkmsallocator.h b/gst/rkximage/gstkmsallocator.h
+index 9d00126..eca49bf 100644
+--- a/gst/rkximage/gstkmsallocator.h
++++ b/gst/rkximage/gstkmsallocator.h
+@@ -1,10 +1,9 @@
+ /* GStreamer
+  *
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+diff --git a/gst/rkximage/gstkmsbufferpool.c b/gst/rkximage/gstkmsbufferpool.c
+index 7c02aa2..15db7b2 100644
+--- a/gst/rkximage/gstkmsbufferpool.c
++++ b/gst/rkximage/gstkmsbufferpool.c
+@@ -1,10 +1,9 @@
+ /*
+  * GStreamer
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+diff --git a/gst/rkximage/gstkmsbufferpool.h b/gst/rkximage/gstkmsbufferpool.h
+index 9e2d95b..82c902c 100644
+--- a/gst/rkximage/gstkmsbufferpool.h
++++ b/gst/rkximage/gstkmsbufferpool.h
+@@ -1,10 +1,9 @@
+ /*
+  * GStreamer
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+diff --git a/gst/rkximage/gstkmsutils.c b/gst/rkximage/gstkmsutils.c
+index f09bbbe..ec644db 100644
+--- a/gst/rkximage/gstkmsutils.c
++++ b/gst/rkximage/gstkmsutils.c
+@@ -1,10 +1,9 @@
+ /* GStreamer
+  *
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+diff --git a/gst/rkximage/gstkmsutils.h b/gst/rkximage/gstkmsutils.h
+index 500405a..0a8a72f 100644
+--- a/gst/rkximage/gstkmsutils.h
++++ b/gst/rkximage/gstkmsutils.h
+@@ -1,10 +1,9 @@
+ /* GStreamer
+  *
+  * Copyright (C) 2016 Igalia
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
+  *
+- * Authors:
+- *  Víctor Manuel Jáquez Leal <vjaquez@igalia.com>
+- *  Javier Martin <javiermartin@by.com.es>
++ * Based on kmssink
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Library General Public
+@@ -80,6 +79,46 @@ G_BEGIN_DECLS
+   GST_VIDEO_INFO_FLAG_IS_SET (i, GST_VIDEO_FLAG_ARM_AFBC)
+ #endif
+ 
++#ifndef DRM_FORMAT_MOD_VENDOR_ROCKCHIP
++#define DRM_FORMAT_MOD_VENDOR_ROCKCHIP 0x0b
++#endif
++
++#ifndef DRM_FORMAT_MOD_ROCKCHIP_TYPE_SHIFT
++#define DRM_FORMAT_MOD_ROCKCHIP_TYPE_SHIFT  52
++#endif
++
++#ifndef DRM_FORMAT_MOD_ROCKCHIP_TYPE_RFBC
++#define DRM_FORMAT_MOD_ROCKCHIP_TYPE_RFBC 0x1
++#endif
++
++#ifndef ROCKCHIP_RFBC_BLOCK_SIZE_64x4
++#define ROCKCHIP_RFBC_BLOCK_SIZE_64x4   (1ULL)
++#endif
++
++#ifndef DRM_FORMAT_MOD_ROCKCHIP_CODE
++#define DRM_FORMAT_MOD_ROCKCHIP_CODE(__type, __val) \
++  fourcc_mod_code(ROCKCHIP, ((__u64)(__type) << DRM_FORMAT_MOD_ROCKCHIP_TYPE_SHIFT) | \
++      ((__val) & 0x000fffffffffffffULL))
++#endif
++
++#ifndef DRM_FORMAT_MOD_ROCKCHIP_RFBC
++#define DRM_FORMAT_MOD_ROCKCHIP_RFBC(mode) \
++  DRM_FORMAT_MOD_ROCKCHIP_CODE(DRM_FORMAT_MOD_ROCKCHIP_TYPE_RFBC, mode)
++#endif
++
++#define DRM_RFBC_MODIFIER \
++  DRM_FORMAT_MOD_ROCKCHIP_RFBC(ROCKCHIP_RFBC_BLOCK_SIZE_64x4)
++
++#ifndef GST_VIDEO_FLAG_RFBC
++#define GST_VIDEO_FLAG_RFBC (1UL << 30)
++#define GST_VIDEO_INFO_SET_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_SET (i, GST_VIDEO_FLAG_RFBC)
++#define GST_VIDEO_INFO_UNSET_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_UNSET (i, GST_VIDEO_FLAG_RFBC)
++#define GST_VIDEO_INFO_IS_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_IS_SET (i, GST_VIDEO_FLAG_RFBC)
++#endif
++
+ GstVideoFormat gst_video_format_from_drm (guint32 drmfmt);
+ guint32        gst_drm_format_from_video (GstVideoFormat fmt);
+ guint32        gst_drm_bpp_from_drm (guint32 drmfmt);
+diff --git a/gst/rkximage/ximagesink.c b/gst/rkximage/ximagesink.c
+index b3f05b8..434e117 100644
+--- a/gst/rkximage/ximagesink.c
++++ b/gst/rkximage/ximagesink.c
+@@ -1,3 +1,27 @@
++/* GStreamer
++ *
++ * Copyright (C) 2016 Igalia
++ * Copyright (C) <2005> Julien Moutte <julien@moutte.net>
++ * Copyright ({) <2024> Rockchip Electronics Co., Ltd
++ *
++ * Based on kmssink and ximagesink
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
+ #ifdef HAVE_CONFIG_H
+ #include "config.h"
+ #endif
+@@ -217,6 +241,9 @@ drm_connector_is_used (int fd, drmModeRes * res, drmModeConnector * conn)
+   gboolean result;
+   drmModeCrtc *crtc;
+ 
++  if (conn->connection != DRM_MODE_CONNECTED)
++    return FALSE;
++
+   result = FALSE;
+   crtc = drm_find_crtc_for_connector (fd, res, conn, NULL);
+   if (crtc) {
+@@ -350,8 +377,8 @@ drm_get_caps (GstRkXImageSink * self)
+ }
+ 
+ static void
+-check_afbc (GstRkXImageSink * self, drmModePlane * plane, guint32 drmfmt,
+-    gboolean * linear, gboolean * afbc)
++check_fbc (GstRkXImageSink * self, drmModePlane * plane, guint32 drmfmt,
++    gboolean * linear, gboolean * afbc, gboolean * rfbc)
+ {
+   drmModeObjectPropertiesPtr props;
+   drmModePropertyBlobPtr blob;
+@@ -363,7 +390,7 @@ check_afbc (GstRkXImageSink * self, drmModePlane * plane, guint32 drmfmt,
+   guint64 value = 0;
+   gint i, j;
+ 
+-  *linear = *afbc = FALSE;
++  *linear = *afbc = *rfbc = FALSE;
+ 
+   res = drmModeGetResources (self->fd);
+   if (!res)
+@@ -419,6 +446,8 @@ check_afbc (GstRkXImageSink * self, drmModePlane * plane, guint32 drmfmt,
+ 
+       if (mod->modifier == DRM_AFBC_MODIFIER)
+         *afbc = TRUE;
++      else if (mod->modifier == DRM_RFBC_MODIFIER)
++        *rfbc = TRUE;
+       else if (mod->modifier == DRM_FORMAT_MOD_LINEAR)
+         *linear = TRUE;
+     }
+@@ -444,9 +473,9 @@ drm_ensure_allowed_caps (GstRkXImageSink * self, drmModePlane * plane,
+     return FALSE;
+ 
+   for (i = 0; i < plane->count_formats; i++) {
+-    gboolean linear = FALSE, afbc = FALSE;
++    gboolean linear = FALSE, afbc = FALSE, rfbc = FALSE;
+ 
+-    check_afbc (self, plane, plane->formats[i], &linear, &afbc);
++    check_fbc (self, plane, plane->formats[i], &linear, &afbc, &rfbc);
+ 
+     if (plane->formats[i] == DRM_FORMAT_YUV420_8BIT)
+       fmt = GST_VIDEO_FORMAT_NV12;
+@@ -475,15 +504,18 @@ drm_ensure_allowed_caps (GstRkXImageSink * self, drmModePlane * plane,
+       GstCaps *afbc_caps = gst_caps_copy (caps);
+       gst_caps_set_simple (afbc_caps, "arm-afbc", G_TYPE_INT, 1, NULL);
+ 
+-      if (linear) {
+-        gst_caps_append (caps, afbc_caps);
+-      } else {
+-        gst_caps_replace (&caps, afbc_caps);
+-        gst_caps_unref (afbc_caps);
+-      }
++      out_caps = gst_caps_merge (out_caps, afbc_caps);
+     }
+ 
+-    out_caps = gst_caps_merge (out_caps, caps);
++    if (rfbc) {
++      GstCaps *rfbc_caps = gst_caps_copy (caps);
++      gst_caps_set_simple (rfbc_caps, "rfbc", G_TYPE_INT, 1, NULL);
++
++      out_caps = gst_caps_merge (out_caps, rfbc_caps);
++    }
++
++    if ((!afbc && !rfbc) || linear)
++      out_caps = gst_caps_merge (out_caps, caps);
+   }
+ 
+   self->allowed_caps = gst_caps_simplify (out_caps);
+@@ -636,7 +668,9 @@ gst_kms_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+ 
+   s = gst_caps_get_structure (caps, 0);
+   if (gst_structure_get_int (s, "arm-afbc", &value) && value)
+-    goto afbc_caps;
++    goto fbc_caps;
++  if (gst_structure_get_int (s, "rfbc", &value) && value)
++    goto fbc_caps;
+ 
+   size = GST_VIDEO_INFO_SIZE (&vinfo);
+ 
+@@ -676,9 +710,9 @@ invalid_caps:
+     GST_DEBUG_OBJECT (bsink, "invalid caps specified");
+     return FALSE;
+   }
+-afbc_caps:
++fbc_caps:
+   {
+-    GST_DEBUG_OBJECT (bsink, "no allocation for AFBC");
++    GST_DEBUG_OBJECT (bsink, "no allocation for FBC");
+     return FALSE;
+   }
+ no_pool:
+@@ -790,8 +824,9 @@ gst_kms_sink_copy_to_dumb_buffer (GstRkXImageSink * self, GstBuffer * inbuf)
+   gboolean success;
+   GstBuffer *buf = NULL;
+ 
+-  if (GST_VIDEO_INFO_IS_AFBC (&self->vinfo)) {
+-    GST_ERROR_OBJECT (self, "unable to copy AFBC");
++  if (GST_VIDEO_INFO_IS_AFBC (&self->vinfo) ||
++      GST_VIDEO_INFO_IS_RFBC (&self->vinfo)) {
++    GST_ERROR_OBJECT (self, "unable to copy FBC");
+     return NULL;
+   }
+ 
+@@ -987,31 +1022,29 @@ gst_kms_sink_query (GstBaseSink * bsink, GstQuery * query)
+   return GST_BASE_SINK_CLASS (parent_class)->query (bsink, query);
+ }
+ 
+-/*ximagesink*/
+ static gboolean
+-xwindow_calculate_display_ratio (GstRkXImageSink * self, int *x, int *y,
+-    gint * window_width, gint * window_height)
++gst_kms_sink_calculate_display_ratio (GstRkXImageSink * self,
++    GstVideoInfo * vinfo, gint * scaled_width, gint * scaled_height)
+ {
+   guint dar_n, dar_d;
++  guint video_width, video_height;
+   guint video_par_n, video_par_d;
+   guint dpy_par_n, dpy_par_d;
+-  gint video_width, video_height;
+ 
+-  video_width = GST_VIDEO_INFO_WIDTH (&self->vinfo);
+-  video_height = GST_VIDEO_INFO_HEIGHT (&self->vinfo);
+-
+-  video_par_n = self->par_n;
+-  video_par_d = self->par_d;
++  video_width = GST_VIDEO_INFO_WIDTH (vinfo);
++  video_height = GST_VIDEO_INFO_HEIGHT (vinfo);
++  video_par_n = GST_VIDEO_INFO_PAR_N (vinfo);
++  video_par_d = GST_VIDEO_INFO_PAR_D (vinfo);
+ 
+   if (self->keep_aspect) {
+-    *window_width = video_width;
+-    *window_height = video_height;
++    gst_video_calculate_device_ratio (self->hdisplay, self->vdisplay,
++        self->mm_width, self->mm_height, &dpy_par_n, &dpy_par_d);
++  } else {
++    *scaled_width = video_width;
++    *scaled_height = video_height;
+     goto out;
+   }
+ 
+-  gst_video_calculate_device_ratio (self->hdisplay, self->vdisplay,
+-      self->mm_width, self->mm_height, &dpy_par_n, &dpy_par_d);
+-
+   if (!gst_video_calculate_display_ratio (&dar_n, &dar_d, video_width,
+           video_height, video_par_n, video_par_d, dpy_par_n, dpy_par_d))
+     return FALSE;
+@@ -1025,20 +1058,25 @@ xwindow_calculate_display_ratio (GstRkXImageSink * self, int *x, int *y,
+ 
+   /* start with same height, because of interlaced video */
+   /* check hd / dar_d is an integer scale factor, and scale wd with the PAR */
+-  video_width = gst_util_uint64_scale_int (self->xwindow->height, dar_n, dar_d);
+-  video_height = gst_util_uint64_scale_int (self->xwindow->width, dar_d, dar_n);
+-  if (video_width < *window_width) {
+-    *x += (self->xwindow->width - video_width) / 2;
+-    *window_width = video_width;
+-    *window_height = self->xwindow->height;
++  if (video_height % dar_d == 0) {
++    GST_DEBUG_OBJECT (self, "keeping video height");
++    *scaled_width = (guint)
++        gst_util_uint64_scale_int (video_height, dar_n, dar_d);
++    *scaled_height = video_height;
++  } else if (video_width % dar_n == 0) {
++    GST_DEBUG_OBJECT (self, "keeping video width");
++    *scaled_width = video_width;
++    *scaled_height = (guint)
++        gst_util_uint64_scale_int (video_width, dar_d, dar_n);
+   } else {
+-    *y += (self->xwindow->height - video_height) / 2;
+-    *window_height = video_height;
+-    *window_width = self->xwindow->width;
++    GST_DEBUG_OBJECT (self, "approximating while keeping video height");
++    *scaled_width = (guint)
++        gst_util_uint64_scale_int (video_height, dar_n, dar_d);
++    *scaled_height = video_height;
+   }
+ 
+ out:
+-  GST_DEBUG_OBJECT (self, "scaling to %dx%d", *window_width, *window_height);
++  GST_DEBUG_OBJECT (self, "scaling to %dx%d", *scaled_width, *scaled_height);
+ 
+   return TRUE;
+ }
+@@ -1074,18 +1112,6 @@ xwindow_get_window_position (GstRkXImageSink * ximagesink, int *x, int *y)
+   return FALSE;
+ }
+ 
+-static void
+-xwindow_get_render_rectangle (GstRkXImageSink * ximagesink,
+-    gint * x, gint * y, gint * width, gint * height)
+-{
+-  if (ximagesink->save_rect.w != 0 && ximagesink->save_rect.h != 0) {
+-    *width = ximagesink->save_rect.w;
+-    *height = ximagesink->save_rect.h;
+-    *x += ximagesink->save_rect.x;
+-    *y += ximagesink->save_rect.y;
+-  }
+-}
+-
+ static void
+ gst_x_image_sink_xwindow_fill_key (GstRkXImageSink * ximagesink,
+     GstXWindow * xwindow, guint32 color)
+@@ -1139,7 +1165,10 @@ gst_x_image_sink_ximage_put (GstRkXImageSink * ximagesink, GstBuffer * buf)
+ {
+   GstVideoCropMeta *crop;
+   GstVideoRectangle src = { 0, };
+-  GstVideoRectangle result = { 0, };
++  gint video_width, video_height;
++  GstVideoRectangle dst = { 0, };
++  GstVideoRectangle result;
++  gint window_x, window_y;
+   GstBuffer *buffer = NULL;
+   gboolean draw_border = FALSE;
+   gboolean res = FALSE;
+@@ -1189,8 +1218,28 @@ gst_x_image_sink_ximage_put (GstRkXImageSink * ximagesink, GstBuffer * buf)
+     src.w = GST_VIDEO_SINK_WIDTH (ximagesink);
+     src.h = GST_VIDEO_SINK_HEIGHT (ximagesink);
+   }
+-  result.w = ximagesink->xwindow->width;
+-  result.h = ximagesink->xwindow->height;
++
++  video_width = src.w;
++  video_height = src.h;
++
++  gst_kms_sink_calculate_display_ratio (ximagesink, &ximagesink->vinfo,
++      &src.w, &src.h);
++
++  dst.w = ximagesink->render_rect.w;
++  dst.h = ximagesink->render_rect.h;
++  if (!dst.w || !dst.h) {
++    dst.w = ximagesink->xwindow->width;
++    dst.h = ximagesink->xwindow->height;
++  }
++
++  gst_video_sink_center_rect (src, dst, &result, TRUE);
++
++  result.x += ximagesink->render_rect.x;
++  result.y += ximagesink->render_rect.y;
++
++  /* Restore the real source size */
++  src.w = video_width;
++  src.h = video_height;
+ 
+   g_mutex_lock (&ximagesink->x_lock);
+ 
+@@ -1211,15 +1260,13 @@ gst_x_image_sink_ximage_put (GstRkXImageSink * ximagesink, GstBuffer * buf)
+     ximagesink->draw_border = FALSE;
+   }
+ 
+-  xwindow_get_window_position (ximagesink, &result.x, &result.y);
++  xwindow_get_window_position (ximagesink, &window_x, &window_y);
++  result.x += window_x;
++  result.y += window_y;
+ 
+-  xwindow_get_render_rectangle (ximagesink, &result.x, &result.y, &result.w,
+-      &result.h);
+-  xwindow_calculate_display_ratio (ximagesink, &result.x, &result.y, &result.w,
+-      &result.h);
+-
+-  if (GST_VIDEO_INFO_IS_AFBC (&ximagesink->vinfo))
+-    /* The AFBC's width should align to 4 */
++  if (GST_VIDEO_INFO_IS_AFBC (&ximagesink->vinfo) ||
++      GST_VIDEO_INFO_IS_RFBC (&ximagesink->vinfo))
++    /* The FBC's width should align to 4 */
+     src.w &= ~3;
+ 
+   GST_TRACE_OBJECT (ximagesink,
+@@ -1247,7 +1294,6 @@ gst_x_image_sink_ximage_put (GstRkXImageSink * ximagesink, GstBuffer * buf)
+     goto out;
+   }
+ 
+-
+   /* HACK: Disable vsync might cause tearing */
+   if (!g_getenv ("KMSSINK_DISABLE_VSYNC"))
+   /* Wait for the previous frame to complete redraw */
+@@ -1924,7 +1970,7 @@ gst_x_image_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
+   if (!gst_video_info_from_caps (&info, caps))
+     goto invalid_format;
+ 
+-  /* parse AFBC from caps */
++  /* parse FBC from caps */
+   s = gst_caps_get_structure (caps, 0);
+   if (gst_structure_get_int (s, "arm-afbc", &value)) {
+     if (value)
+@@ -1932,13 +1978,17 @@ gst_x_image_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
+     else
+       GST_VIDEO_INFO_UNSET_AFBC (&info);
+   }
++  if (gst_structure_get_int (s, "rfbc", &value)) {
++    if (value)
++      GST_VIDEO_INFO_SET_RFBC (&info);
++    else
++      GST_VIDEO_INFO_UNSET_RFBC (&info);
++  }
+ 
+   GST_VIDEO_SINK_WIDTH (ximagesink) = info.width;
+   GST_VIDEO_SINK_HEIGHT (ximagesink) = info.height;
+   ximagesink->fps_n = info.fps_n;
+   ximagesink->fps_d = info.fps_d;
+-  ximagesink->par_n = info.par_n;
+-  ximagesink->par_d = info.par_d;
+ 
+   /* Notify application to set xwindow id now */
+   g_mutex_lock (&ximagesink->flow_lock);
+@@ -2319,13 +2369,11 @@ gst_x_image_sink_set_render_rectangle (GstVideoOverlay * overlay,
+     gint x, gint y, gint width, gint height)
+ {
+   GstRkXImageSink *ximagesink = GST_X_IMAGE_SINK (overlay);
+-  GST_DEBUG_OBJECT (ximagesink, "Set Render Rectangle"
+-      "x %d y %d width %d height %d", x, y, width, height);
+ 
+-  ximagesink->save_rect.w = width;
+-  ximagesink->save_rect.h = height;
+-  ximagesink->save_rect.x = x;
+-  ximagesink->save_rect.y = y;
++  ximagesink->render_rect.x = x;
++  ximagesink->render_rect.y = y;
++  ximagesink->render_rect.w = width;
++  ximagesink->render_rect.h = height;
+ 
+   gst_x_image_sink_expose (GST_VIDEO_OVERLAY (ximagesink));
+ }
+@@ -2543,10 +2591,10 @@ gst_x_image_sink_init (GstRkXImageSink * ximagesink)
+   ximagesink->poll = gst_poll_new (TRUE);
+   gst_video_info_init (&ximagesink->vinfo);
+ 
+-  ximagesink->save_rect.x = 0;
+-  ximagesink->save_rect.y = 0;
+-  ximagesink->save_rect.w = 0;
+-  ximagesink->save_rect.h = 0;
++  ximagesink->render_rect.x = 0;
++  ximagesink->render_rect.y = 0;
++  ximagesink->render_rect.w = 0;
++  ximagesink->render_rect.h = 0;
+ 
+   ximagesink->paused = FALSE;
+ 
+diff --git a/gst/rkximage/ximagesink.h b/gst/rkximage/ximagesink.h
+index e446d42..1c06e16 100644
+--- a/gst/rkximage/ximagesink.h
++++ b/gst/rkximage/ximagesink.h
+@@ -1,3 +1,27 @@
++/* GStreamer
++ *
++ * Copyright (C) 2016 Igalia
++ * Copyright (C) <2005> Julien Moutte <julien@moutte.net>
++ * Copyright (C) <2024> Rockchip Electronics Co., Ltd
++ *
++ * Based on kmssink and ximagesink
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
+ #ifndef __GST_X_IMAGE_SINK_H__
+ #define __GST_X_IMAGE_SINK_H__
+ 
+@@ -184,7 +208,7 @@ struct _GstRkXImageSink
+   GstPollFD pollfd;
+ 
+   guint32 last_fb_id;
+-  GstVideoRectangle save_rect;
++  GstVideoRectangle render_rect;
+   gboolean paused;
+ };
+ 
+diff --git a/gst/rockchipmpp/gstmpp.c b/gst/rockchipmpp/gstmpp.c
+index 808e695..7d7b875 100644
+--- a/gst/rockchipmpp/gstmpp.c
++++ b/gst/rockchipmpp/gstmpp.c
+@@ -203,10 +203,14 @@ gst_mpp_rga_info_from_mpp_frame (rga_info_t * info, MppFrame mframe)
+   MppBuffer mbuf = mpp_frame_get_buffer (mframe);
+   guint width = mpp_frame_get_width (mframe);
+   guint height = mpp_frame_get_height (mframe);
+-  guint hstride = mpp_frame_get_hor_stride_pixel (mframe);
++  guint hstride = mpp_frame_get_hor_stride (mframe);
+   guint vstride = mpp_frame_get_ver_stride (mframe);
+   RgaSURF_FORMAT rga_format = gst_mpp_mpp_format_to_rga_format (mpp_format);
+ 
++  struct gst_mpp_format *format = GST_MPP_GET_FORMAT (mpp, mpp_format);
++  if (format)
++    hstride = hstride / format->pixel_stride0;
++
+   g_return_val_if_fail (mbuf, FALSE);
+ 
+   info->fd = mpp_buffer_get_fd (mbuf);
+@@ -450,32 +454,30 @@ gst_mpp_video_info_matched (GstVideoInfo * info, GstVideoInfo * other)
+ }
+ 
+ gboolean
+-gst_mpp_info_changed (GstVideoInfo * info, MppFrame * mframe)
++gst_mpp_frame_info_changed (MppFrame * frame, MppFrame * other)
+ {
+-  MppFrameFormat mpp_format = mpp_frame_get_fmt (mframe);
+-  gint width = mpp_frame_get_width (mframe);
+-  gint height = mpp_frame_get_height (mframe);
+-  gint hstride = mpp_frame_get_hor_stride (mframe);
+-  gint vstride = mpp_frame_get_ver_stride (mframe);
+-  GstVideoFormat format = gst_mpp_mpp_format_to_gst_format (mpp_format);
+-  gboolean afbc = !!MPP_FRAME_FMT_IS_FBC (mpp_format);
+-
+-  if (GST_VIDEO_INFO_FORMAT (info) != format)
++  if (!frame || !other)
+     return TRUE;
+ 
+-  if (GST_VIDEO_INFO_WIDTH (info) != width)
++  if (mpp_frame_get_fmt (frame) != mpp_frame_get_fmt (other))
+     return TRUE;
+ 
+-  if (GST_VIDEO_INFO_HEIGHT (info) != height)
++  if (mpp_frame_get_width (frame) != mpp_frame_get_width (other))
+     return TRUE;
+ 
+-  if (GST_MPP_VIDEO_INFO_HSTRIDE (info) != hstride)
++  if (mpp_frame_get_height (frame) != mpp_frame_get_height (other))
+     return TRUE;
+ 
+-  if (GST_VIDEO_INFO_N_PLANES (info) == 1 || afbc)
+-    return FALSE;
++  if (mpp_frame_get_offset_x (frame) != mpp_frame_get_offset_x (other))
++    return TRUE;
++
++  if (mpp_frame_get_offset_y (frame) != mpp_frame_get_offset_y (other))
++    return TRUE;
++
++  if (mpp_frame_get_hor_stride (frame) != mpp_frame_get_hor_stride (other))
++    return TRUE;
+ 
+-  if (GST_MPP_VIDEO_INFO_VSTRIDE (info) != vstride)
++  if (mpp_frame_get_ver_stride (frame) != mpp_frame_get_ver_stride (other))
+     return TRUE;
+ 
+   return FALSE;
+diff --git a/gst/rockchipmpp/gstmpp.h b/gst/rockchipmpp/gstmpp.h
+index dac2daf..e14f14a 100644
+--- a/gst/rockchipmpp/gstmpp.h
++++ b/gst/rockchipmpp/gstmpp.h
+@@ -61,6 +61,16 @@ G_BEGIN_DECLS;
+   GST_VIDEO_INFO_FLAG_IS_SET (i, GST_VIDEO_FLAG_ARM_AFBC)
+ #endif
+ 
++#ifndef GST_VIDEO_FLAG_RFBC
++#define GST_VIDEO_FLAG_RFBC (1UL << 30)
++#define GST_VIDEO_INFO_SET_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_SET (i, GST_VIDEO_FLAG_RFBC)
++#define GST_VIDEO_INFO_UNSET_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_UNSET (i, GST_VIDEO_FLAG_RFBC)
++#define GST_VIDEO_INFO_IS_RFBC(i) \
++  GST_VIDEO_INFO_FLAG_IS_SET (i, GST_VIDEO_FLAG_RFBC)
++#endif
++
+ /* The MPP requires alignment 16 by default */
+ #define GST_MPP_ALIGNMENT 16
+ #define GST_MPP_ALIGN(v) GST_ROUND_UP_N (v, GST_MPP_ALIGNMENT)
+@@ -97,7 +107,7 @@ gboolean gst_mpp_video_info_align (GstVideoInfo * info,
+ 
+ gboolean gst_mpp_video_info_matched (GstVideoInfo * info, GstVideoInfo * other);
+ 
+-gboolean gst_mpp_info_changed (GstVideoInfo * info, MppFrame * mframe);
++gboolean gst_mpp_frame_info_changed (MppFrame * frame, MppFrame * other);
+ 
+ guint gst_mpp_get_pixel_stride (GstVideoInfo * info);
+ 
+diff --git a/gst/rockchipmpp/gstmppallocator.c b/gst/rockchipmpp/gstmppallocator.c
+index 4ceb4a4..b254859 100644
+--- a/gst/rockchipmpp/gstmppallocator.c
++++ b/gst/rockchipmpp/gstmppallocator.c
+@@ -244,7 +244,9 @@ gst_mpp_allocator_alloc (GstAllocator * allocator, gsize size,
+   mem = gst_mpp_allocator_import_mppbuf (allocator, mbuf);
+   mpp_buffer_put (mbuf);
+ 
+-  gst_memory_resize (mem, 0, size);
++  if (mem)
++    gst_memory_resize (mem, 0, size);
++
+   return mem;
+ }
+ 
+diff --git a/gst/rockchipmpp/gstmppalphadecodebin.c b/gst/rockchipmpp/gstmppalphadecodebin.c
+index fca8e16..6471c5c 100644
+--- a/gst/rockchipmpp/gstmppalphadecodebin.c
++++ b/gst/rockchipmpp/gstmppalphadecodebin.c
+@@ -170,10 +170,10 @@ gst_mpp_alpha_decode_bin_constructed (GObject * obj)
+   gst_ghost_pad_set_target (GST_GHOST_PAD (src_gpad), src_pad);
+   gst_object_unref (src_pad);
+ 
+-  g_object_set (queue, "max-size-bytes", 0, "max-size-time", 0,
+-      "max-size-buffers", 1, NULL);
+-  g_object_set (alpha_queue, "max-size-bytes", 0, "max-size-time", 0,
+-      "max-size-buffers", 1, NULL);
++  g_object_set (queue, "max-size-bytes", 0, "max-size-time",
++      G_GUINT64_CONSTANT (0), "max-size-buffers", 1, NULL);
++  g_object_set (alpha_queue, "max-size-bytes", 0, "max-size-time",
++      G_GUINT64_CONSTANT (0), "max-size-buffers", 1, NULL);
+ 
+   /* signal success, we will handle this in NULL->READY transition */
+   priv->constructed = TRUE;
+diff --git a/gst/rockchipmpp/gstmppdec.c b/gst/rockchipmpp/gstmppdec.c
+index 177202a..747cca8 100644
+--- a/gst/rockchipmpp/gstmppdec.c
++++ b/gst/rockchipmpp/gstmppdec.c
+@@ -39,7 +39,7 @@ G_DEFINE_ABSTRACT_TYPE (GstMppDec, gst_mpp_dec, GST_TYPE_VIDEO_DECODER);
+     GST_TYPE_MPP_DEC, GstMppDecClass))
+ 
+ #define MPP_OUTPUT_TIMEOUT_MS 200       /* Block timeout for MPP output queue */
+-#define MPP_INPUT_TIMEOUT_MS 2000       /* Block timeout for MPP input queue */
++#define MPP_INPUT_TIMEOUT_MS 10 /* Block timeout for MPP input queue */
+ 
+ #define MPP_TO_GST_PTS(pts) ((pts) * GST_MSECOND)
+ 
+@@ -219,6 +219,7 @@ static void
+ gst_mpp_dec_reset (GstVideoDecoder * decoder, gboolean drain, gboolean final)
+ {
+   GstMppDec *self = GST_MPP_DEC (decoder);
++  GList *frames;
+ 
+   GST_MPP_DEC_LOCK (decoder);
+ 
+@@ -236,6 +237,13 @@ gst_mpp_dec_reset (GstVideoDecoder * decoder, gboolean drain, gboolean final)
+   self->task_ret = GST_FLOW_OK;
+   self->decoded_frames = 0;
+ 
++  /* Clear pending frames */
++  frames = gst_video_decoder_get_frames (decoder);
++  for (; frames; frames = frames->next) {
++    GstVideoCodecFrame *f = frames->data;
++    gst_video_decoder_release_frame (decoder, f);
++  }
++
+   GST_MPP_DEC_UNLOCK (decoder);
+ }
+ 
+@@ -255,6 +263,7 @@ gst_mpp_dec_start (GstVideoDecoder * decoder)
+   self->mpp_type = MPP_VIDEO_CodingUnused;
+   self->seen_valid_pts = FALSE;
+   self->convert = FALSE;
++  self->mpp_frame = NULL;
+ 
+   self->input_state = NULL;
+ 
+@@ -305,8 +314,18 @@ gst_mpp_dec_stop (GstVideoDecoder * decoder)
+ 
+   gst_mpp_dec_clear_allocator (decoder);
+ 
++  if (self->mpp_frame) {
++    mpp_frame_deinit (&self->mpp_frame);
++    self->mpp_frame = NULL;
++  }
++
+   mpp_destroy (self->mpp_ctx);
+ 
++  if (self->last_frame) {
++    gst_video_codec_frame_unref (self->last_frame);
++    self->last_frame = NULL;
++  }
++
+   GST_DEBUG_OBJECT (self, "stopped");
+ 
+   return TRUE;
+@@ -383,7 +402,7 @@ gst_mpp_dec_set_format (GstVideoDecoder * decoder, GstVideoCodecState * state)
+ static gboolean
+ gst_mpp_dec_update_video_info (GstVideoDecoder * decoder, GstVideoFormat format,
+     guint width, guint height, gint hstride, gint vstride, guint align,
+-    gboolean afbc)
++    gboolean afbc, gboolean rfbc)
+ {
+   GstMppDec *self = GST_MPP_DEC (decoder);
+   GstVideoInfo *info = &self->info;
+@@ -397,7 +416,7 @@ gst_mpp_dec_update_video_info (GstVideoDecoder * decoder, GstVideoFormat format,
+   output_state->caps = gst_video_info_to_caps (&output_state->info);
+ 
+   if (afbc) {
+-    if (!self->arm_afbc) {
++    if (!self->fbc) {
+       GST_ERROR_OBJECT (self, "AFBC not supported");
+       return FALSE;
+     }
+@@ -406,8 +425,21 @@ gst_mpp_dec_update_video_info (GstVideoDecoder * decoder, GstVideoFormat format,
+         MPP_DEC_FEATURE_ARM_AFBC, G_TYPE_INT, afbc, NULL);
+ 
+     GST_VIDEO_INFO_SET_AFBC (&output_state->info);
++    GST_VIDEO_INFO_UNSET_RFBC (&output_state->info);
++  } else if (rfbc) {
++    if (!self->fbc) {
++      GST_ERROR_OBJECT (self, "RFBC not supported");
++      return FALSE;
++    }
++
++    gst_caps_set_simple (output_state->caps,
++        MPP_DEC_FEATURE_RFBC, G_TYPE_INT, rfbc, NULL);
++
++    GST_VIDEO_INFO_SET_RFBC (&output_state->info);
++    GST_VIDEO_INFO_UNSET_AFBC (&output_state->info);
+   } else {
+     GST_VIDEO_INFO_UNSET_AFBC (&output_state->info);
++    GST_VIDEO_INFO_UNSET_RFBC (&output_state->info);
+   }
+ 
+   if (self->dma_feature) {
+@@ -444,7 +476,7 @@ gst_mpp_dec_update_simple_video_info (GstVideoDecoder * decoder,
+     GstVideoFormat format, guint width, guint height, guint align)
+ {
+   return gst_mpp_dec_update_video_info (decoder, format, width, height, 0, 0,
+-      align, FALSE);
++      align, FALSE, FALSE);
+ }
+ 
+ void
+@@ -481,6 +513,35 @@ gst_mpp_dec_fixup_video_info (GstVideoDecoder * decoder, GstVideoFormat format,
+       self->width ? : width, self->height ? : height);
+ }
+ 
++static gboolean
++gst_mpp_frame_is_fbc (MppFrame mframe)
++{
++  return !!MPP_FRAME_FMT_IS_FBC (mpp_frame_get_fmt (mframe));
++}
++
++static gboolean
++gst_mpp_frame_is_rfbc (MppFrame mframe)
++{
++  if (gst_mpp_frame_is_fbc (mframe) && g_getenv ("GST_MPP_DEC_FBC_IS_RFBC"))
++    return TRUE;
++
++#ifdef MPP_FRAME_FMT_IS_RKFBC
++  return !!MPP_FRAME_FMT_IS_RKFBC (mpp_frame_get_fmt (mframe));
++#else
++  (void) mframe;
++  return FALSE;
++#endif
++}
++
++static gboolean
++gst_mpp_frame_is_afbc (MppFrame mframe)
++{
++  if (gst_mpp_frame_is_rfbc (mframe))
++    return FALSE;
++
++  return gst_mpp_frame_is_fbc (mframe);
++}
++
+ static GstFlowReturn
+ gst_mpp_dec_apply_info_change (GstVideoDecoder * decoder, MppFrame mframe)
+ {
+@@ -495,17 +556,19 @@ gst_mpp_dec_apply_info_change (GstVideoDecoder * decoder, MppFrame mframe)
+   gint offset_x = mpp_frame_get_offset_x (mframe);
+   gint offset_y = mpp_frame_get_offset_y (mframe);
+   gint dst_width, dst_height;
+-  gboolean afbc;
++  gboolean afbc, rfbc;
+ 
+   if (hstride % 2 || vstride % 2)
+     return GST_FLOW_NOT_NEGOTIATED;
+ 
++  afbc = gst_mpp_frame_is_afbc (mframe);
++  rfbc = gst_mpp_frame_is_rfbc (mframe);
+   mpp_format = mpp_frame_get_fmt (mframe);
+-  afbc = !!MPP_FRAME_FMT_IS_FBC (mpp_format);
+   src_format = gst_mpp_mpp_format_to_gst_format (mpp_format);
+ 
+   GST_INFO_OBJECT (self, "applying %s%s %dx%d (%dx%d)",
+-      gst_mpp_video_format_to_string (src_format), afbc ? "(AFBC)" : "",
++      gst_mpp_video_format_to_string (src_format),
++      afbc ? "(AFBC)" : (rfbc ? "(RFBC)" : ""),
+       width, height, hstride, vstride);
+ 
+   /* Figure out final output info */
+@@ -516,8 +579,8 @@ gst_mpp_dec_apply_info_change (GstVideoDecoder * decoder, MppFrame mframe)
+ 
+   if (self->rotation || dst_format != src_format ||
+       dst_width != width || dst_height != height) {
+-    if (afbc || offset_x || offset_y) {
+-      GST_ERROR_OBJECT (self, "unable to convert with AFBC or offsets (%d, %d)",
++    if (afbc || rfbc || offset_x || offset_y) {
++      GST_ERROR_OBJECT (self, "unable to convert with FBC or offsets (%d, %d)",
+           offset_x, offset_y);
+       return GST_FLOW_NOT_NEGOTIATED;
+     }
+@@ -533,22 +596,50 @@ gst_mpp_dec_apply_info_change (GstVideoDecoder * decoder, MppFrame mframe)
+     vstride = 0;
+   }
+ 
+-  if (afbc) {
+-    /* HACK: MPP would align width to 64 for AFBC */
++  if (afbc || rfbc) {
++    /* HACK: Fake 64-aligned width for Mali DDK
++     *
++     * When importing AFBC dma-bufs, mali would re-calculate the row stride
++     * from width by itself. But the row stride aligning algorithms are
++     * different between MPP and Mali:
++     *
++     * MPP uses round_up_64(round_up_64(width) * bpp / 8)
++     * Mali uses round_up_64(width * bpp / 8)
++     *
++     * We need Mali to use the same row stride as MPP, so we fake a 64-aligned
++     * width here and crop to the real size later.
++     */
+     dst_width = GST_ROUND_UP_64 (dst_width);
+ 
+-    /* HACK: MPP might have extra offsets for AFBC */
+-    dst_height += offset_y;
++    /* HACK: Fake hstride for Rockchip DRM driver
++     *
++     * When importing FBC dma-bufs, the Rockchip DRM driver would calculate
++     * the pixel stride from pitch. But the pitch aligning algorithms are
++     * different between MPP and the driver:
++     *
++     * MPP uses round_up_64(round_up_64(width) * bpp / 8)
++     * Rockchip DRM driver expects (pixel_stride * bpp / 8)
++     *
++     * We need the driver to use the same pixel stride as MPP, so we
++     * re-calculate a fake hstride from the pixel stride (i.e. the 64-aligned
++     * fake width) here.
++     *
++     * NOTE: The hstride is not used by others for now.
++     */
++    hstride = 0;
+ 
++    /* HACK: Fixup height and vstride with MPP's extra Y offsets
++     *
++     * The MPP might have extra rows for FBC dma-bufs, and those rows are not
++     * counted in the height and vstride.
++     */
++    dst_height += offset_y;
+     if (vstride < dst_height)
+       vstride = dst_height;
+-
+-    /* HACK: Fake hstride for Rockchip VOP driver */
+-    hstride = 0;
+   }
+ 
+   if (!gst_mpp_dec_update_video_info (decoder, dst_format,
+-          dst_width, dst_height, hstride, vstride, 0, afbc))
++          dst_width, dst_height, hstride, vstride, 0, afbc, rfbc))
+     return GST_FLOW_NOT_NEGOTIATED;
+ 
+   return GST_FLOW_OK;
+@@ -697,6 +788,18 @@ gst_mpp_dec_get_frame (GstVideoDecoder * decoder, GstClockTime pts)
+         frame->system_frame_number);
+ 
+ out:
++  if (frame) {
++    if (self->last_frame)
++      gst_video_codec_frame_unref (self->last_frame);
++
++    gst_video_codec_frame_ref (frame);
++    self->last_frame = frame;
++  } else if (self->last_frame) {
++    frame = self->last_frame;
++    GST_DEBUG_OBJECT (self, "reusing the last frame (#%d)",
++        frame->system_frame_number);
++  }
++
+   if (frame) {
+     gst_video_codec_frame_ref (frame);
+ 
+@@ -752,7 +855,8 @@ gst_mpp_dec_get_gst_buffer (GstVideoDecoder * decoder, MppFrame mframe)
+   gint crop_y = self->crop_y;
+   guint crop_w = self->crop_w;
+   guint crop_h = self->crop_h;
+-  gboolean afbc = !!MPP_FRAME_FMT_IS_FBC (mpp_frame_get_fmt (mframe));
++  gboolean afbc = gst_mpp_frame_is_afbc (mframe);
++  gboolean rfbc = gst_mpp_frame_is_rfbc (mframe);
+ 
+   if (!self->allocator)
+     return NULL;
+@@ -774,7 +878,8 @@ gst_mpp_dec_get_gst_buffer (GstVideoDecoder * decoder, MppFrame mframe)
+     return NULL;
+   }
+ 
+-  if (afbc || offset_x || offset_y || crop_x || crop_y || crop_w || crop_h) {
++  if (rfbc || afbc || offset_x || offset_y ||
++      crop_x || crop_y || crop_w || crop_h) {
+     GstVideoCropMeta *cmeta = gst_buffer_add_video_crop_meta (buffer);
+     gint width = mpp_frame_get_width (mframe);
+     gint height = mpp_frame_get_height (mframe);
+@@ -812,7 +917,8 @@ gst_mpp_dec_get_gst_buffer (GstVideoDecoder * decoder, MppFrame mframe)
+ 
+ #ifdef HAVE_RGA
+   if (gst_mpp_use_rga ()) {
+-    if (!GST_VIDEO_INFO_IS_AFBC (info) && !offset_x && !offset_y &&
++    if (!GST_VIDEO_INFO_IS_AFBC (info) && !GST_VIDEO_INFO_IS_RFBC (info) &&
++        !offset_x && !offset_y &&
+         gst_mpp_dec_rga_convert (decoder, mframe, buffer))
+       return buffer;
+   }
+@@ -908,16 +1014,18 @@ gst_mpp_dec_loop (GstVideoDecoder * decoder)
+   if (mpp_frame_get_discard (mframe) || mpp_frame_get_errinfo (mframe))
+     goto error;
+ 
+-  if (!self->convert && gst_mpp_info_changed (&self->info, mframe)) {
++  if (!self->convert && gst_mpp_frame_info_changed (self->mpp_frame, mframe)) {
+     self->task_ret = gst_mpp_dec_apply_info_change (decoder, mframe);
+     if (self->task_ret != GST_FLOW_OK)
+       goto info_change;
+   }
+ 
++  /* Get gst buffer (might be converted) */
+   buffer = gst_mpp_dec_get_gst_buffer (decoder, mframe);
+   if (!buffer)
+     goto error;
+ 
++  /* Truncate MPP's extra data */
+   gst_buffer_resize (buffer, 0, GST_VIDEO_INFO_SIZE (&self->info));
+ 
+   mode = mpp_frame_get_mode (mframe);
+@@ -932,20 +1040,28 @@ gst_mpp_dec_loop (GstVideoDecoder * decoder)
+   /* HACK: Mark lockable to avoid copying in make_writable() while shared */
+   GST_MINI_OBJECT_FLAG_SET (buffer, GST_MINI_OBJECT_FLAG_LOCKABLE);
+ 
+-  frame->output_buffer = buffer;
++  gst_buffer_replace (&frame->output_buffer, buffer);
++  gst_buffer_unref (buffer);
+ 
+   GST_DEBUG_OBJECT (self, "finish frame ts=%" GST_TIME_FORMAT,
+       GST_TIME_ARGS (frame->pts));
+ 
+-  gst_video_decoder_finish_frame (decoder, frame);
++  self->task_ret = gst_video_decoder_finish_frame (decoder, frame);
+ 
+ out:
+-  if (mpp_frame_get_eos (mframe)) {
+-    GST_INFO_OBJECT (self, "got eos");
+-    self->task_ret = GST_FLOW_EOS;
+-  }
++  if (mframe) {
++    if (mpp_frame_get_eos (mframe)) {
++      GST_INFO_OBJECT (self, "got eos");
++      self->task_ret = GST_FLOW_EOS;
++    }
+ 
+-  mpp_frame_deinit (&mframe);
++    if (self->mpp_frame)
++      mpp_frame_deinit (&self->mpp_frame);
++
++    /* Save the last MPP frame for info change detection */
++    mpp_frame_set_buffer (mframe, NULL);
++    self->mpp_frame = mframe;
++  }
+ 
+   if (self->task_ret != GST_FLOW_OK) {
+     GST_DEBUG_OBJECT (self, "leaving output thread: %s",
+@@ -971,6 +1087,29 @@ drop:
+   goto out;
+ }
+ 
++static GstFlowReturn
++gst_mpp_dec_send_mpp_packet_unlocked (GstVideoDecoder * decoder, MppPacket mpkt)
++{
++  GstMppDecClass *klass = GST_MPP_DEC_GET_CLASS (decoder);
++  GstMppDec *self = GST_MPP_DEC (decoder);
++
++  while (1) {
++    if (self->task_ret != GST_FLOW_OK)
++      return self->task_ret;
++
++    switch (klass->send_mpp_packet (decoder, mpkt, MPP_INPUT_TIMEOUT_MS)) {
++      case MPP_OK:
++        return GST_FLOW_OK;
++      case MPP_ERR_BUFFER_FULL:
++        /* Timed out */
++        break;
++      default:
++        /* Unknown error */
++        return GST_FLOW_ERROR;
++    }
++  }
++}
++
+ static GstFlowReturn
+ gst_mpp_dec_handle_frame (GstVideoDecoder * decoder, GstVideoCodecFrame * frame)
+ {
+@@ -978,9 +1117,7 @@ gst_mpp_dec_handle_frame (GstVideoDecoder * decoder, GstVideoCodecFrame * frame)
+   GstMppDec *self = GST_MPP_DEC (decoder);
+   GstMapInfo mapinfo = { 0, };
+   GstBuffer *tmp;
+-  GstClockTime start_time, deadline_time;
+   GstFlowReturn ret;
+-  gint interval_ms = 5;
+   MppPacket mpkt = NULL;
+ 
+   GST_MPP_DEC_LOCK (decoder);
+@@ -1023,19 +1160,14 @@ gst_mpp_dec_handle_frame (GstVideoDecoder * decoder, GstVideoCodecFrame * frame)
+   if (GST_CLOCK_TIME_IS_VALID (frame->pts))
+     self->seen_valid_pts = TRUE;
+ 
+-  start_time = gst_util_get_timestamp ();
+-  deadline_time = start_time + MPP_INPUT_TIMEOUT_MS * GST_MSECOND;
+-  while (1) {
+-    GST_VIDEO_DECODER_STREAM_UNLOCK (decoder);
+-    if (klass->send_mpp_packet (decoder, mpkt, interval_ms)) {
+-      GST_VIDEO_DECODER_STREAM_LOCK (decoder);
+-      break;
+-    }
+-    GST_VIDEO_DECODER_STREAM_LOCK (decoder);
++  GST_VIDEO_DECODER_STREAM_UNLOCK (decoder);
++  ret = gst_mpp_dec_send_mpp_packet_unlocked (decoder, mpkt);
++  GST_VIDEO_DECODER_STREAM_LOCK (decoder);
+ 
+-    if (gst_util_get_timestamp () > deadline_time)
+-      goto send_error;
+-  }
++  if (G_UNLIKELY (ret == GST_FLOW_ERROR))
++    goto send_error;
++  else if (G_UNLIKELY (ret != GST_FLOW_OK))
++    goto drop;
+ 
+   /* NOTE: Sub-class takes over the MPP packet when success */
+   mpkt = NULL;
+diff --git a/gst/rockchipmpp/gstmppdec.h b/gst/rockchipmpp/gstmppdec.h
+index f5c1e8b..f57498f 100644
+--- a/gst/rockchipmpp/gstmppdec.h
++++ b/gst/rockchipmpp/gstmppdec.h
+@@ -47,6 +47,9 @@ struct _GstMppDec
+   /* final output video info */
+   GstVideoInfo info;
+ 
++  /* decoded MPP frame info */
++  MppFrame mpp_frame;
++
+   /* specified output format */
+   GstVideoFormat format;
+ 
+@@ -57,7 +60,7 @@ struct _GstMppDec
+ 
+   guint crop_x, crop_y, crop_w, crop_h;
+ 
+-  gboolean arm_afbc;
++  gboolean fbc;
+ 
+   gboolean dma_feature;
+ 
+@@ -85,6 +88,8 @@ struct _GstMppDec
+ 
+   guint32 decoded_frames;
+ 
++  GstVideoCodecFrame *last_frame;
++
+   MppCodingType mpp_type;
+   MppCtx mpp_ctx;
+   MppApi *mpi;
+@@ -97,7 +102,7 @@ struct _GstMppDecClass
+     gboolean (*startup) (GstVideoDecoder * decoder);
+     MppPacket (*get_mpp_packet) (GstVideoDecoder * decoder,
+       GstMapInfo * mapinfo);
+-    gboolean (*send_mpp_packet) (GstVideoDecoder * decoder,
++    MPP_RET (*send_mpp_packet) (GstVideoDecoder * decoder,
+       MppPacket mpkt, gint timeout_ms);
+     MppFrame (*poll_mpp_frame) (GstVideoDecoder * decoder, gint timeout_ms);
+     gboolean (*shutdown) (GstVideoDecoder * decoder, gboolean drain);
+@@ -117,6 +122,7 @@ GType gst_mpp_dec_get_type (void);
+ #endif
+ 
+ #define MPP_DEC_FEATURE_ARM_AFBC "arm-afbc"
++#define MPP_DEC_FEATURE_RFBC "rfbc"
+ 
+ #define MPP_DEC_CAPS_MAKE(fmts) \
+     GST_VIDEO_CAPS_MAKE (fmts) ";" \
+@@ -127,6 +133,11 @@ GType gst_mpp_dec_get_type (void);
+     GST_VIDEO_CAPS_MAKE_WITH_FEATURES (GST_CAPS_FEATURE_MEMORY_DMABUF, fmts) \
+     ", " MPP_DEC_FEATURE_ARM_AFBC " = (int) 1"
+ 
++#define MPP_DEC_CAPS_MAKE_RFBC(fmts) \
++    GST_VIDEO_CAPS_MAKE (fmts) ", " MPP_DEC_FEATURE_RFBC " = (int) 1;" \
++    GST_VIDEO_CAPS_MAKE_WITH_FEATURES (GST_CAPS_FEATURE_MEMORY_DMABUF, fmts) \
++    ", " MPP_DEC_FEATURE_RFBC " = (int) 1"
++
+ void gst_mpp_dec_fixup_video_info (GstVideoDecoder * decoder,
+     GstVideoFormat format, gint width, gint height);
+ 
+diff --git a/gst/rockchipmpp/gstmppenc.c b/gst/rockchipmpp/gstmppenc.c
+index 2a952ec..807d24b 100644
+--- a/gst/rockchipmpp/gstmppenc.c
++++ b/gst/rockchipmpp/gstmppenc.c
+@@ -37,8 +37,6 @@ GST_DEBUG_CATEGORY (GST_CAT_DEFAULT);
+ #define parent_class gst_mpp_enc_parent_class
+ G_DEFINE_ABSTRACT_TYPE (GstMppEnc, gst_mpp_enc, GST_TYPE_VIDEO_ENCODER);
+ 
+-#define MPP_PENDING_MAX 16      /* Max number of MPP pending frame */
+-
+ #define GST_MPP_ENC_TASK_STARTED(encoder) \
+     (gst_pad_get_task_state ((encoder)->srcpad) == GST_TASK_STARTED)
+ 
+@@ -83,11 +81,15 @@ G_DEFINE_ABSTRACT_TYPE (GstMppEnc, gst_mpp_enc, GST_TYPE_VIDEO_ENCODER);
+ /* Input isn't ARM AFBC by default */
+ static GstVideoFormat DEFAULT_PROP_ARM_AFBC = FALSE;
+ 
++#define MPP_MAX_PENDING 16      /* Max number of MPP pending frames */
++static guint32 DEFAULT_PROP_MAX_PENDING = MPP_MAX_PENDING;
++
+ #define DEFAULT_FPS 30
+ 
+ enum
+ {
+   PROP_0,
++  PROP_MAX_PENDING,
+   PROP_HEADER_MODE,
+   PROP_RC_MODE,
+   PROP_ROTATION,
+@@ -113,6 +115,8 @@ static const MppFrameFormat gst_mpp_enc_formats[] = {
+   MPP_FMT_YUV444P,
+   MPP_FMT_RGB565LE,
+   MPP_FMT_BGR565LE,
++  MPP_FMT_RGB888,
++  MPP_FMT_BGR888,
+   MPP_FMT_ARGB8888,
+   MPP_FMT_ABGR8888,
+   MPP_FMT_RGBA8888,
+@@ -170,6 +174,11 @@ gst_mpp_enc_set_property (GObject * object,
+   GstMppEnc *self = GST_MPP_ENC (encoder);
+ 
+   switch (prop_id) {
++    case PROP_MAX_PENDING:{
++      self->max_pending = g_value_get_uint (value);
++      GST_MPP_ENC_BROADCAST (encoder);
++      return;
++    }
+     case PROP_HEADER_MODE:{
+       MppEncHeaderMode header_mode = g_value_get_enum (value);
+       if (self->header_mode == header_mode)
+@@ -282,6 +291,9 @@ gst_mpp_enc_get_property (GObject * object,
+   GstMppEnc *self = GST_MPP_ENC (encoder);
+ 
+   switch (prop_id) {
++    case PROP_MAX_PENDING:
++      g_value_set_uint (value, self->max_pending);
++      break;
+     case PROP_HEADER_MODE:
+       g_value_set_enum (value, self->header_mode);
+       break;
+@@ -332,9 +344,7 @@ gst_mpp_enc_apply_properties (GstVideoEncoder * encoder)
+ {
+   GstMppEnc *self = GST_MPP_ENC (encoder);
+   GstVideoInfo *info = &self->info;
+-  gint fps_num = GST_VIDEO_INFO_FPS_N (info);
+-  gint fps_denorm = GST_VIDEO_INFO_FPS_D (info);
+-  gint fps = fps_num / fps_denorm;
++  gint fps = GST_VIDEO_INFO_FPS_N (info) / GST_VIDEO_INFO_FPS_D (info);
+ 
+   if (!self->prop_dirty)
+     return TRUE;
+@@ -449,7 +459,10 @@ gst_mpp_enc_reset (GstVideoEncoder * encoder, gboolean drain, gboolean final)
+   self->flushing = TRUE;
+   self->draining = drain;
+ 
+-  gst_mpp_enc_stop_task (encoder, drain);
++  /* HACK: The MPP is not capable of handling resets properly. */
++  self->draining = TRUE;
++
++  gst_mpp_enc_stop_task (encoder, self->draining);
+ 
+   self->flushing = final;
+   self->draining = FALSE;
+@@ -473,7 +486,7 @@ static gboolean
+ gst_mpp_enc_start (GstVideoEncoder * encoder)
+ {
+   GstMppEnc *self = GST_MPP_ENC (encoder);
+-  MppPollType timeout = MPP_POLL_NON_BLOCK;
++  MppPollType timeout;
+ 
+   GST_DEBUG_OBJECT (self, "starting");
+ 
+@@ -488,9 +501,12 @@ gst_mpp_enc_start (GstVideoEncoder * encoder)
+   if (mpp_create (&self->mpp_ctx, &self->mpi))
+     goto err_unref_alloc;
+ 
++  timeout = MPP_POLL_NON_BLOCK;
+   if (self->mpi->control (self->mpp_ctx, MPP_SET_INPUT_TIMEOUT, &timeout))
+     goto err_destroy_mpp;
+ 
++  /* 1ms timeout for polling */
++  timeout = 1;
+   if (self->mpi->control (self->mpp_ctx, MPP_SET_OUTPUT_TIMEOUT, &timeout))
+     goto err_destroy_mpp;
+ 
+@@ -511,7 +527,6 @@ gst_mpp_enc_start (GstVideoEncoder * encoder)
+   self->flushing = FALSE;
+   self->pending_frames = 0;
+   self->frames = NULL;
+-  self->required_keyframe_number = 0;
+ 
+   g_mutex_init (&self->mutex);
+ 
+@@ -686,10 +701,12 @@ gst_mpp_enc_set_format (GstVideoEncoder * encoder, GstVideoCodecState * state)
+   mpp_frame_set_width (self->mpp_frame, width);
+   mpp_frame_set_height (self->mpp_frame, height);
+ 
+-  if (!GST_VIDEO_INFO_FPS_N (info) || GST_VIDEO_INFO_FPS_N (info) > 240) {
++  if (!GST_VIDEO_INFO_FPS_N (info) ||
++      GST_VIDEO_INFO_FPS_N (info) / GST_VIDEO_INFO_FPS_D (info) > 256) {
+     GST_WARNING_OBJECT (self, "framerate (%d/%d) is insane!",
+         GST_VIDEO_INFO_FPS_N (info), GST_VIDEO_INFO_FPS_D (info));
+     GST_VIDEO_INFO_FPS_N (info) = DEFAULT_FPS;
++    GST_VIDEO_INFO_FPS_D (info) = 1;
+   }
+ 
+   mpp_enc_cfg_set_s32 (self->mpp_cfg, "prep:format", format);
+@@ -761,7 +778,7 @@ gst_mpp_enc_propose_allocation (GstVideoEncoder * encoder, GstQuery * query)
+ 
+   gst_buffer_pool_set_config (pool, config);
+ 
+-  gst_query_add_allocation_pool (query, pool, size, MPP_PENDING_MAX, 0);
++  gst_query_add_allocation_pool (query, pool, size, 0, 0);
+   gst_query_add_allocation_param (query, self->allocator, NULL);
+ 
+   gst_object_unref (pool);
+@@ -820,10 +837,17 @@ gst_mpp_enc_convert (GstVideoEncoder * encoder, GstVideoCodecFrame * frame)
+   src_hstride = GST_MPP_VIDEO_INFO_HSTRIDE (&src_info);
+   src_vstride = GST_MPP_VIDEO_INFO_VSTRIDE (&src_info);
+ 
++  /**
++   * Update the strides of the dst video info temporarily to test if we
++   * can use the src buffer directly.
++   */
+   if (!gst_mpp_video_info_align (&dst_info, src_hstride, src_vstride) ||
+       !gst_mpp_enc_video_info_align (&dst_info) ||
+-      !gst_mpp_video_info_matched (&src_info, &dst_info))
++      !gst_mpp_video_info_matched (&src_info, &dst_info)) {
++    /* Reset the temporarily modified dst video info. */
++    dst_info = self->info;
+     goto convert;
++  }
+ 
+   gst_mpp_enc_apply_strides (encoder, src_hstride, src_vstride);
+   if (!gst_mpp_enc_apply_properties (encoder))
+@@ -863,11 +887,14 @@ convert:
+ 
+   if (gst_video_frame_map (&src_frame, &src_info, inbuf, GST_MAP_READ)) {
+     if (gst_video_frame_map (&dst_frame, &dst_info, outbuf, GST_MAP_WRITE)) {
++      GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
+       if (!gst_video_frame_copy (&dst_frame, &src_frame)) {
++        GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+         gst_video_frame_unmap (&dst_frame);
+         gst_video_frame_unmap (&src_frame);
+         goto err;
+       }
++      GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+       gst_video_frame_unmap (&dst_frame);
+     }
+     gst_video_frame_unmap (&src_frame);
+@@ -879,7 +906,6 @@ out:
+   gst_buffer_copy_into (outbuf, inbuf,
+       GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS, 0, 0);
+ 
+-  dst_info = self->info;
+   gst_buffer_add_video_meta_full (outbuf, GST_VIDEO_FRAME_FLAG_NONE,
+       GST_VIDEO_INFO_FORMAT (&dst_info),
+       GST_VIDEO_INFO_WIDTH (&dst_info), GST_VIDEO_INFO_HEIGHT (&dst_info),
+@@ -897,29 +923,6 @@ err:
+   return NULL;
+ }
+ 
+-static gboolean
+-gst_mpp_enc_force_keyframe (GstVideoEncoder * encoder, gboolean keyframe)
+-{
+-  GstMppEnc *self = GST_MPP_ENC (encoder);
+-
+-  /* HACK: Use gop(1) to force keyframe */
+-
+-  if (!keyframe) {
+-    self->prop_dirty = TRUE;
+-    return gst_mpp_enc_apply_properties (encoder);
+-  }
+-
+-  GST_INFO_OBJECT (self, "forcing keyframe");
+-  mpp_enc_cfg_set_s32 (self->mpp_cfg, "rc:gop", 1);
+-
+-  if (self->mpi->control (self->mpp_ctx, MPP_ENC_SET_CFG, self->mpp_cfg)) {
+-    GST_WARNING_OBJECT (self, "failed to set enc cfg");
+-    return FALSE;
+-  }
+-
+-  return TRUE;
+-}
+-
+ static gboolean
+ gst_mpp_enc_send_frame_locked (GstVideoEncoder * encoder)
+ {
+@@ -948,9 +951,10 @@ gst_mpp_enc_send_frame_locked (GstVideoEncoder * encoder)
+ 
+   keyframe = GST_VIDEO_CODEC_FRAME_IS_FORCE_KEYFRAME (frame);
+   if (keyframe) {
+-    /* TODO: Find a way to set exact keyframe request */
+-    self->required_keyframe_number = frame_number;
+-    gst_mpp_enc_force_keyframe (encoder, TRUE);
++    GST_INFO_OBJECT (self, "forcing keyframe");
++
++    if (self->mpi->control (self->mpp_ctx, MPP_ENC_SET_IDR_FRAME, NULL))
++      GST_WARNING_OBJECT (self, "failed to set keyframe request");
+   }
+ 
+   /* HACK: Get the converted input buffer from frame->output_buffer */
+@@ -960,14 +964,14 @@ gst_mpp_enc_send_frame_locked (GstVideoEncoder * encoder)
+ 
+   gst_video_codec_frame_unref (frame);
+ 
+-  if (!self->mpi->encode_put_frame (self->mpp_ctx, mframe)) {
+-    GST_DEBUG_OBJECT (self, "encoding frame %d", frame_number);
+-    self->frames = g_list_delete_link (self->frames, self->frames);
+-    return TRUE;
++  if (self->mpi->encode_put_frame (self->mpp_ctx, mframe)) {
++    mpp_frame_deinit (&mframe);
++    return FALSE;
+   }
+ 
+-  mpp_frame_deinit (mframe);
+-  return FALSE;
++  GST_DEBUG_OBJECT (self, "encoding frame %d", frame_number);
++  self->frames = g_list_delete_link (self->frames, self->frames);
++  return TRUE;
+ }
+ 
+ static gboolean
+@@ -990,7 +994,7 @@ gst_mpp_enc_poll_packet_locked (GstVideoEncoder * encoder)
+   /* Deinit input frame */
+   meta = mpp_packet_get_meta (mpkt);
+   if (!mpp_meta_get_frame (meta, KEY_INPUT_FRAME, &mframe))
+-    mpp_frame_deinit (mframe);
++    mpp_frame_deinit (&mframe);
+ 
+   /* Wake up the frame producer */
+   self->pending_frames--;
+@@ -1002,12 +1006,6 @@ gst_mpp_enc_poll_packet_locked (GstVideoEncoder * encoder)
+   if (self->flushing && !self->draining)
+     goto drop;
+ 
+-  /* TODO: Remove it when using exact keyframe request */
+-  if (frame->system_frame_number == self->required_keyframe_number) {
+-    gst_mpp_enc_force_keyframe (encoder, FALSE);
+-    self->required_keyframe_number = 0;
+-  }
+-
+   pkt_size = mpp_packet_get_length (mpkt);
+   mbuf = mpp_packet_get_buffer (mpkt);
+   if (!mbuf)
+@@ -1043,7 +1041,7 @@ gst_mpp_enc_poll_packet_locked (GstVideoEncoder * encoder)
+   GST_DEBUG_OBJECT (self, "finish frame ts=%" GST_TIME_FORMAT,
+       GST_TIME_ARGS (frame->pts));
+ 
+-  gst_video_encoder_finish_frame (encoder, frame);
++  self->task_ret = gst_video_encoder_finish_frame (encoder, frame);
+ 
+ out:
+   mpp_packet_deinit (&mpkt);
+@@ -1053,7 +1051,7 @@ error:
+ drop:
+   GST_DEBUG_OBJECT (self, "drop frame");
+   gst_buffer_replace (&frame->output_buffer, NULL);
+-  gst_video_encoder_finish_frame (encoder, frame);
++  self->task_ret = gst_video_encoder_finish_frame (encoder, frame);
+   goto out;
+ }
+ 
+@@ -1075,7 +1073,7 @@ gst_mpp_enc_loop (GstVideoEncoder * encoder)
+   /* Try sending ready frames to MPP (non-block) */
+   while (gst_mpp_enc_send_frame_locked (encoder));
+ 
+-  /* Try polling encoded packets from MPP (non-block) */
++  /* Try polling encoded packets from MPP (1ms timeout) */
+   while (gst_mpp_enc_poll_packet_locked (encoder));
+ 
+ out:
+@@ -1110,20 +1108,20 @@ gst_mpp_enc_handle_frame (GstVideoEncoder * encoder, GstVideoCodecFrame * frame)
+         (GstTaskFunction) gst_mpp_enc_loop, encoder, NULL);
+   }
+ 
+-  GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
+   buffer = gst_mpp_enc_convert (encoder, frame);
+-  GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
+   if (G_UNLIKELY (!buffer))
+     goto not_negotiated;
+ 
+   /* HACK: store the converted input buffer in frame->output_buffer */
+   frame->output_buffer = buffer;
+ 
+-  /* Avoid holding too much frames */
+-  GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
+-  GST_MPP_ENC_WAIT (encoder, self->pending_frames < MPP_PENDING_MAX
+-      || self->flushing);
+-  GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
++  /* Avoid holding too many frames */
++  if (G_UNLIKELY (self->pending_frames >= self->max_pending)) {
++    GST_VIDEO_ENCODER_STREAM_UNLOCK (encoder);
++    GST_MPP_ENC_WAIT (encoder, self->pending_frames < self->max_pending
++        || self->flushing);
++    GST_VIDEO_ENCODER_STREAM_LOCK (encoder);
++  }
+ 
+   if (G_UNLIKELY (self->flushing))
+     goto flushing;
+@@ -1177,6 +1175,8 @@ gst_mpp_enc_init (GstMppEnc * self)
+ {
+   self->mpp_type = MPP_VIDEO_CodingUnused;
+ 
++  self->max_pending = DEFAULT_PROP_MAX_PENDING;
++
+   self->header_mode = DEFAULT_PROP_HEADER_MODE;
+   self->sei_mode = DEFAULT_PROP_SEI_MODE;
+   self->rc_mode = DEFAULT_PROP_RC_MODE;
+@@ -1272,6 +1272,7 @@ gst_mpp_enc_class_init (GstMppEncClass * klass)
+   GstVideoEncoderClass *encoder_class = GST_VIDEO_ENCODER_CLASS (klass);
+   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+   GstElementClass *element_class = GST_ELEMENT_CLASS (klass);
++  const gchar *env;
+ 
+   GST_DEBUG_CATEGORY_INIT (GST_CAT_DEFAULT, "mppenc", 0, "MPP encoder");
+ 
+@@ -1287,6 +1288,16 @@ gst_mpp_enc_class_init (GstMppEncClass * klass)
+   gobject_class->set_property = GST_DEBUG_FUNCPTR (gst_mpp_enc_set_property);
+   gobject_class->get_property = GST_DEBUG_FUNCPTR (gst_mpp_enc_get_property);
+ 
++  env = g_getenv ("GST_MPP_ENC_MAX_PENDING");
++  if (env)
++    DEFAULT_PROP_MAX_PENDING = MAX (MIN (atoi (env), MPP_MAX_PENDING), 1);
++
++  g_object_class_install_property (gobject_class, PROP_MAX_PENDING,
++      g_param_spec_uint ("max-pending", "Max pending frames",
++          "Max pending frames",
++          1, MPP_MAX_PENDING, DEFAULT_PROP_MAX_PENDING,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
+   g_object_class_install_property (gobject_class, PROP_HEADER_MODE,
+       g_param_spec_enum ("header-mode", "Header mode",
+           "Header mode",
+@@ -1365,7 +1376,8 @@ no_rga:
+           "Zero-copy encoded packet", DEFAULT_PROP_ZERO_COPY_PKT,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+-  if (g_getenv ("GST_MPPENC_DEFAULT_ARM_AFBC"))
++  env = g_getenv ("GST_MPP_ENC_DEFAULT_ARM_AFBC");
++  if (env && env[0] == '1')
+     DEFAULT_PROP_ARM_AFBC = TRUE;
+ 
+   g_object_class_install_property (gobject_class, PROP_ARM_AFBC,
+diff --git a/gst/rockchipmpp/gstmppenc.h b/gst/rockchipmpp/gstmppenc.h
+index 1d39f48..ee9f008 100644
+--- a/gst/rockchipmpp/gstmppenc.h
++++ b/gst/rockchipmpp/gstmppenc.h
+@@ -57,7 +57,8 @@ struct _GstMppEnc
+   /* frame system numbers that are ready for sending to MPP */
+   GList *frames;
+ 
+-  guint32 required_keyframe_number;
++  /* Max number of pending frames */
++  guint32 max_pending;
+ 
+   guint pending_frames;
+   GMutex event_mutex;
+@@ -97,7 +98,7 @@ struct _GstMppEnc
+ 
+ #define MPP_ENC_IN_FORMATS \
+     "NV12, I420, YUY2, UYVY, " \
+-    "BGR16, RGB16, " \
++    "BGR16, RGB16, BGR, RGB, " \
+     "ABGR, ARGB, BGRA, RGBA, xBGR, xRGB, BGRx, RGBx"
+ 
+ #ifdef HAVE_RGA
+diff --git a/gst/rockchipmpp/gstmpph264enc.c b/gst/rockchipmpp/gstmpph264enc.c
+index 6149c7a..07b19d3 100644
+--- a/gst/rockchipmpp/gstmpph264enc.c
++++ b/gst/rockchipmpp/gstmpph264enc.c
+@@ -441,12 +441,12 @@ gst_mpp_h264_enc_class_init (GstMppH264EncClass * klass)
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   g_object_class_install_property (gobject_class, PROP_QP_MIN_I,
+-      g_param_spec_int ("qp-min-i", "Min Intra QP",
++      g_param_spec_uint ("qp-min-i", "Min Intra QP",
+           "Min Intra QP (0 = default)", 0, 51, DEFAULT_PROP_QP_MIN_I,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   g_object_class_install_property (gobject_class, PROP_QP_MAX_I,
+-      g_param_spec_int ("qp-max-i", "Max Intra QP",
++      g_param_spec_uint ("qp-max-i", "Max Intra QP",
+           "Max Intra QP (0 = default)", 0, 51, DEFAULT_PROP_QP_MAX_I,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+diff --git a/gst/rockchipmpp/gstmpph265enc.c b/gst/rockchipmpp/gstmpph265enc.c
+index e2b01b2..7e59eba 100644
+--- a/gst/rockchipmpp/gstmpph265enc.c
++++ b/gst/rockchipmpp/gstmpph265enc.c
+@@ -316,12 +316,12 @@ gst_mpp_h265_enc_class_init (GstMppH265EncClass * klass)
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   g_object_class_install_property (gobject_class, PROP_QP_MIN_I,
+-      g_param_spec_int ("qp-min-i", "Min Intra QP",
++      g_param_spec_uint ("qp-min-i", "Min Intra QP",
+           "Min Intra QP (0 = default)", 0, 51, DEFAULT_PROP_QP_MIN_I,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   g_object_class_install_property (gobject_class, PROP_QP_MAX_I,
+-      g_param_spec_int ("qp-max-i", "Max Intra QP",
++      g_param_spec_uint ("qp-max-i", "Max Intra QP",
+           "Max Intra QP (0 = default)", 0, 51, DEFAULT_PROP_QP_MAX_I,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+diff --git a/gst/rockchipmpp/gstmppjpegdec.c b/gst/rockchipmpp/gstmppjpegdec.c
+index f2b6235..a5f5c9e 100644
+--- a/gst/rockchipmpp/gstmppjpegdec.c
++++ b/gst/rockchipmpp/gstmppjpegdec.c
+@@ -238,8 +238,13 @@ gst_mpp_jpeg_dec_set_format (GstVideoDecoder * decoder,
+   guint align = GST_MPP_ALIGNMENT;
+ 
+   if (!width || !height) {
+-    GST_ERROR_OBJECT (self, "invalid input video info");
+-    return FALSE;
++    if (self->buf_size) {
++      GST_ERROR_OBJECT (self, "ignore invalid input video info");
++      return TRUE;
++    } else {
++      GST_ERROR_OBJECT (self, "invalid input video info");
++      return FALSE;
++    }
+   }
+ 
+   if (!pclass->set_format (decoder, state))
+@@ -348,7 +353,7 @@ gst_mpp_jpeg_dec_get_mpp_packet (GstVideoDecoder * decoder,
+   return mpkt;
+ }
+ 
+-static gboolean
++static MPP_RET
+ gst_mpp_jpeg_dec_send_mpp_packet (GstVideoDecoder * decoder,
+     MppPacket mpkt, gint timeout_ms)
+ {
+@@ -382,7 +387,7 @@ gst_mpp_jpeg_dec_send_mpp_packet (GstVideoDecoder * decoder,
+   if (mppdec->mpi->enqueue (mppdec->mpp_ctx, MPP_PORT_INPUT, mtask))
+     goto error;
+ 
+-  return TRUE;
++  return MPP_OK;
+ 
+ error:
+   if (mtask) {
+@@ -394,7 +399,7 @@ error:
+   if (mframe)
+     mpp_frame_deinit (&mframe);
+ 
+-  return FALSE;
++  return MPP_NOK;
+ }
+ 
+ static MppFrame
+diff --git a/gst/rockchipmpp/gstmppjpegenc.c b/gst/rockchipmpp/gstmppjpegenc.c
+index ce4b5c1..fef8012 100644
+--- a/gst/rockchipmpp/gstmppjpegenc.c
++++ b/gst/rockchipmpp/gstmppjpegenc.c
+@@ -80,7 +80,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
+         GST_MPP_JPEG_ENC_SIZE_CAPS));
+ 
+ static void
+-gst_mpp_h264_enc_set_property (GObject * object,
++gst_mpp_jpeg_enc_set_property (GObject * object,
+     guint prop_id, const GValue * value, GParamSpec * pspec)
+ {
+   GstVideoEncoder *encoder = GST_VIDEO_ENCODER (object);
+@@ -121,7 +121,7 @@ gst_mpp_h264_enc_set_property (GObject * object,
+ }
+ 
+ static void
+-gst_mpp_h264_enc_get_property (GObject * object,
++gst_mpp_jpeg_enc_get_property (GObject * object,
+     guint prop_id, GValue * value, GParamSpec * pspec)
+ {
+   GstVideoEncoder *encoder = GST_VIDEO_ENCODER (object);
+@@ -215,9 +215,9 @@ gst_mpp_jpeg_enc_class_init (GstMppJpegEncClass * klass)
+       GST_DEBUG_FUNCPTR (gst_mpp_jpeg_enc_handle_frame);
+ 
+   gobject_class->set_property =
+-      GST_DEBUG_FUNCPTR (gst_mpp_h264_enc_set_property);
++      GST_DEBUG_FUNCPTR (gst_mpp_jpeg_enc_set_property);
+   gobject_class->get_property =
+-      GST_DEBUG_FUNCPTR (gst_mpp_h264_enc_get_property);
++      GST_DEBUG_FUNCPTR (gst_mpp_jpeg_enc_get_property);
+ 
+   g_object_class_install_property (gobject_class, PROP_Q_FACTOR,
+       g_param_spec_uint ("q-factor", "Quality Factor",
+diff --git a/gst/rockchipmpp/gstmppvideodec.c b/gst/rockchipmpp/gstmppvideodec.c
+index d2757cf..86c4600 100644
+--- a/gst/rockchipmpp/gstmppvideodec.c
++++ b/gst/rockchipmpp/gstmppvideodec.c
+@@ -46,14 +46,14 @@ G_DEFINE_TYPE (GstMppVideoDec, gst_mpp_video_dec, GST_TYPE_MPP_DEC);
+ 
+ /* Default output format is auto */
+ static GstVideoFormat DEFAULT_PROP_FORMAT = GST_VIDEO_FORMAT_UNKNOWN;
+-/* Disable ARM AFBC by default */
+-static GstVideoFormat DEFAULT_PROP_ARM_AFBC = FALSE;
++/* Disable FBC by default */
++static GstVideoFormat DEFAULT_PROP_FBC = FALSE;
+ 
+ enum
+ {
+   PROP_0,
+   PROP_FORMAT,
+-  PROP_ARM_AFBC,
++  PROP_FBC,
+   PROP_LAST,
+ };
+ 
+@@ -75,7 +75,8 @@ static GstStaticPadTemplate gst_mpp_video_dec_src_template =
+     GST_PAD_SRC,
+     GST_PAD_ALWAYS,
+     GST_STATIC_CAPS (MPP_DEC_CAPS_MAKE ("{" MPP_DEC_FORMATS "}") ";"
+-        MPP_DEC_CAPS_MAKE_AFBC ("{" MPP_DEC_FORMATS "}") ";")
++        MPP_DEC_CAPS_MAKE_AFBC ("{" MPP_DEC_FORMATS "}") ";"
++        MPP_DEC_CAPS_MAKE_RFBC ("{" MPP_DEC_FORMATS "}") ";")
+     );
+ 
+ static MppCodingType
+@@ -133,11 +134,11 @@ gst_mpp_video_dec_set_property (GObject * object,
+         mppdec->format = g_value_get_enum (value);
+       break;
+     }
+-    case PROP_ARM_AFBC:{
++    case PROP_FBC:{
+       if (mppdec->input_state)
+-        GST_WARNING_OBJECT (decoder, "unable to change ARM AFBC");
++        GST_WARNING_OBJECT (decoder, "unable to change FBC");
+       else
+-        mppdec->arm_afbc = g_value_get_boolean (value);
++        mppdec->fbc = g_value_get_boolean (value);
+       break;
+     }
+     default:
+@@ -157,8 +158,8 @@ gst_mpp_video_dec_get_property (GObject * object,
+     case PROP_FORMAT:
+       g_value_set_enum (value, mppdec->format);
+       break;
+-    case PROP_ARM_AFBC:
+-      g_value_set_boolean (value, mppdec->arm_afbc);
++    case PROP_FBC:
++      g_value_set_boolean (value, mppdec->fbc);
+       break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+@@ -213,7 +214,7 @@ gst_mpp_video_dec_startup (GstVideoDecoder * decoder)
+     gst_buffer_unref (codec_data);
+   }
+ 
+-  if (mppdec->arm_afbc) {
++  if (mppdec->fbc) {
+     MppFrameFormat mpp_format = MPP_FMT_YUV420SP | MPP_FRAME_FBC_AFBC_V2;
+     mppdec->mpi->control (mppdec->mpp_ctx, MPP_DEC_SET_OUTPUT_FORMAT,
+         &mpp_format);
+@@ -233,26 +234,20 @@ gst_mpp_video_dec_get_mpp_packet (GstVideoDecoder * decoder UNUSED,
+   return mpkt;
+ }
+ 
+-static gboolean
++static MPP_RET
+ gst_mpp_video_dec_send_mpp_packet (GstVideoDecoder * decoder,
+     MppPacket mpkt, gint timeout_ms)
+ {
+   GstMppDec *mppdec = GST_MPP_DEC (decoder);
+-  gint interval_ms = 2;
+   MPP_RET ret;
+ 
+-  do {
+-    ret = mppdec->mpi->decode_put_packet (mppdec->mpp_ctx, mpkt);
+-    if (!ret) {
+-      mpp_packet_deinit (&mpkt);
+-      return TRUE;
+-    }
++  mppdec->mpi->control (mppdec->mpp_ctx, MPP_SET_INPUT_TIMEOUT, &timeout_ms);
+ 
+-    g_usleep (interval_ms * 1000);
+-    timeout_ms -= interval_ms;
+-  } while (timeout_ms > 0);
++  ret = mppdec->mpi->decode_put_packet (mppdec->mpp_ctx, mpkt);
++  if (!ret)
++    mpp_packet_deinit (&mpkt);
+ 
+-  return FALSE;
++  return ret;
+ }
+ 
+ static MppFrame
+@@ -335,7 +330,7 @@ gst_mpp_video_dec_init (GstMppVideoDec * self)
+ {
+   GstMppDec *mppdec = GST_MPP_DEC (self);
+   mppdec->format = DEFAULT_PROP_FORMAT;
+-  mppdec->arm_afbc = DEFAULT_PROP_ARM_AFBC;
++  mppdec->fbc = DEFAULT_PROP_FBC;
+ }
+ 
+ static void
+@@ -393,12 +388,13 @@ gst_mpp_video_dec_class_init (GstMppVideoDecClass * klass)
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ #endif
+ 
+-  if (g_getenv ("GST_MPP_VIDEODEC_DEFAULT_ARM_AFBC"))
+-    DEFAULT_PROP_ARM_AFBC = TRUE;
++  if (g_getenv ("GST_MPP_VIDEODEC_DEFAULT_ARM_AFBC") ||
++      g_getenv ("GST_MPP_VIDEODEC_DEFAULT_FBC"))
++    DEFAULT_PROP_FBC = TRUE;
+ 
+-  g_object_class_install_property (gobject_class, PROP_ARM_AFBC,
+-      g_param_spec_boolean ("arm-afbc", "ARM AFBC",
+-          "Prefer ARM AFBC compressed format", DEFAULT_PROP_ARM_AFBC,
++  g_object_class_install_property (gobject_class, PROP_FBC,
++      g_param_spec_boolean ("fbc", "FBC",
++          "Prefer FBC compressed format", DEFAULT_PROP_FBC,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
+   gst_element_class_add_pad_template (element_class,
+-- 
+2.34.1
+

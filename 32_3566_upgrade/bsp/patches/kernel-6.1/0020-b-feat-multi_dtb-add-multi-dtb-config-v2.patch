@@ -1,0 +1,36 @@
+From 3864a7b84e4a1c4ff95ad101e32c1efbafc2f1d2 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 2 Apr 2026 10:01:34 +0800
+Subject: [PATCH 19/50] feat(multi_dtb): add multi dtb config v2
+
+Origin: kickpi 8406a5ace2895084f018dc470ab3f46866ceac47
+---
+ scripts/mkimg | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/scripts/mkimg b/scripts/mkimg
+index cea48b1..be2128c 100755
+--- a/scripts/mkimg
++++ b/scripts/mkimg
+@@ -249,11 +249,13 @@ fi
+ scripts/resource_tool ${DTB_PATH} ${LOGO} ${LOGO_KERNEL} >/dev/null
+ echo "  Image:  resource.img (with ${DTB} ${LOGO} ${LOGO_KERNEL}) is ready"
+ 
+-if [ -f "./scripts/build_multi_dtb.sh" ]; then
+-	echo "Warning: ./scripts/build_multi_dtb.sh found, run."
+-    # ./scripts/build_multi_dtb.sh
+-else
+-    echo "Warning: ./scripts/build_multi_dtb.sh not found, skip."
++if [ "$MULTI_DTB" = "true" ]; then
++	if [ -f "./scripts/build_multi_dtb.sh" ]; then
++		echo "Warning: ./scripts/build_multi_dtb.sh found, run."
++		./scripts/build_multi_dtb.sh
++	else
++		echo "Warning: ./scripts/build_multi_dtb.sh not found, skip."
++	fi
+ fi
+ 
+ if [ -f "${BOOT_IMG}" ]; then
+-- 
+2.34.1
+

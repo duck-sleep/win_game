@@ -1,0 +1,29 @@
+From cd5059c671bb0f281dbdde730128425226ae35dd Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 07/19] buildroot: buildroot/package/glibc
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/glibc/glibc.mk | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/package/glibc/glibc.mk b/package/glibc/glibc.mk
+index 386aa53..b1c912c 100644
+--- a/package/glibc/glibc.mk
++++ b/package/glibc/glibc.mk
+@@ -185,11 +185,9 @@ define GLIBC_CONFIGURE_CMDS
+ endef
+ 
+ ifeq ($(BR2_TOOLCHAIN_GCC_AT_LEAST_10),y)
+-ifneq ($(BR2_PACKAGE_GLIBC_LATEST)$(BR2_x86_64),)
+ GLIBC_CONF_OPTS += \
+ 	$(if $(BR2_aarch64)$(BR2_aarch64_be),--enable-mathvec)
+ endif
+-endif
+ 
+ define GLIBC_POST_STAGING_INSTALL
+ 	$(INSTALL) -D -m 0755 $(@D)/build/nis/libnsl.so* \
+-- 
+2.34.1
+

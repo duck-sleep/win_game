@@ -1,0 +1,52 @@
+From 9fdfb0057092899679e958ae8c750cf33c5fbb14 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:12:30 -0500
+Subject: [PATCH 2/2] device-rockchip: add K11C v12 kvm scheme (parameter +
+ board defconfig)
+
+Origin: 32_3566_upgrade/sdk/device/rockchip/.chips/rk3566_rk3568/parameter-k11c-kvm.txt
+Origin: 32_3566_upgrade/sdk/device/rockchip/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_buildroot_defconfig
+---
+ .chips/rk3566_rk3568/parameter-k11c-kvm.txt         | 13 +++++++++++++
+ ...kchip_rk3566_kickpi_k11c_v12_buildroot_defconfig |  9 +++++++++
+ 2 files changed, 22 insertions(+)
+ create mode 100644 device/rockchip/.chips/rk3566_rk3568/parameter-k11c-kvm.txt
+ create mode 100644 device/rockchip/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_buildroot_defconfig
+
+diff --git a/.chips/rk3566_rk3568/parameter-k11c-kvm.txt b/.chips/rk3566_rk3568/parameter-k11c-kvm.txt
+new file mode 100644
+index 000000000..03b9cb549
+--- /dev/null
++++ b/.chips/rk3566_rk3568/parameter-k11c-kvm.txt
+@@ -0,0 +1,13 @@
++FIRMWARE_VER: 1.0
++MACHINE_MODEL: RK3568
++MACHINE_ID: 007
++MANUFACTURER: RK3568
++MAGIC: 0x5041524B
++ATAG: 0x00200800
++MACHINE: 0xffffffff
++CHECK_MASK: 0x80
++PWR_HLD: 0,0,A,0,1
++TYPE: GPT
++GROW_ALIGN: 0
++CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00020000@0x00008000(boot),0x00040000@0x00028000(recovery),0x00010000@0x00068000(backup),0x00040000@0x00078000(oem),0x00400000@0x000b8000(userdata),-@0x004b8000(rootfs:grow)
++uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_buildroot_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_buildroot_defconfig
+new file mode 100644
+index 000000000..8db18dc56
+--- /dev/null
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_buildroot_defconfig
+@@ -0,0 +1,9 @@
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-v12-linux"
++RK_PARAMETER="parameter-k11c-kvm.txt"
++RK_USE_FIT_IMG=y
++RK_ROOTFS_SYSTEM=buildroot
++RK_ROOTFS_SYSTEM_BUILDROOT=y
++RK_BUILDROOT_BASE_CFG="rk3566_k11c_kvm"
++# RK_USB_GADGET is not set
++RK_ROOTFS_HOSTNAME_CUSTOM=y
++RK_ROOTFS_HOSTNAME="kickpi"
+-- 
+2.34.1
+

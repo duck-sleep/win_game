@@ -25,3 +25,4 @@ metadata:
 - WorkBuddy 沙箱 Bash 的 PATH 可能缺 coreutils，脚本里建议先 `export PATH="/usr/bin:/bin:$PATH"`
 - adb 不在 PATH，在 `C:\platform-tools\adb.exe`
 - 装了 FlClash（TUN + fake-ip），排查网络问题时注意它会改写 DNS 解析结果
+- **Windows 上 `python3`/`python` 是 Microsoft Store 占位 stub**：`--version` 能报 3.13.9，但跑脚本静默退出码 49、无任何输出（2026-11-20 实测）⇒ 一律用 **`py -3`**

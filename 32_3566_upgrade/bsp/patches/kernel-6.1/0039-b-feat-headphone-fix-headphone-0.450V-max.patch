@@ -1,0 +1,41 @@
+From 5eac4fe3a9b9ff112e022d14c253450356127e57 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sun, 24 May 2026 11:00:45 +0800
+Subject: [PATCH 38/50] feat(headphone): fix headphone 0.450V max
+
+Origin: kickpi 999d7ac199eb4b70a399e707290c7c98a5806e31
+---
+ sound/soc/codecs/rk817_codec.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/sound/soc/codecs/rk817_codec.c b/sound/soc/codecs/rk817_codec.c
+index bb80f84..f688f21 100644
+--- a/sound/soc/codecs/rk817_codec.c
++++ b/sound/soc/codecs/rk817_codec.c
+@@ -984,12 +984,23 @@ static int rk817_dac_vol_put(struct snd_kcontrol *kcontrol,
+ 			     struct snd_ctl_elem_value *ucontrol)
+ {
+ 	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
++	struct rk817_codec_priv *rk817 = snd_soc_component_get_drvdata(component);
+ 	unsigned int left_val, right_val;
+ 	unsigned int max_val = RK817_DAC_VOL_MAX;
++	unsigned int hp_limit = 255;
+ 
+ 	left_val = max_val - ucontrol->value.integer.value[0];
+ 	right_val = max_val - ucontrol->value.integer.value[1];
+ 
++	/* Limit max volume for headphone paths: register >= 16 = ~0.450V */
++	switch (rk817->playback_path) {
++	case 3: case 4: case 6: case 8: case 9: case 10:
++		hp_limit = 16;
++		break;
++	}
++	if (left_val < hp_limit) left_val = hp_limit;
++	if (right_val < hp_limit) right_val = hp_limit;
++
+ 	if (left_val < RK817_DAC_VOL_MIN || left_val > RK817_DAC_VOL_MAX ||
+ 	    right_val < RK817_DAC_VOL_MIN || right_val > RK817_DAC_VOL_MAX) {
+ 
+-- 
+2.34.1
+

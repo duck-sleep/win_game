@@ -1,0 +1,554 @@
+From 3f653b4f1950b3bc668806b97e90e85686e315db Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:42 -0500
+Subject: [PATCH 18/19] buildroot: buildroot/package/wlroots
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ ...-Fallback-to-the-first-possible-crtc.patch |  29 ++--
+ ...render-egl-Fallback-to-gbm-device-fd.patch |   8 +-
+ ...port-EGL_WL_bind_wayland_display-ext.patch | 124 +++++++-----------
+ ...Extract-dmabuf-from-mali-shared-EGL-.patch |  10 +-
+ package/wlroots/wlroots.hash                  |   8 +-
+ package/wlroots/wlroots.mk                    |   2 +-
+ 6 files changed, 84 insertions(+), 97 deletions(-)
+
+diff --git a/package/wlroots/0001-drm-Fallback-to-the-first-possible-crtc.patch b/package/wlroots/0001-drm-Fallback-to-the-first-possible-crtc.patch
+index b88043a..e9fc2be 100644
+--- a/package/wlroots/0001-drm-Fallback-to-the-first-possible-crtc.patch
++++ b/package/wlroots/0001-drm-Fallback-to-the-first-possible-crtc.patch
+@@ -1,4 +1,4 @@
+-From 646b28517343999dc1519ebf5e89fd71b5ed5116 Mon Sep 17 00:00:00 2001
++From d0b01865a1bb9ee0b2ae9b384a677cf27eb0a60f Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 1 Apr 2024 16:04:29 +0800
+ Subject: [PATCH 1/4] drm: Fallback to the first possible crtc
+@@ -6,14 +6,14 @@ Subject: [PATCH 1/4] drm: Fallback to the first possible crtc
+ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+ ---
+  backend/drm/atomic.c |  1 +
+- backend/drm/drm.c    | 20 ++++++++++++++++++--
+- 2 files changed, 19 insertions(+), 2 deletions(-)
++ backend/drm/drm.c    | 22 +++++++++++++++++++---
++ 2 files changed, 20 insertions(+), 3 deletions(-)
+ 
+ diff --git a/backend/drm/atomic.c b/backend/drm/atomic.c
+-index 037c3c23a..ad22a821c 100644
++index 2649a1a..faebad8 100644
+ --- a/backend/drm/atomic.c
+ +++ b/backend/drm/atomic.c
+-@@ -416,6 +416,7 @@ static void atomic_connector_add(struct atomic *atom,
++@@ -364,6 +364,7 @@ static void atomic_connector_add(struct atomic *atom,
+  	struct wlr_drm_crtc *crtc = conn->crtc;
+  	bool active = state->active;
+  
+@@ -22,7 +22,7 @@ index 037c3c23a..ad22a821c 100644
+  	if (modeset && active && conn->props.link_status != 0) {
+  		atomic_add(atom, conn->id, conn->props.link_status,
+ diff --git a/backend/drm/drm.c b/backend/drm/drm.c
+-index e9e4c6db2..9ade8b922 100644
++index ab3877d..64b9050 100644
+ --- a/backend/drm/drm.c
+ +++ b/backend/drm/drm.c
+ @@ -1,3 +1,5 @@
+@@ -31,7 +31,7 @@ index e9e4c6db2..9ade8b922 100644
+  #include <assert.h>
+  #include <drm_fourcc.h>
+  #include <drm_mode.h>
+-@@ -1474,7 +1476,7 @@ static void realloc_crtcs(struct wlr_drm_backend *drm,
++@@ -1421,7 +1423,7 @@ static void realloc_crtcs(struct wlr_drm_backend *drm,
+  	}
+  }
+  
+@@ -40,7 +40,7 @@ index e9e4c6db2..9ade8b922 100644
+  		struct wlr_drm_connector *wlr_conn, const drmModeConnector *drm_conn) {
+  	struct wlr_drm_backend *drm = wlr_conn->backend;
+  
+-@@ -1498,6 +1500,20 @@ static struct wlr_drm_crtc *connector_get_current_crtc(
++@@ -1445,6 +1447,20 @@ static struct wlr_drm_crtc *connector_get_current_crtc(
+  		}
+  		crtc_id = enc->crtc_id;
+  		drmModeFreeEncoder(enc);
+@@ -61,7 +61,7 @@ index e9e4c6db2..9ade8b922 100644
+  	}
+  	if (crtc_id == 0) {
+  		return NULL;
+-@@ -1546,7 +1562,7 @@ static struct wlr_drm_connector *create_drm_connector(struct wlr_drm_backend *dr
++@@ -1493,7 +1509,7 @@ static struct wlr_drm_connector *create_drm_connector(struct wlr_drm_backend *dr
+  		wlr_drm_conn_log(wlr_conn, WLR_ERROR, "No CRTC possible");
+  	}
+  
+@@ -70,6 +70,15 @@ index e9e4c6db2..9ade8b922 100644
+  
+  	wl_list_insert(drm->connectors.prev, &wlr_conn->link);
+  	return wlr_conn;
++@@ -1856,7 +1872,7 @@ static bool skip_reset_for_restore(struct wlr_drm_backend *drm) {
++ 		if (drm_conn == NULL) {
++ 			return false;
++ 		}
++-		struct wlr_drm_crtc *crtc = connector_get_current_crtc(conn, drm_conn);
+++		struct wlr_drm_crtc *crtc = connector_get_crtc(conn, drm_conn);
++ 		drmModeFreeConnector(drm_conn);
++ 
++ 		if (crtc != NULL && conn->crtc != crtc) {
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/wlroots/0002-render-egl-Fallback-to-gbm-device-fd.patch b/package/wlroots/0002-render-egl-Fallback-to-gbm-device-fd.patch
+index 9089e64..feccaba 100644
+--- a/package/wlroots/0002-render-egl-Fallback-to-gbm-device-fd.patch
++++ b/package/wlroots/0002-render-egl-Fallback-to-gbm-device-fd.patch
+@@ -1,4 +1,4 @@
+-From bb95a22fa3ad606dc5a7285f323422a25a9bc3aa Mon Sep 17 00:00:00 2001
++From ed676dc7b37035235bd5d5aef2589bba85ba949f Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 1 Apr 2024 16:24:09 +0800
+ Subject: [PATCH 2/4] render: egl: Fallback to gbm device fd
+@@ -9,10 +9,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 4 insertions(+)
+ 
+ diff --git a/render/egl.c b/render/egl.c
+-index 6f3e9c8ca..b886aad51 100644
++index 19868ca..8e324be 100644
+ --- a/render/egl.c
+ +++ b/render/egl.c
+-@@ -992,6 +992,10 @@ static char *get_render_name(const char *name) {
++@@ -952,6 +952,10 @@ static char *get_render_name(const char *name) {
+  static int dup_egl_device_drm_fd(struct wlr_egl *egl) {
+  	if (egl->device == EGL_NO_DEVICE_EXT || (!egl->exts.EXT_device_drm &&
+  			!egl->exts.EXT_device_drm_render_node)) {
+@@ -24,5 +24,5 @@ index 6f3e9c8ca..b886aad51 100644
+  	}
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/wlroots/0003-render-gles2-Support-EGL_WL_bind_wayland_display-ext.patch b/package/wlroots/0003-render-gles2-Support-EGL_WL_bind_wayland_display-ext.patch
+index 5201650..d5924f0 100644
+--- a/package/wlroots/0003-render-gles2-Support-EGL_WL_bind_wayland_display-ext.patch
++++ b/package/wlroots/0003-render-gles2-Support-EGL_WL_bind_wayland_display-ext.patch
+@@ -1,4 +1,4 @@
+-From 67be0f1c296a00dbcc8845bf8fa2b11edc9a267d Mon Sep 17 00:00:00 2001
++From a18b1ddda026d3d33a671e6dc7830f24ae085901 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 22 Apr 2024 11:20:01 +0800
+ Subject: [PATCH 3/4] render: gles2: Support EGL_WL_bind_wayland_display
+@@ -11,11 +11,9 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+ ---
+  include/render/egl.h                |  58 ++++++++++
+  include/wlr/interfaces/wlr_buffer.h |   5 +-
+- include/wlr/render/egl.h            |   1 +
+  include/wlr/render/interface.h      |   2 +
+- include/wlr/render/pass.h           |   1 +
+  render/egl.c                        | 166 ++++++++++++++++++++++++++++
+- render/gles2/renderer.c             |  22 +++-
++ render/gles2/renderer.c             |  23 +++-
+  render/gles2/texture.c              |  34 ++++--
+  render/wlr_renderer.c               |   6 +
+  types/buffer/resource.c             |   4 +-
+@@ -23,10 +21,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  types/wlr_linux_dmabuf_v1.c         |   6 +-
+  types/wlr_shm.c                     |   6 +-
+  types/wlr_single_pixel_buffer_v1.c  |   6 +-
+- 14 files changed, 294 insertions(+), 29 deletions(-)
++ 12 files changed, 292 insertions(+), 30 deletions(-)
+ 
+ diff --git a/include/render/egl.h b/include/render/egl.h
+-index 103ab57df..ca5007c0c 100644
++index 0765cce..0fec647 100644
+ --- a/include/render/egl.h
+ +++ b/include/render/egl.h
+ @@ -3,11 +3,36 @@
+@@ -80,11 +78,11 @@ index 103ab57df..ca5007c0c 100644
+  		PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR;
+ +		PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
+ +		PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
+-+		PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
+++ 		PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
+  		PFNEGLQUERYDMABUFFORMATSEXTPROC eglQueryDmaBufFormatsEXT;
+  		PFNEGLQUERYDMABUFMODIFIERSEXTPROC eglQueryDmaBufModifiersEXT;
+  		PFNEGLDEBUGMESSAGECONTROLKHRPROC eglDebugMessageControlKHR;
+-@@ -56,6 +85,18 @@ struct wlr_egl_context {
++@@ -52,6 +81,18 @@ struct wlr_egl_context {
+  	EGLSurface read_surface;
+  };
+  
+@@ -103,7 +101,7 @@ index 103ab57df..ca5007c0c 100644
+  /**
+   * Initializes an EGL context for the given DRM FD.
+   *
+-@@ -69,6 +110,23 @@ struct wlr_egl *wlr_egl_create_with_drm_fd(int drm_fd);
++@@ -65,6 +106,23 @@ struct wlr_egl *wlr_egl_create_with_drm_fd(int drm_fd);
+   */
+  void wlr_egl_destroy(struct wlr_egl *egl);
+  
+@@ -128,7 +126,7 @@ index 103ab57df..ca5007c0c 100644
+   * Creates an EGL image from the given dmabuf attributes. Check usability
+   * of the dmabuf with wlr_egl_check_import_dmabuf once first.
+ diff --git a/include/wlr/interfaces/wlr_buffer.h b/include/wlr/interfaces/wlr_buffer.h
+-index 4244a00d5..4060728bc 100644
++index 820300f..e32d54c 100644
+ --- a/include/wlr/interfaces/wlr_buffer.h
+ +++ b/include/wlr/interfaces/wlr_buffer.h
+ @@ -24,8 +24,9 @@ struct wlr_buffer_impl {
+@@ -143,20 +141,8 @@ index 4244a00d5..4060728bc 100644
+  };
+  
+  /**
+-diff --git a/include/wlr/render/egl.h b/include/wlr/render/egl.h
+-index 9bf1b8019..59435f752 100644
+---- a/include/wlr/render/egl.h
+-+++ b/include/wlr/render/egl.h
+-@@ -25,6 +25,7 @@
+- #include <wayland-server-core.h>
+- #include <wlr/render/dmabuf.h>
+- #include <wlr/render/drm_format_set.h>
+-+#include <wlr/types/wlr_buffer.h>
+- 
+- struct wlr_egl;
+- 
+ diff --git a/include/wlr/render/interface.h b/include/wlr/render/interface.h
+-index 89f6de970..7ed5c7557 100644
++index 89f6de9..7ed5c75 100644
+ --- a/include/wlr/render/interface.h
+ +++ b/include/wlr/render/interface.h
+ @@ -20,6 +20,8 @@ struct wlr_box;
+@@ -168,20 +154,8 @@ index 89f6de970..7ed5c7557 100644
+  	const struct wlr_drm_format_set *(*get_texture_formats)(
+  		struct wlr_renderer *renderer, uint32_t buffer_caps);
+  	const struct wlr_drm_format_set *(*get_render_formats)(
+-diff --git a/include/wlr/render/pass.h b/include/wlr/render/pass.h
+-index 2159bc3df..e5b8b2b1a 100644
+---- a/include/wlr/render/pass.h
+-+++ b/include/wlr/render/pass.h
+-@@ -13,6 +13,7 @@
+- #include <stdint.h>
+- #include <wayland-server-core.h>
+- #include <wlr/util/box.h>
+-+#include <wlr/types/wlr_buffer.h>
+- 
+- struct wlr_renderer;
+- struct wlr_buffer;
+ diff --git a/render/egl.c b/render/egl.c
+-index b886aad51..738e772fc 100644
++index 8e324be..304cf8d 100644
+ --- a/render/egl.c
+ +++ b/render/egl.c
+ @@ -5,6 +5,7 @@
+@@ -192,7 +166,7 @@ index b886aad51..738e772fc 100644
+  #include <wlr/render/egl.h>
+  #include <wlr/util/log.h>
+  #include <wlr/util/region.h>
+-@@ -293,6 +294,16 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display,
++@@ -292,6 +293,16 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
+  			"eglQueryDmaBufModifiersEXT");
+  	}
+  
+@@ -209,7 +183,7 @@ index b886aad51..738e772fc 100644
+  	egl->exts.EXT_create_context_robustness =
+  		check_egl_ext(display_exts_str, "EGL_EXT_create_context_robustness");
+  
+-@@ -381,6 +392,126 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display,
++@@ -366,6 +377,126 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
+  	return true;
+  }
+  
+@@ -334,9 +308,9 @@ index b886aad51..738e772fc 100644
+ +};
+ +
+  static bool egl_init(struct wlr_egl *egl, EGLenum platform,
+- 		void *remote_display, bool allow_software) {
++ 		void *remote_display) {
+  	EGLint display_attribs[3] = {0};
+-@@ -450,6 +581,9 @@ static bool egl_init(struct wlr_egl *egl, EGLenum platform,
++@@ -435,6 +566,9 @@ static bool egl_init(struct wlr_egl *egl, EGLenum platform,
+  		}
+  	}
+  
+@@ -346,7 +320,7 @@ index b886aad51..738e772fc 100644
+  	return true;
+  }
+  
+-@@ -653,6 +787,9 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
++@@ -613,6 +747,9 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
+  	wlr_drm_format_set_finish(&egl->dmabuf_render_formats);
+  	wlr_drm_format_set_finish(&egl->dmabuf_texture_formats);
+  
+@@ -356,7 +330,7 @@ index b886aad51..738e772fc 100644
+  	eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+  	eglDestroyContext(egl->display, egl->context);
+  
+-@@ -671,6 +808,17 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
++@@ -631,6 +768,17 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
+  	free(egl);
+  }
+  
+@@ -374,7 +348,7 @@ index b886aad51..738e772fc 100644
+  EGLDisplay wlr_egl_get_display(struct wlr_egl *egl) {
+  	return egl->display;
+  }
+-@@ -732,6 +880,24 @@ bool wlr_egl_restore_context(struct wlr_egl_context *context) {
++@@ -692,6 +840,24 @@ bool wlr_egl_restore_context(struct wlr_egl_context *context) {
+  			context->read_surface, context->context);
+  }
+  
+@@ -400,34 +374,34 @@ index b886aad51..738e772fc 100644
+  		struct wlr_dmabuf_attributes *attributes, bool *external_only) {
+  	if (!egl->exts.KHR_image_base || !egl->exts.EXT_image_dma_buf_import) {
+ diff --git a/render/gles2/renderer.c b/render/gles2/renderer.c
+-index e362daee8..e189ee028 100644
++index 4694b2a..fa278e9 100644
+ --- a/render/gles2/renderer.c
+ +++ b/render/gles2/renderer.c
+-@@ -139,12 +139,19 @@ struct wlr_gles2_buffer *gles2_buffer_get_or_create(struct wlr_gles2_renderer *r
++@@ -140,12 +140,18 @@ struct wlr_gles2_buffer *gles2_buffer_get_or_create(struct wlr_gles2_renderer *r
+  	buffer->renderer = renderer;
+  
+  	struct wlr_dmabuf_attributes dmabuf = {0};
+ -	if (!wlr_buffer_get_dmabuf(wlr_buffer, &dmabuf)) {
+ -		goto error_buffer;
+-+	struct wlr_egl_buffer *eglbuf;
+-+
+-+	if (wlr_buffer_get_dmabuf(wlr_buffer, &dmabuf)) {
+-+		buffer->image = wlr_egl_create_image_from_dmabuf(renderer->egl,
+-+								 &dmabuf, &buffer->external_only);
+-+	}
++-	}
+++  struct wlr_egl_buffer *eglbuf;
+ +
+-+	if (buffer->image == EGL_NO_IMAGE_KHR &&
+-+	    (eglbuf = wlr_buffer_to_egl(wlr_buffer))) {
+-+		buffer->image = wlr_egl_create_image_from_eglbuf(renderer->egl,
+-+								 eglbuf, &buffer->external_only);
+- 	}
+++  if (wlr_buffer_get_dmabuf(wlr_buffer, &dmabuf)) {
+++	  buffer->image = wlr_egl_create_image_from_dmabuf(renderer->egl,
+++		  &dmabuf, &buffer->external_only);
+++  } else if ((eglbuf = wlr_buffer_to_egl(wlr_buffer))) {
+++	  buffer->image = wlr_egl_create_image_from_eglbuf(renderer->egl,
+++		  eglbuf, &buffer->external_only);
+++  } else {
+++    goto error_buffer;
+++  }
+  
+ -	buffer->image = wlr_egl_create_image_from_dmabuf(renderer->egl,
+ -		&dmabuf, &buffer->external_only);
+  	if (buffer->image == EGL_NO_IMAGE_KHR) {
+  		goto error_buffer;
+  	}
+-@@ -352,8 +359,15 @@ static void gles2_render_timer_destroy(struct wlr_render_timer *wlr_timer) {
++@@ -352,8 +358,15 @@ static void gles2_render_timer_destroy(struct wlr_render_timer *wlr_timer) {
+  	free(timer);
+  }
+  
+@@ -444,10 +418,10 @@ index e362daee8..e189ee028 100644
+  	.get_render_formats = gles2_get_render_formats,
+  	.get_drm_fd = gles2_get_drm_fd,
+ diff --git a/render/gles2/texture.c b/render/gles2/texture.c
+-index 9a967ebdb..3b57abb1b 100644
++index f9ad4cc..8707e24 100644
+ --- a/render/gles2/texture.c
+ +++ b/render/gles2/texture.c
+-@@ -356,9 +356,8 @@ static struct wlr_texture *gles2_texture_from_pixels(
++@@ -357,9 +357,8 @@ static struct wlr_texture *gles2_texture_from_pixels(
+  	return &texture->wlr_texture;
+  }
+  
+@@ -459,7 +433,7 @@ index 9a967ebdb..3b57abb1b 100644
+  	if (!renderer->procs.glEGLImageTargetTexture2DOES) {
+  		return NULL;
+  	}
+-@@ -368,8 +367,25 @@ static struct wlr_texture *gles2_texture_from_dmabuf(
++@@ -369,8 +368,25 @@ static struct wlr_texture *gles2_texture_from_dmabuf(
+  		return NULL;
+  	}
+  
+@@ -486,7 +460,7 @@ index 9a967ebdb..3b57abb1b 100644
+  	if (texture == NULL) {
+  		return NULL;
+  	}
+-@@ -377,7 +393,7 @@ static struct wlr_texture *gles2_texture_from_dmabuf(
++@@ -378,7 +394,7 @@ static struct wlr_texture *gles2_texture_from_dmabuf(
+  	texture->target = buffer->external_only ? GL_TEXTURE_EXTERNAL_OES : GL_TEXTURE_2D;
+  	texture->buffer = buffer;
+  	texture->drm_format = DRM_FORMAT_INVALID; // texture can't be written anyways
+@@ -495,7 +469,7 @@ index 9a967ebdb..3b57abb1b 100644
+  
+  	struct wlr_egl_context prev_ctx;
+  	wlr_egl_make_current(renderer->egl, &prev_ctx);
+-@@ -415,12 +431,12 @@ struct wlr_texture *gles2_texture_from_buffer(struct wlr_renderer *wlr_renderer,
++@@ -416,12 +432,12 @@ struct wlr_texture *gles2_texture_from_buffer(struct wlr_renderer *wlr_renderer,
+  	void *data;
+  	uint32_t format;
+  	size_t stride;
+@@ -513,10 +487,10 @@ index 9a967ebdb..3b57abb1b 100644
+  		wlr_buffer_end_data_ptr_access(buffer);
+  		return tex;
+ diff --git a/render/wlr_renderer.c b/render/wlr_renderer.c
+-index e65314ccc..571183729 100644
++index 6a28908..971092c 100644
+ --- a/render/wlr_renderer.c
+ +++ b/render/wlr_renderer.c
+-@@ -75,6 +75,12 @@ const struct wlr_drm_format_set *wlr_renderer_get_render_formats(
++@@ -73,6 +73,12 @@ const struct wlr_drm_format_set *wlr_renderer_get_render_formats(
+  
+  bool wlr_renderer_init_wl_shm(struct wlr_renderer *r,
+  		struct wl_display *wl_display) {
+@@ -530,7 +504,7 @@ index e65314ccc..571183729 100644
+  }
+  
+ diff --git a/types/buffer/resource.c b/types/buffer/resource.c
+-index 14d8f82d1..60a384844 100644
++index 14d8f82..60a3848 100644
+ --- a/types/buffer/resource.c
+ +++ b/types/buffer/resource.c
+ @@ -31,7 +31,7 @@ static const struct wlr_buffer_resource_interface *get_buffer_resource_iface(
+@@ -552,10 +526,10 @@ index 14d8f82d1..60a384844 100644
+  		wlr_log(WLR_ERROR, "Failed to create %s buffer", iface->name);
+  		return NULL;
+ diff --git a/types/wlr_drm.c b/types/wlr_drm.c
+-index f8db8291b..480fbee99 100644
++index c58cdb4..a078dce 100644
+ --- a/types/wlr_drm.c
+ +++ b/types/wlr_drm.c
+-@@ -57,14 +57,14 @@ static const struct wlr_buffer_impl buffer_impl = {
++@@ -54,14 +54,14 @@ static const struct wlr_buffer_impl buffer_impl = {
+  	.get_dmabuf = buffer_get_dmabuf,
+  };
+  
+@@ -572,7 +546,7 @@ index f8db8291b..480fbee99 100644
+  		return NULL;
+  	}
+  	return wl_resource_get_user_data(resource);
+-@@ -174,7 +174,7 @@ static void drm_bind(struct wl_client *client, void *data,
++@@ -171,7 +171,7 @@ static void drm_bind(struct wl_client *client, void *data,
+  	}
+  }
+  
+@@ -582,10 +556,10 @@ index f8db8291b..480fbee99 100644
+  	assert(buffer != NULL);
+  	return &buffer->base;
+ diff --git a/types/wlr_linux_dmabuf_v1.c b/types/wlr_linux_dmabuf_v1.c
+-index 3165e8805..5f1b3481d 100644
++index bfd9763..1291b0c 100644
+ --- a/types/wlr_linux_dmabuf_v1.c
+ +++ b/types/wlr_linux_dmabuf_v1.c
+-@@ -74,14 +74,14 @@ static const struct wl_buffer_interface wl_buffer_impl = {
++@@ -76,14 +76,14 @@ static const struct wl_buffer_interface wl_buffer_impl = {
+  	.destroy = buffer_handle_destroy,
+  };
+  
+@@ -602,7 +576,7 @@ index 3165e8805..5f1b3481d 100644
+  				wl_resource_get_user_data(resource) == NULL) {
+  		return NULL;
+  	}
+-@@ -843,7 +843,7 @@ static void linux_dmabuf_bind(struct wl_client *client, void *data,
++@@ -844,7 +844,7 @@ static void linux_dmabuf_bind(struct wl_client *client, void *data,
+  	}
+  }
+  
+@@ -612,7 +586,7 @@ index 3165e8805..5f1b3481d 100644
+  		wlr_dmabuf_v1_buffer_try_from_buffer_resource(resource);
+  	assert(buffer != NULL);
+ diff --git a/types/wlr_shm.c b/types/wlr_shm.c
+-index 171724471..cf3c55846 100644
++index 1f45c88..ae106c7 100644
+ --- a/types/wlr_shm.c
+ +++ b/types/wlr_shm.c
+ @@ -73,17 +73,17 @@ static const struct wl_buffer_interface wl_buffer_impl;
+@@ -637,10 +611,10 @@ index 171724471..cf3c55846 100644
+  }
+  
+ diff --git a/types/wlr_single_pixel_buffer_v1.c b/types/wlr_single_pixel_buffer_v1.c
+-index 9b82717fa..94d87944b 100644
++index 2dab6c5..5e4547a 100644
+ --- a/types/wlr_single_pixel_buffer_v1.c
+ +++ b/types/wlr_single_pixel_buffer_v1.c
+-@@ -19,19 +19,19 @@ static const struct wl_buffer_interface wl_buffer_impl = {
++@@ -28,19 +28,19 @@ static const struct wl_buffer_interface wl_buffer_impl = {
+  
+  static const struct wlr_buffer_impl buffer_impl;
+  
+@@ -664,5 +638,5 @@ index 9b82717fa..94d87944b 100644
+  }
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/wlroots/0004-HACK-render-egl-Extract-dmabuf-from-mali-shared-EGL-.patch b/package/wlroots/0004-HACK-render-egl-Extract-dmabuf-from-mali-shared-EGL-.patch
+index e067a2e..548f630 100644
+--- a/package/wlroots/0004-HACK-render-egl-Extract-dmabuf-from-mali-shared-EGL-.patch
++++ b/package/wlroots/0004-HACK-render-egl-Extract-dmabuf-from-mali-shared-EGL-.patch
+@@ -1,4 +1,4 @@
+-From 7504e3f8c3641bfe9fdcef01431977967caa4baf Mon Sep 17 00:00:00 2001
++From afea3cf0edd8015228b1fc3a5eaa9b6e163adddf Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 24 Apr 2024 11:03:24 +0800
+ Subject: [PATCH 4/4] HACK: render: egl: Extract dmabuf from mali shared EGL
+@@ -12,7 +12,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 45 insertions(+)
+ 
+ diff --git a/render/egl.c b/render/egl.c
+-index 738e772fc..9d6e730c5 100644
++index 304cf8d..a0dd7e6 100644
+ --- a/render/egl.c
+ +++ b/render/egl.c
+ @@ -5,6 +5,7 @@
+@@ -23,7 +23,7 @@ index 738e772fc..9d6e730c5 100644
+  #include <wlr/interfaces/wlr_buffer.h>
+  #include <wlr/render/egl.h>
+  #include <wlr/util/log.h>
+-@@ -392,6 +393,49 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display,
++@@ -377,6 +378,49 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
+  	return true;
+  }
+  
+@@ -73,7 +73,7 @@ index 738e772fc..9d6e730c5 100644
+  static void egl_buffer_destroy(struct wlr_buffer *wlr_buffer) {
+  	struct wlr_egl_buffer *buffer =
+  		wl_container_of(wlr_buffer, buffer, base);
+-@@ -401,6 +445,7 @@ static void egl_buffer_destroy(struct wlr_buffer *wlr_buffer) {
++@@ -386,6 +430,7 @@ static void egl_buffer_destroy(struct wlr_buffer *wlr_buffer) {
+  }
+  
+  static const struct wlr_buffer_impl egl_buffer_impl = {
+@@ -82,5 +82,5 @@ index 738e772fc..9d6e730c5 100644
+  };
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/wlroots/wlroots.hash b/package/wlroots/wlroots.hash
+index af22eae..ccfcd6a 100644
+--- a/package/wlroots/wlroots.hash
++++ b/package/wlroots/wlroots.hash
+@@ -1,3 +1,7 @@
+-# Locally calculated
+-sha256  09a0a8d60104c8b0772fee4f60ba76a89aed7e59dff7659d00960fba06bdf267  wlroots-0.19.2.tar.gz
++# Locally calculated after checking pgp signature
++# https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/0.18.1/downloads/wlroots-0.18.1.tar.gz.sig
++# with key 34FF9526CFEF0E97A340E2E40FDE7BE0E88F5E48 "emersion <contact@emersion.fr>"
++sha256  b9c4bfef4123fe9f8662280b851e3c5741927457174315826827bfbb70612878  wlroots-0.18.1.tar.gz
++
++# Hashes for license files:
+ sha256  35d427c043dcafe8893b9e7247348f599847c81d9a067703587c80707f3d58df  LICENSE
+diff --git a/package/wlroots/wlroots.mk b/package/wlroots/wlroots.mk
+index b8d7622..8fa7408 100644
+--- a/package/wlroots/wlroots.mk
++++ b/package/wlroots/wlroots.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-WLROOTS_VERSION = 0.19.2
++WLROOTS_VERSION = 0.18.1
+ WLROOTS_SITE = https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$(WLROOTS_VERSION)/downloads
+ WLROOTS_LICENSE = MIT
+ WLROOTS_LICENSE_FILES = LICENSE
+-- 
+2.34.1
+

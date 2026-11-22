@@ -1,0 +1,755 @@
+From a2e7b4eeffc02391f8aded250be6e38c0e8c57f1 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 13:47:15 +0800
+Subject: [PATCH 11/34] feat(chip): add backup chip config (part 4/6)
+
+Origin: kickpi 649a164f1b19b4c1ab8563fe2bc5080c3cef966d
+---
+ backup/rk3562/amp.its                         | 114 ++++++++++++++++++
+ backup/rk3562/amp_linux.its                   |  73 +++++++++++
+ backup/rk3562/amp_mcu.its                     |  54 +++++++++
+ backup/rk3562/boot.its                        |  67 ++++++++++
+ backup/rk3562/boot4recovery.its               |  81 +++++++++++++
+ backup/rk3562/parameter-buildroot-fit.txt     |  13 ++
+ backup/rk3562/parameters-amp.txt              |  13 ++
+ backup/rk3562/rockchip_defconfig              |   1 +
+ backup/rk3562/rockchip_rk3562_amp.its         |  73 +++++++++++
+ ...ockchip_rk3562_dictpen_test3_v20_defconfig |   8 ++
+ ...ockchip_rk3562_evb1_lp4x_v10_amp_defconfig |   9 ++
+ .../rockchip_rk3562_evb1_lp4x_v10_defconfig   |   5 +
+ ...ockchip_rk3562_evb2_ddr4_v10_amp_defconfig |   9 ++
+ .../rockchip_rk3562_evb2_ddr4_v10_defconfig   |   5 +
+ ...kchip_rk3562_robot_evb1_lp4x_v10_defconfig |   7 ++
+ ...kchip_rk3562_robot_evb2_ddr4_v10_defconfig |   7 ++
+ backup/rk3562/zboot.its                       |  67 ++++++++++
+ 17 files changed, 606 insertions(+)
+ create mode 100644 device/rockchip/backup/rk3562/amp.its
+ create mode 100644 device/rockchip/backup/rk3562/amp_linux.its
+ create mode 100644 device/rockchip/backup/rk3562/amp_mcu.its
+ create mode 100644 device/rockchip/backup/rk3562/boot.its
+ create mode 100644 device/rockchip/backup/rk3562/boot4recovery.its
+ create mode 100644 device/rockchip/backup/rk3562/parameter-buildroot-fit.txt
+ create mode 100644 device/rockchip/backup/rk3562/parameters-amp.txt
+ create mode 120000 device/rockchip/backup/rk3562/rockchip_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_amp.its
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
+ create mode 100644 device/rockchip/backup/rk3562/zboot.its
+
+diff --git a/backup/rk3562/amp.its b/backup/rk3562/amp.its
+new file mode 100644
+index 0000000..2c1eb3d
+--- /dev/null
++++ b/backup/rk3562/amp.its
+@@ -0,0 +1,114 @@
++/* SPDX-License-Identifier: BSD-3-Clause */
++/*
++ * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
++ */
++
++/dts-v1/;
++/ {
++	description = "FIT source file for rockchip AMP";
++	#address-cells = <1>;
++
++	images {
++
++		amp0 {
++			description  = "bare-mental-core0";
++			data         = /incbin/("rtt0.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";    // "arm64" or "arm"
++			cpu          = <0x0>;    // mpidr
++			thumb        = <0>;      // 0: arm or thumb2; 1: thumb
++			hyp          = <0>;      // 0: el1/svc; 1: el2/hyp
++			load         = <0x02000000>;
++			udelay       = <10000>;
++			compile {
++				size    = <0x00800000>;
++				sys     = "hal";
++			};
++			hash {
++				algo = "sha256";
++			};
++		};
++
++		amp1 {
++			description  = "bare-mental-core1";
++			data         = /incbin/("rtt1.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";
++			cpu          = <0x1>;
++			thumb        = <0>;
++			hyp          = <0>;
++			load         = <0x00800000>;
++			udelay       = <10000>;
++			compile {
++				size    = <0x00800000>;
++				sys     = "rtt";
++			};
++			hash {
++				algo = "sha256";
++			};
++		};
++
++		amp2 {
++			description  = "bare-mental-core2";
++			data         = /incbin/("rtt2.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";
++			cpu          = <0x2>;
++			thumb        = <0>;
++			hyp          = <0>;
++			load         = <0x01000000>;
++			udelay       = <10000>;
++			compile {
++				size    = <0x00800000>;
++				sys     = "hal";
++			};
++			hash {
++				algo = "sha256";
++			};
++		};
++
++		amp3 {
++			description  = "bare-mental-core3";
++			data         = /incbin/("rtt3.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";
++			cpu          = <0x3>;
++			thumb        = <0>;
++			hyp          = <0>;
++			load         = <0x01800000>;
++			udelay       = <10000>;
++			compile {
++				size    = <0x00800000>;
++				sys     = "hal";
++			};
++			hash {
++				algo = "sha256";
++			};
++		};
++	};
++
++	share {
++		shm_base         = <0x07800000>;
++		shm_size         = <0x00400000>;
++	};
++
++	configurations {
++		default = "conf";
++		conf {
++			description = "Rockchip AMP images";
++			rollback-index = <0x0>;
++			loadables = "amp0", "amp1", "amp2", "amp3";
++
++			signature {
++				algo = "sha256,rsa2048";
++				padding = "pss";
++				key-name-hint = "dev";
++				sign-images = "loadables";
++			};
++		};
++	};
++};
+diff --git a/backup/rk3562/amp_linux.its b/backup/rk3562/amp_linux.its
+new file mode 100644
+index 0000000..288e019
+--- /dev/null
++++ b/backup/rk3562/amp_linux.its
+@@ -0,0 +1,73 @@
++/* SPDX-License-Identifier: BSD-3-Clause */
++/*
++ * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
++ */
++
++/dts-v1/;
++/ {
++	description = "FIT source file for rockchip AMP";
++	#address-cells = <1>;
++
++	images {
++		amp3 {
++			description  = "bare-mental-core3";
++			data         = /incbin/("rtt3.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";
++			cpu          = <0x3>;
++			thumb        = <0>;
++			hyp          = <0>;
++			load         = <0x01800000>;
++			compile {
++				size     = <0x00800000>;
++				sys      = "rtt";
++				core     = "ap";
++				rtt_config = "board/rk3562_evb1_lp4x/amp_defconfig";
++			};
++			udelay       = <10000>;
++			hash {
++				algo = "sha256";
++			};
++		};
++	};
++
++	share {
++		shm_base         = <0x07800000>;
++		shm_size         = <0x00400000>;
++		rpmsg_base       = <0x07c00000>;
++		rpmsg_size       = <0x00500000>;
++	};
++
++	configurations {
++		default = "conf";
++		conf {
++			description = "Rockchip AMP images";
++			rollback-index = <0x0>;
++			loadables = "amp3";
++			primary = <0x3>;
++			signature {
++				algo = "sha256,rsa2048";
++				padding = "pss";
++				key-name-hint = "dev";
++				sign-images = "loadables";
++			};
++
++			/* - run linux on cpu0
++			 * - it is brought up by amp(that run on U-Boot)
++			 * - it is boot entry depends on U-Boot
++			 */
++			linux {
++				description  = "linux-os";
++				arch         = "arm64";
++				cpu          = <0x000>;
++				thumb        = <0>;
++				hyp          = <0>;
++				udelay       = <0>;
++				load         = <0x2000000>; // optional
++				load_c       = <0x4880000>; // optional
++			};
++		};
++	};
++};
++
+diff --git a/backup/rk3562/amp_mcu.its b/backup/rk3562/amp_mcu.its
+new file mode 100644
+index 0000000..8b3959e
+--- /dev/null
++++ b/backup/rk3562/amp_mcu.its
+@@ -0,0 +1,54 @@
++/*
++ * Copyright (C) 2023 Rockchip Electronics Co., Ltd
++ *
++ * SPDX-License-Identifier: GPL-2.0
++ */
++
++/dts-v1/;
++/ {
++	description = "Rockchip AMP FIT Image";
++	#address-cells = <1>;
++
++	images {
++		mcu {
++			description  = "mcu";
++			data         = /incbin/("./rtt.bin");
++			type         = "standalone";	// must be "standalone"
++			compression  = "none";
++			arch         = "arm";		// "arm64" or "arm", the same as U-Boot state
++			load         = <0x08200000>;
++			udelay       = <1000000>;
++			compile {
++				size     = <0x00800000>;
++				sys      = "hal";
++				core     = "mcu";
++			};
++			hash {
++				algo = "sha256";
++			};
++		};
++	};
++
++	share {
++		shm_base         = <0x07800000>;
++		shm_size         = <0x00400000>;
++		rpmsg_base       = <0x07c00000>;
++		rpmsg_size       = <0x00500000>;
++	};
++
++	configurations {
++		default = "conf";
++		conf {
++			description = "Rockchip AMP images";
++			rollback-index = <0x0>;
++			loadables = "mcu";
++
++			signature {
++				algo = "sha256,rsa2048";
++				padding = "pss";
++				key-name-hint = "dev";
++				sign-images = "loadables";
++			};
++		};
++	};
++};
+diff --git a/backup/rk3562/boot.its b/backup/rk3562/boot.its
+new file mode 100644
+index 0000000..827a2ce
+--- /dev/null
++++ b/backup/rk3562/boot.its
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (C) 2022 Rockchip Electronics Co., Ltd
++ *
++ * SPDX-License-Identifier: GPL-2.0
++ */
++
++/dts-v1/;
++/ {
++    description = "U-Boot FIT source file for arm";
++
++    images {
++        fdt {
++            data = /incbin/("@KERNEL_DTB@");
++            type = "flat_dt";
++            arch = "arm64";
++            compression = "none";
++            load = <0xffffff00>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++        kernel {
++            data = /incbin/("@KERNEL_IMG@");
++            type = "kernel";
++            arch = "arm64";
++            os = "linux";
++            compression = "none";
++            entry = <0xffffff01>;
++            load = <0xffffff01>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++        resource {
++            data = /incbin/("@RESOURCE_IMG@");
++            type = "multi";
++            arch = "arm64";
++            compression = "none";
++
++            hash {
++                algo = "sha256";
++            };
++        };
++    };
++
++    configurations {
++        default = "conf";
++
++        conf {
++            rollback-index = <0x00>;
++            fdt = "fdt";
++            kernel = "kernel";
++            multi = "resource";
++
++            signature {
++                algo = "sha256,rsa2048";
++                padding = "pss";
++                key-name-hint = "dev";
++                sign-images = "fdt", "kernel", "multi";
++            };
++        };
++    };
++};
+diff --git a/backup/rk3562/boot4recovery.its b/backup/rk3562/boot4recovery.its
+new file mode 100644
+index 0000000..6fe9a5b
+--- /dev/null
++++ b/backup/rk3562/boot4recovery.its
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (C) 2022 Rockchip Electronics Co., Ltd
++ *
++ * SPDX-License-Identifier: GPL-2.0
++ */
++
++/dts-v1/;
++/ {
++    description = "U-Boot FIT source file for arm";
++
++    images {
++        fdt {
++            data = /incbin/("@KERNEL_DTB@");
++            type = "flat_dt";
++            arch = "arm64";
++            compression = "none";
++            load = <0xffffff00>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++        kernel {
++            data = /incbin/("@KERNEL_IMG@");
++            type = "kernel";
++            arch = "arm64";
++            os = "linux";
++            compression = "none";
++            entry = <0xffffff01>;
++            load = <0xffffff01>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++		ramdisk {
++			data = /incbin/("@RAMDISK_IMG@");
++			type = "ramdisk";
++			arch = "arm64";
++			os = "linux";
++			compression = "none";
++			load = <0xffffff02>;
++
++			hash {
++				algo = "sha256";
++			};
++		};
++
++        resource {
++            data = /incbin/("@RESOURCE_IMG@");
++            type = "multi";
++            arch = "arm64";
++            compression = "none";
++
++            hash {
++                algo = "sha256";
++            };
++        };
++    };
++
++    configurations {
++        default = "conf";
++
++        conf {
++            rollback-index = <0x00>;
++            fdt = "fdt";
++            kernel = "kernel";
++            ramdisk = "ramdisk";
++            multi = "resource";
++
++            signature {
++                algo = "sha256,rsa2048";
++                padding = "pss";
++                key-name-hint = "dev";
++                sign-images = "fdt", "kernel", "ramdisk", "multi";
++            };
++        };
++    };
++};
+diff --git a/backup/rk3562/parameter-buildroot-fit.txt b/backup/rk3562/parameter-buildroot-fit.txt
+new file mode 100644
+index 0000000..d71a526
+--- /dev/null
++++ b/backup/rk3562/parameter-buildroot-fit.txt
+@@ -0,0 +1,13 @@
++FIRMWARE_VER: 1.0
++MACHINE_MODEL: RK3562
++MACHINE_ID: 007
++MANUFACTURER: RK3562
++MAGIC: 0x5041524B
++ATAG: 0x00200800
++MACHINE: 0xffffffff
++CHECK_MASK: 0x80
++PWR_HLD: 0,0,A,0,1
++TYPE: GPT
++GROW_ALIGN: 0
++CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00020000@0x00008000(boot),0x00040000@0x00028000(recovery),0x00010000@0x00068000(backup),0x00c00000@0x00078000(rootfs),0x00040000@0x00c78000(oem),-@0x00cb8000(userdata:grow)
++uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/backup/rk3562/parameters-amp.txt b/backup/rk3562/parameters-amp.txt
+new file mode 100644
+index 0000000..c10d660
+--- /dev/null
++++ b/backup/rk3562/parameters-amp.txt
+@@ -0,0 +1,13 @@
++FIRMWARE_VER: 1.0
++MACHINE_MODEL: RK3562
++MACHINE_ID: 007
++MANUFACTURER: RK3562
++MAGIC: 0x5041524B
++ATAG: 0x00200800
++MACHINE: 0xffffffff
++CHECK_MASK: 0x80
++PWR_HLD: 0,0,A,0,1
++TYPE: GPT
++GROW_ALIGN: 0
++CMDLINE: mtdparts=rk29xxnand:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00020000@0x00008000(boot),0x00040000@0x00028000(recovery),0x00010000@0x00068000(backup),0x00c00000@0x00078000(rootfs),0x00040000@0x00c78000(oem),0x00002000@0x00cb8000(amp),-@0x00cba000(userdata:grow)
++uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/backup/rk3562/rockchip_defconfig b/backup/rk3562/rockchip_defconfig
+new file mode 120000
+index 0000000..94967d7
+--- /dev/null
++++ b/backup/rk3562/rockchip_defconfig
+@@ -0,0 +1 @@
++rockchip_rk3562_evb2_ddr4_v10_defconfig
+\ No newline at end of file
+diff --git a/backup/rk3562/rockchip_rk3562_amp.its b/backup/rk3562/rockchip_rk3562_amp.its
+new file mode 100644
+index 0000000..c695930
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_amp.its
+@@ -0,0 +1,73 @@
++/* SPDX-License-Identifier: BSD-3-Clause */
++/*
++ * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
++ */
++
++/dts-v1/;
++/ {
++	description = "FIT source file for rockchip AMP";
++	#address-cells = <1>;
++
++	images {
++		amp3 {
++			description  = "bare-mental-core3";
++			data         = /incbin/("cpu3.bin");
++			type         = "firmware";
++			compression  = "none";
++			arch         = "arm";
++			cpu          = <0x3>;
++			thumb        = <0>;
++			hyp          = <0>;
++			load         = <0x01800000>;
++			compile {
++				size         = <0x00800000>;
++				srambase     = <0xfe480000>;
++				sramsize     = <0x00010000>;
++				sys          = "hal";    // "hal" or "rtt"
++			}
++			udelay       = <10000>;
++			hash {
++				algo = "sha256";
++			};
++		};
++	};
++
++	share {
++		shm_base         = <0x07800000>;
++		shm_size         = <0x00400000>;
++		rpmsg_base       = <0x07C00000>;
++		rpmsg_size       = <0x00500000>;
++		primary = <0x3>;
++	};
++
++	configurations {
++		default = "conf";
++		conf {
++			description = "Rockchip AMP images";
++			rollback-index = <0x0>;
++			loadables = "amp3";
++			signature {
++				algo = "sha256,rsa2048";
++				padding = "pss";
++				key-name-hint = "dev";
++				sign-images = "loadables";
++			};
++
++			/* - run linux on cpu0
++			 * - it is brought up by amp(that run on U-Boot)
++			 * - it is boot entry depends on U-Boot
++			 */
++			linux {
++				description  = "linux-os";
++				arch         = "arm64";
++				cpu          = <0x000>;
++				thumb        = <0>;
++				hyp          = <0>;
++				udelay       = <0>;
++				load         = <0x2000000>; // optional
++				load_c       = <0x4880000>; // optional
++			};
++		};
++	};
++};
++
+diff --git a/backup/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig b/backup/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
+new file mode 100644
+index 0000000..424b1d7
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
+@@ -0,0 +1,8 @@
++RK_BUILDROOT_BASE_CFG="rk3562_dictpen"
++RK_WIFIBT_CHIP="AP6203BM"
++RK_UBOOT_INI="RK3562MINIALL_ULTRA.ini"
++RK_UBOOT_SPL=y
++RK_KERNEL_CFG="rk3562_linux_dictpen_defconfig"
++RK_KERNEL_DTS_NAME="rk3562-dictpen-test3-v20"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig b/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig
+new file mode 100644
+index 0000000..88fca26
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig
+@@ -0,0 +1,9 @@
++RK_ROOTFS=y
++RK_UBOOT_CFG_FRAGMENTS="rk-amp"
++RK_UBOOT_INI="RK3562MINIALL_AMP_CPU3.ini"
++RK_AMP=y
++RK_AMP_FIT_ITS="rockchip_rk3562_amp.its"
++RK_KERNEL_DTS_NAME="rk3562-evb1-lp4x-v10-linux-amp"
++RK_RECOVERY=y
++RK_PARAMETER="parameters-amp.txt"
++# RK_MISC is not set
+diff --git a/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig b/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
+new file mode 100644
+index 0000000..608aaca
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
+@@ -0,0 +1,5 @@
++RK_WIFIBT_CHIP="AP6275S"
++RK_UBOOT_SPL=y
++RK_KERNEL_DTS_NAME="rk3562-evb1-lp4x-v10-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig b/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
+new file mode 100644
+index 0000000..3e14d97
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
+@@ -0,0 +1,9 @@
++RK_ROOTFS=y
++RK_UBOOT_CFG_FRAGMENTS="rk-amp"
++RK_UBOOT_INI="RK3562MINIALL_AMP_CPU3.ini"
++RK_AMP=y
++RK_AMP_FIT_ITS="rockchip_rk3562_amp.its"
++RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux-amp"
++RK_RECOVERY=y
++RK_PARAMETER="parameters-amp.txt"
++# RK_MISC is not set
+diff --git a/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig b/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
+new file mode 100644
+index 0000000..8f7ebe0
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
+@@ -0,0 +1,5 @@
++RK_WIFIBT_CHIP="AP6275S"
++RK_UBOOT_SPL=y
++RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/backup/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig b/backup/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
+new file mode 100644
+index 0000000..8d0ffbb
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
+@@ -0,0 +1,7 @@
++RK_BUILDROOT_BASE_CFG="rk3562_robot"
++RK_WIFIBT_CHIP="AP6275S"
++RK_UBOOT_SPL=y
++RK_KERNEL_CFG_FRAGMENTS="rk3562_robot.config"
++RK_KERNEL_DTS_NAME="rk3562-evb1-lp4x-v10-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/backup/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig b/backup/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
+new file mode 100644
+index 0000000..84b743e
+--- /dev/null
++++ b/backup/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
+@@ -0,0 +1,7 @@
++RK_BUILDROOT_BASE_CFG="rk3562_robot"
++RK_WIFIBT_CHIP="AP6275S"
++RK_UBOOT_SPL=y
++RK_KERNEL_CFG_FRAGMENTS="rk3562_robot.config"
++RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/backup/rk3562/zboot.its b/backup/rk3562/zboot.its
+new file mode 100644
+index 0000000..be4ba17
+--- /dev/null
++++ b/backup/rk3562/zboot.its
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (C) 2022 Rockchip Electronics Co., Ltd
++ *
++ * SPDX-License-Identifier: GPL-2.0
++ */
++
++/dts-v1/;
++/ {
++    description = "U-Boot FIT source file for arm";
++
++    images {
++        fdt {
++            data = /incbin/("@KERNEL_DTB@");
++            type = "flat_dt";
++            arch = "arm64";
++            compression = "none";
++            load = <0xffffff00>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++        kernel {
++            data = /incbin/("@KERNEL_IMG@");
++            type = "kernel";
++            arch = "arm64";
++            os = "linux";
++            compression = "lz4";
++            entry = <0xffffff01>;
++            load = <0xffffff01>;
++
++            hash {
++                algo = "sha256";
++            };
++        };
++
++        resource {
++            data = /incbin/("@RESOURCE_IMG@");
++            type = "multi";
++            arch = "arm64";
++            compression = "none";
++
++            hash {
++                algo = "sha256";
++            };
++        };
++    };
++
++    configurations {
++        default = "conf";
++
++        conf {
++            rollback-index = <0x00>;
++            fdt = "fdt";
++            kernel = "kernel";
++            multi = "resource";
++
++            signature {
++                algo = "sha256,rsa2048";
++                padding = "pss";
++                key-name-hint = "dev";
++                sign-images = "fdt", "kernel", "multi";
++            };
++        };
++    };
++};
+-- 
+2.34.1
+

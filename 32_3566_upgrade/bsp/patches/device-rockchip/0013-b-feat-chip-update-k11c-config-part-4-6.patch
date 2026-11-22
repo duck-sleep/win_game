@@ -1,0 +1,176 @@
+From 1d6c5c301b9267ff7fc97c866361ca8925a0bd41 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 13:46:27 +0800
+Subject: [PATCH 05/34] feat(chip): update k11c config (part 4/6)
+
+Origin: kickpi 12e04b12f67bb7c14389ec10cbbd77e0f22879c6
+---
+ .chips/rk3562/amp.its                                    | 0
+ .chips/rk3562/amp_linux.its                              | 0
+ .chips/rk3562/amp_mcu.its                                | 0
+ .chips/rk3562/boot.its                                   | 0
+ .chips/rk3562/boot4recovery.its                          | 0
+ .chips/rk3562/parameter-buildroot-fit.txt                | 0
+ .chips/rk3562/parameters-amp.txt                         | 0
+ .chips/rk3562/rockchip_defconfig                         | 6 +++++-
+ .chips/rk3562/rockchip_rk3562_amp.its                    | 0
+ .../rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig   | 8 --------
+ .chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig    | 5 -----
+ .../rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig   | 9 ---------
+ .chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig    | 5 -----
+ ...config => rockchip_rk3562_kickpi_k3_debian_defconfig} | 0
+ .../rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig | 7 -------
+ .../rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig | 7 -------
+ .chips/rk3562/zboot.its                                  | 0
+ 17 files changed, 5 insertions(+), 42 deletions(-)
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/amp.its
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/amp_linux.its
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/amp_mcu.its
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/boot.its
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/boot4recovery.its
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/parameter-buildroot-fit.txt
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/parameters-amp.txt
+ mode change 120000 => 100755 device/rockchip/.chips/rk3562/rockchip_defconfig
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/rockchip_rk3562_amp.its
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
+ rename device/rockchip/.chips/rk3562/{rockchip_rk3562_evb1_lp4x_v10_amp_defconfig => rockchip_rk3562_kickpi_k3_debian_defconfig} (100%)
+ mode change 100644 => 100755
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
+ mode change 100644 => 100755 device/rockchip/.chips/rk3562/zboot.its
+
+diff --git a/.chips/rk3562/amp.its b/.chips/rk3562/amp.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/amp_linux.its b/.chips/rk3562/amp_linux.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/amp_mcu.its b/.chips/rk3562/amp_mcu.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/boot.its b/.chips/rk3562/boot.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/boot4recovery.its b/.chips/rk3562/boot4recovery.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/parameter-buildroot-fit.txt b/.chips/rk3562/parameter-buildroot-fit.txt
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/parameters-amp.txt b/.chips/rk3562/parameters-amp.txt
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/rockchip_defconfig b/.chips/rk3562/rockchip_defconfig
+deleted file mode 120000
+index 94967d7..0000000
+--- a/.chips/rk3562/rockchip_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-rockchip_rk3562_evb2_ddr4_v10_defconfig
+\ No newline at end of file
+diff --git a/.chips/rk3562/rockchip_defconfig b/.chips/rk3562/rockchip_defconfig
+new file mode 100755
+index 0000000..8f7ebe0
+--- /dev/null
++++ b/.chips/rk3562/rockchip_defconfig
+@@ -0,0 +1,5 @@
++RK_WIFIBT_CHIP="AP6275S"
++RK_UBOOT_SPL=y
++RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/rockchip_rk3562_amp.its b/.chips/rk3562/rockchip_rk3562_amp.its
+old mode 100644
+new mode 100755
+diff --git a/.chips/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig b/.chips/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
+deleted file mode 100644
+index 424b1d7..0000000
+--- a/.chips/rk3562/rockchip_rk3562_dictpen_test3_v20_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3562_dictpen"
+-RK_WIFIBT_CHIP="AP6203BM"
+-RK_UBOOT_INI="RK3562MINIALL_ULTRA.ini"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_CFG="rk3562_linux_dictpen_defconfig"
+-RK_KERNEL_DTS_NAME="rk3562-dictpen-test3-v20"
+-RK_PARAMETER="parameter-buildroot-fit.txt"
+-RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig b/.chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
+deleted file mode 100644
+index 608aaca..0000000
+--- a/.chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_defconfig
++++ /dev/null
+@@ -1,5 +0,0 @@
+-RK_WIFIBT_CHIP="AP6275S"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_DTS_NAME="rk3562-evb1-lp4x-v10-linux"
+-RK_PARAMETER="parameter-buildroot-fit.txt"
+-RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig b/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
+deleted file mode 100644
+index 3e14d97..0000000
+--- a/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_amp_defconfig
++++ /dev/null
+@@ -1,9 +0,0 @@
+-RK_ROOTFS=y
+-RK_UBOOT_CFG_FRAGMENTS="rk-amp"
+-RK_UBOOT_INI="RK3562MINIALL_AMP_CPU3.ini"
+-RK_AMP=y
+-RK_AMP_FIT_ITS="rockchip_rk3562_amp.its"
+-RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux-amp"
+-RK_RECOVERY=y
+-RK_PARAMETER="parameters-amp.txt"
+-# RK_MISC is not set
+diff --git a/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig b/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
+deleted file mode 100644
+index 8f7ebe0..0000000
+--- a/.chips/rk3562/rockchip_rk3562_evb2_ddr4_v10_defconfig
++++ /dev/null
+@@ -1,5 +0,0 @@
+-RK_WIFIBT_CHIP="AP6275S"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux"
+-RK_PARAMETER="parameter-buildroot-fit.txt"
+-RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig b/.chips/rk3562/rockchip_rk3562_kickpi_k3_debian_defconfig
+old mode 100644
+new mode 100755
+similarity index 100%
+rename from .chips/rk3562/rockchip_rk3562_evb1_lp4x_v10_amp_defconfig
+rename to .chips/rk3562/rockchip_rk3562_kickpi_k3_debian_defconfig
+diff --git a/.chips/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig b/.chips/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
+deleted file mode 100644
+index 8d0ffbb..0000000
+--- a/.chips/rk3562/rockchip_rk3562_robot_evb1_lp4x_v10_defconfig
++++ /dev/null
+@@ -1,7 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3562_robot"
+-RK_WIFIBT_CHIP="AP6275S"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_CFG_FRAGMENTS="rk3562_robot.config"
+-RK_KERNEL_DTS_NAME="rk3562-evb1-lp4x-v10-linux"
+-RK_PARAMETER="parameter-buildroot-fit.txt"
+-RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig b/.chips/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
+deleted file mode 100644
+index 84b743e..0000000
+--- a/.chips/rk3562/rockchip_rk3562_robot_evb2_ddr4_v10_defconfig
++++ /dev/null
+@@ -1,7 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3562_robot"
+-RK_WIFIBT_CHIP="AP6275S"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_CFG_FRAGMENTS="rk3562_robot.config"
+-RK_KERNEL_DTS_NAME="rk3562-evb2-ddr4-v10-linux"
+-RK_PARAMETER="parameter-buildroot-fit.txt"
+-RK_USE_FIT_IMG=y
+diff --git a/.chips/rk3562/zboot.its b/.chips/rk3562/zboot.its
+old mode 100644
+new mode 100755
+-- 
+2.34.1
+

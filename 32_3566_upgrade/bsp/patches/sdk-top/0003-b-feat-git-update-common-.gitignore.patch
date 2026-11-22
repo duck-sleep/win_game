@@ -1,0 +1,25 @@
+From 6a05591dbf33b55cd7adac67c7575be3bb205b70 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 31 Mar 2026 10:02:04 +0800
+Subject: [PATCH 2/7] feat(git): update common .gitignore
+
+Origin: kickpi 2de0dcd7bdf84eea7fcbc0276761a1bdd50c4c8d
+---
+ .gitignore | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index 0981c5b..a6d9110 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -4,7 +4,6 @@ debian/binary/
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
+ README.md
+-common
+ output/
+ rockdev
+ u-boot/bl31_0x00040000.bin.digest
+-- 
+2.34.1
+

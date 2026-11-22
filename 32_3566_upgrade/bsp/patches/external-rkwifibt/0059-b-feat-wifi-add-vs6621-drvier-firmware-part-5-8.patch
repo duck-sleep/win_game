@@ -1,0 +1,2630 @@
+From b538b1e3a335be1cbe1e158af597ca1e3ab94406 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:49:19 +0800
+Subject: [PATCH 58/73] feat(wifi): add vs6621 drvier & firmware (part 5/8)
+
+Origin: kickpi 38a920864783bf8dc38f33fdb884c5725f7bad7d
+---
+ drivers/skw6621s/skwifi/skw_util.h          | 338 ++++++++++
+ drivers/skw6621s/skwifi/skw_vendor.c        | 495 ++++++++++++++
+ drivers/skw6621s/skwifi/skw_vendor.h        | 162 +++++
+ drivers/skw6621s/skwifi/skw_work.c          | 406 ++++++++++++
+ drivers/skw6621s/skwifi/skw_work.h          | 104 +++
+ drivers/skw6621s/skwifi/sta_scan_assert.txt | 337 ++++++++++
+ drivers/skw6621s/skwifi/trace.c             |  28 +
+ drivers/skw6621s/skwifi/trace.h             | 684 ++++++++++++++++++++
+ 8 files changed, 2554 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/skw_util.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/skw_vendor.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/skw_vendor.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/skw_work.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/skw_work.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/sta_scan_assert.txt
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/trace.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/skwifi/trace.h
+
+diff --git a/drivers/skw6621s/skwifi/skw_util.h b/drivers/skw6621s/skwifi/skw_util.h
+new file mode 100755
+index 0000000..8248c63
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/skw_util.h
+@@ -0,0 +1,338 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_UTIL_H__
++#define __SKW_UTIL_H__
++
++#include <linux/version.h>
++#include <linux/ieee80211.h>
++#include <net/cfg80211.h>
++#include <linux/etherdevice.h>
++#include <linux/netdevice.h>
++#include <linux/sched.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
++#include <uapi/linux/sched/types.h>
++#endif
++
++#define SKW_NULL
++#define SKW_LEAVE                    WLAN_REASON_DEAUTH_LEAVING
++#define SKW_2K_SIZE                  2048
++#define SKW_SKB_RECYCLE_COUNT        4096
++#define SKW_BASIC_RATE_COUNT         8
++/* hdr(24) + reason(2) */
++#define SKW_DEAUTH_FRAME_LEN         26
++
++#define __SKW_STR(x)                 #x
++#define SKW_STR(x)                   __SKW_STR(x)
++
++#define SKW_SET(d, v)                ((d) |= (v))
++#define SKW_CLEAR(d, v)              ((d) &= ~(v))
++#define SKW_TEST(d, v)               ((d) & (v))
++
++#define SKW_ZALLOC(s, f)             kzalloc(s, f)
++
++#define SKW_KFREE(p)                 \
++	do {                         \
++		kfree(p);            \
++		p = NULL;            \
++	} while (0)
++
++#define SKW_KMEMDUP(s, l, f)     (((s) != NULL) ? kmemdup(s, l, f) : NULL)
++#define SKW_MGMT_SFC(fc)         (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE)
++#define SKW_WDEV_TO_IFACE(w)     container_of(w, struct skw_iface, wdev)
++
++#define SKW_OUI(a, b, c)                                       \
++	(((a) & 0xff) << 16 | ((b) & 0xff) << 8 | ((c) & 0xff))
++
++#ifndef list_next_entry
++#define list_next_entry(pos, member)                           \
++	list_entry((pos)->member.next, typeof(*(pos)), member)
++#endif
++
++#ifdef SKWIFI_ASSERT
++#define SKW_BUG_ON(c)         BUG_ON(c)
++#else
++#define SKW_BUG_ON(c)         WARN_ON(c)
++#endif
++
++#ifndef READ_ONCE
++#define READ_ONCE(x)          ACCESS_ONCE(x)
++#endif
++
++#ifndef WRITE_ONCE
++#define WRITE_ONCE(x, v)      (ACCESS_ONCE(x) = v)
++#endif
++
++#ifndef __has_attribute
++#define __has_attribute(x) 0
++#endif
++
++#if __has_attribute(__fallthrough__)
++#define skw_fallthrough       __attribute__((__fallthrough__))
++#else
++#define skw_fallthrough       do {} while (0)  /* fallthrough */
++#endif
++
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
++static inline void u64_stats_init(struct u64_stats_sync *syncp)
++{
++#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
++	seqcount_init(&syncp->seq);
++#endif
++}
++#endif
++
++#ifndef NET_NAME_ENUM
++#define NET_NAME_ENUM 1
++#endif
++
++#ifndef netdev_alloc_pcpu_stats
++#define netdev_alloc_pcpu_stats(type)				\
++({								\
++	typeof(type) __percpu *pcpu_stats = alloc_percpu(type); \
++	if (pcpu_stats)	{					\
++		int i;						\
++		for_each_possible_cpu(i) {			\
++			typeof(type) *stat;			\
++			stat = per_cpu_ptr(pcpu_stats, i);	\
++			u64_stats_init(&stat->syncp);		\
++		}						\
++	}							\
++	pcpu_stats;						\
++})
++#endif
++
++#define skw_foreach_element(_elem, _data, _datalen)			     \
++	for (_elem = (struct skw_element *)(_data);                          \
++	     (const u8 *)(_data) + (_datalen) - (const u8 *)_elem >=	     \
++		(int)sizeof(*_elem) &&					     \
++	     (const u8 *)(_data) + (_datalen) - (const u8 *)_elem >=	     \
++		(int)sizeof(*_elem) + _elem->datalen;			     \
++	     _elem = (struct skw_element *)(_elem->data + _elem->datalen))
++
++#define skw_foreach_element_id(element, _id, data, datalen)		     \
++	skw_foreach_element(element, data, datalen)			     \
++		if (element->id == (_id))
++
++struct skw_tp_rate {
++	union {
++		struct {
++			u16 value;
++			u8 two_dec;
++			u8 unit;
++		} rate;
++
++		u32 ret;
++	};
++};
++
++struct skw_template {
++	u16 head_offset;
++	u16 head_len;
++	u16 tail_ofsset;
++	u16 tail_len;
++	struct ieee80211_mgmt mgmt[0];
++};
++
++struct skw_rate {
++	u8 flags;
++	u8 mcs_idx;
++	u16 legacy_rate;
++	u8 nss;
++	u8 bw;
++	u8 gi;
++	u8 he_ru;
++	u8 he_dcm;
++} __packed;
++
++struct skw_arphdr {
++	__be16          ar_hrd; /* format of hardware address */
++	__be16          ar_pro; /* format of protocol address */
++	unsigned char   ar_hln; /* length of hardware address */
++	unsigned char   ar_pln; /* length of protocol address */
++	__be16          ar_op;  /* ARP opcode (command) */
++
++	unsigned char   ar_sha[ETH_ALEN]; /* sender hardware address */
++	__be32          ar_sip;  /* sender IP address */
++	unsigned char   ar_tha[ETH_ALEN]; /* target hardware address */
++	__be32          ar_tip;  /* target IP address */
++} __packed;
++
++struct skw_element {
++	u8 id;
++	u8 datalen;
++	u8 data[];
++} __packed;
++
++struct skw_tlv {
++	u16 type;
++	u16 len;
++	char value[0];
++};
++
++struct skw_tlv_conf {
++	void *buff;
++	int buff_len, total_len;
++};
++
++static inline struct skw_arphdr *skw_arp_hdr(struct sk_buff *skb)
++{
++	if (!skb)
++		return NULL;
++
++	return (struct skw_arphdr *)(skb->data + 14);
++}
++
++static inline u64 skw_mac_to_u64(const u8 *addr)
++{
++	u64 u = 0;
++	int i;
++
++	for (i = 0; i < ETH_ALEN; i++)
++		u = u << 8 | addr[i];
++
++	return u;
++}
++
++static inline void skw_u64_to_mac(u64 u, u8 *addr)
++{
++	int i;
++
++	for (i = ETH_ALEN - 1; i >= 0; i--) {
++		addr[i] = u & 0xff;
++		u = u >> 8;
++	}
++}
++
++static inline void *skw_put_skb_data(struct sk_buff *skb, const void *data,
++				 unsigned int len)
++{
++	void *tmp = skb_put(skb, len);
++
++	memcpy(tmp, data, len);
++
++	return tmp;
++}
++
++static inline void *skw_put_skb_zero(struct sk_buff *skb, unsigned int len)
++{
++	void *tmp = skb_put(skb, len);
++
++	memset(tmp, 0, len);
++
++	return tmp;
++}
++
++static inline struct ethhdr *skw_eth_hdr(const struct sk_buff *skb)
++{
++	return (struct ethhdr *)skb->data;
++}
++
++static inline int skw_mac_offset(const struct sk_buff *skb)
++{
++	return skb_mac_header(skb) - skb->data;
++}
++
++static inline void skw_set_thread_priority(struct task_struct *thread,
++					   int policy, int priority)
++{
++#ifdef CONFIG_SKW6316_HIGH_PRIORITY
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
++	sched_set_fifo_low(thread);
++#else
++	struct sched_param param = {
++		.sched_priority = priority,
++	};
++
++	sched_setscheduler(thread, policy, &param);
++#endif
++#endif
++}
++
++static inline const char *skw_iftype_name(enum nl80211_iftype iftype)
++{
++	static const char * const ifname[] = {"IFTYPE_NONE",
++					"ADHOC",
++					"STA",
++					"AP",
++					"AP_VLAN",
++					"WDS",
++					"MONITOR",
++					"MESH",
++					"P2P_GC",
++					"P2P_GO",
++					"P2P_DEVICE",
++					"OCB",
++					"NAN",
++					"IFTYPE_LAST"};
++
++	return ifname[iftype];
++}
++
++/**
++ * skw_ether_copy - Copy an Ethernet address
++ * @dst: Pointer to a six-byte array Ethernet address destination
++ * @src: Pointer to a six-byte array Ethernet address source
++ *
++ * Please note: dst & src must both be aligned to u16.
++ */
++static inline void skw_ether_copy(u8 *dst, const u8 *src)
++{
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
++	*(u32 *)dst = *(const u32 *)src;
++	*(u16 *)(dst + 4) = *(const u16 *)(src + 4);
++#else
++	u16 *a = (u16 *)dst;
++	const u16 *b = (const u16 *)src;
++
++	a[0] = b[0];
++	a[1] = b[1];
++	a[2] = b[2];
++#endif
++}
++
++#ifdef SKW_IMPORT_NS
++struct file *skw_file_open(const char *path, int flags, int mode);
++int skw_file_read(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset);
++int skw_file_write(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset);
++int skw_file_sync(struct file *fp);
++void skw_file_close(struct file *fp);
++#endif
++
++u64 skw_local_clock(void);
++int skw_key_idx(u16 bitmap);
++char *skw_mgmt_name(u16 fc);
++int skw_freq_to_chn(int freq);
++u32 skw_calc_rate(u64 bytes, u32 delta_ms);
++int skw_build_deauth_frame(void *buf, int buf_len, u8 *da, u8 *sa,
++			   u8 *bssid, u16 reason_code);
++const u8 *skw_find_ie_match(u8 eid, const u8 *ies, int len, const u8 *match,
++			    int match_len, int match_offset);
++
++int skw_desc_get_rx_rate(struct skw_rate *rate, u8 bw, u8 mode, u8 gi,
++		    u8 nss, u8 dcm, u16 data_rate);
++void skw_tlv_free(struct skw_tlv_conf *conf);
++void *skw_tlv_reserve(struct skw_tlv_conf *conf, int len);
++int skw_tlv_alloc(struct skw_tlv_conf *conf, int len, gfp_t gfp);
++int skw_tlv_add(struct skw_tlv_conf *conf, int type, void *dat, int dat_len);
++bool skw_bss_check_vendor_name(struct cfg80211_bss *bss, const u8 *oui);
++int skw_util_set_mib_enable(struct wiphy *wiphy, int inst, int mib_id, bool enable);
++#endif
+diff --git a/drivers/skw6621s/skwifi/skw_vendor.c b/drivers/skw6621s/skwifi/skw_vendor.c
+new file mode 100755
+index 0000000..5c43fbb
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/skw_vendor.c
+@@ -0,0 +1,495 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <net/cfg80211.h>
++#include <net/genetlink.h>
++
++#include "skw_vendor.h"
++#include "skw_cfg80211.h"
++#include "skw_core.h"
++#include "skw_iface.h"
++#include "skw_util.h"
++#include "skw_regd.h"
++#include "version.h"
++
++const struct nla_policy
++skw_set_country_policy[SKW_SET_COUNTRY_RULES] = {
++	[SKW_ATTR_SET_COUNTRY] = {.type = NLA_STRING},
++};
++
++const struct nla_policy
++skw_get_valid_channels_policy[SKW_GET_VALID_CHANNELS_RULES] = {
++	[SKW_ATTR_GET_VALID_CHANNELS] = {.type = NLA_U32},
++};
++
++const struct nla_policy
++skw_get_version_policy[SKW_GET_VERSION_RULES] = {
++	[SKW_ATTR_VERSION_DRIVER] = {.type = NLA_U32},
++	[SKW_ATTR_VERSION_FIRMWARE] = {.type = NLA_U32},
++};
++
++#if 0
++static int skw_vendor_dbg_reset_logging(struct wiphy *wiphy,
++	struct wireless_dev *wdev, const void  *data, int len)
++{
++	int ret = SKW_OK;
++
++	skw_dbg("Enter\n");
++
++	return ret;
++}
++
++static int skw_vendor_set_p2p_rand_mac(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	int type;
++	//struct skw_iface *iface = netdev_priv(wdev->netdev);
++	u8 mac_addr[6] = {0};
++
++	skw_dbg("set skw mac addr\n");
++	type = nla_type(data);
++
++	if (type == SKW_ATTR_DRIVER_RAND_MAC) {
++		memcpy(mac_addr, nla_data(data), 6);
++		skw_dbg("mac:%pM\n", mac_addr);
++	}
++
++	return 0;
++}
++
++static int skw_vendor_set_rand_mac_oui(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	char *oui = nla_data(data);
++	struct skw_iface *iface = SKW_WDEV_TO_IFACE(wdev);
++
++	if (!oui || (nla_len(data) != DOT11_OUI_LEN))
++		return -EINVAL;
++
++	skw_dbg("%02x:%02x:%02x\n", oui[0], oui[1], oui[2]);
++
++	memcpy(iface->rand_mac_oui, oui, DOT11_OUI_LEN);
++
++	return 0;
++}
++#endif
++
++static int skw_vendor_cmd_reply(struct wiphy *wiphy, const void *data, int len)
++{
++	struct sk_buff *skb;
++	int err;
++
++	/* Alloc the SKB for vendor_event */
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
++	if (unlikely(!skb)) {
++		skw_err("skb alloc failed");
++		return -ENOMEM;
++	}
++
++	/* Push the data to the skb */
++	err = nla_put_nohdr(skb, len, data);
++	if (err) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_start_logging(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_wake_reason_stats(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_apf_capabilities(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	struct sk_buff *skb;
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	if (nla_put_u32(skb, SKW_ATTR_APF_VERSION, 4) ||
++	    nla_put_u32(skb, SKW_ATTR_APF_MAX_LEN, 1024)) {
++		kfree_skb(skb);
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_ring_buffer_data(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_firmware_dump(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_select_tx_power_scenario(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_set_latency_mode(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_feature_set(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	u32 feature_set = 0;
++
++	/* Hardcoding these values for now, need to get
++	 * these values from FW, will change in a later check-in
++	 */
++	feature_set |= WIFI_FEATURE_INFRA;
++	feature_set |= WIFI_FEATURE_INFRA_5G;
++	feature_set |= WIFI_FEATURE_P2P;
++	feature_set |= WIFI_FEATURE_SOFT_AP;
++	feature_set |= WIFI_FEATURE_AP_STA;
++	//feature_set |= WIFI_FEATURE_TDLS;
++	//feature_set |= WIFI_FEATURE_TDLS_OFFCHANNEL;
++	//feature_set |= WIFI_FEATURE_NAN;
++	//feature_set |= WIFI_FEATURE_HOTSPOT;
++	//feature_set |= WIFI_FEATURE_LINK_LAYER_STATS; //TBC
++	//feature_set |= WIFI_FEATURE_RSSI_MONITOR; //TBC with roaming
++	//feature_set |= WIFI_FEATURE_MKEEP_ALIVE; //TBC compare with QUALCOM
++	//feature_set |= WIFI_FEATURE_CONFIG_NDO; //TBC
++	//feature_set |= WIFI_FEATURE_SCAN_RAND;
++	//feature_set |= WIFI_FEATURE_RAND_MAC;
++	//feature_set |= WIFI_FEATURE_P2P_RAND_MAC ;
++	//feature_set |= WIFI_FEATURE_CONTROL_ROAMING;
++
++	skw_dbg("feature: 0x%x\n", feature_set);
++
++	return skw_vendor_cmd_reply(wiphy, &feature_set, sizeof(u32));
++}
++
++static int skw_vendor_set_country(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  const void *data, int data_len)
++{
++	char *country = nla_data(data);
++
++	if (nla_type(data) != SKW_ATTR_SET_COUNTRY)
++		skw_warn("attr mismatch, type: %d\n", nla_type(data));
++
++	if (!country || strlen(country) != 2) {
++		skw_err("invalid, country: %s\n", country ? country : "null");
++
++		return -EINVAL;
++	}
++
++	skw_dbg("country: %c%c\n", country[0], country[1]);
++
++	return skw_set_regdom(wiphy, country);
++}
++
++static int skw_vendor_get_version(struct wiphy *wiphy, struct wireless_dev *wdev,
++				const void *data, int len)
++{
++	char version[64] = {0};
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	switch (nla_type(data)) {
++	case SKW_ATTR_VERSION_DRIVER:
++		strncpy(version, SKW_VERSION, sizeof(version));
++		break;
++
++	case SKW_ATTR_VERSION_FIRMWARE:
++		snprintf(version, sizeof(version), "%s-%s",
++			 skw->fw.plat_ver, skw->fw.wifi_ver);
++		break;
++
++	default:
++		skw_err("invalid nla type\n");
++		strcpy(version, "invalid");
++		break;
++	}
++
++	return skw_vendor_cmd_reply(wiphy, version, sizeof(version));
++}
++
++static int skw_vendor_get_usable_channels(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void *data, int len)
++{
++	int i, nr, max;
++	struct sk_buff *skb;
++	enum nl80211_band band;
++	struct skw_usable_chan *chans;
++	struct skw_usable_chan_req *req = (struct skw_usable_chan_req *)data;
++
++	skw_dbg("band_mask: 0x%x\n", req->band_mask);
++
++	max = ieee80211_get_num_supported_channels(wiphy);
++
++	chans = SKW_ZALLOC(max * sizeof(*chans), GFP_KERNEL);
++	if (!chans)
++		return -ENOMEM;
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb) {
++		SKW_KFREE(chans);
++		return -ENOMEM;
++	}
++
++	for (nr = 0, band = 0; band < NUM_NL80211_BANDS; band++) {
++		if (!(req->band_mask & BIT(to_skw_band(band))) ||
++		    !wiphy->bands[band])
++			continue;
++
++		for (i = 0; i < wiphy->bands[band]->n_channels; i++) {
++			struct ieee80211_channel *chan;
++
++			chan = &wiphy->bands[band]->channels[i];
++
++			if (chan->flags & IEEE80211_CHAN_DISABLED)
++				continue;
++
++			chans[nr].center_freq = chan->center_freq;
++			chans[nr].band_width = SKW_CHAN_WIDTH_20;
++			chans[nr].iface_mode_mask = BIT(SKW_STA_MODE) |
++						    BIT(SKW_AP_MODE) |
++						    BIT(SKW_GC_MODE) |
++						    BIT(SKW_GO_MODE);
++			nr++;
++		}
++	}
++
++	if (nla_put_nohdr(skb, nr * sizeof(*chans), chans)) {
++		SKW_KFREE(chans);
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	SKW_KFREE(chans);
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_valid_channels(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	int channels[32], size;
++	int i, band, nr_channels;
++	struct sk_buff *skb;
++
++	if (nla_type(data) != SKW_ATTR_GET_VALID_CHANNELS)
++		skw_warn("attr mismatch, type: %d", nla_type(data));
++
++	band = nla_get_u32(data);
++	if (band > NL80211_BAND_5GHZ) {
++		skw_err("invalid band: %d\n", band);
++		return -EINVAL;
++	}
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	nr_channels = wiphy->bands[band]->n_channels;
++	size = nr_channels * sizeof(int);
++
++	for (i = 0; i < nr_channels; i++)
++		channels[i] = wiphy->bands[band]->channels[i].hw_value;
++
++	if (nla_put_u32(skb, SKW_ATTR_VALID_CHANNELS_COUNT, nr_channels) ||
++	    nla_put(skb, SKW_ATTR_VALID_CHANNELS_LIST, size, channels)) {
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_ring_buffers_status(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void  *data, int len)
++{
++	struct sk_buff *skb;
++	struct skw_ring_buff_status status = {
++		.name = "skw_drv",
++		.flags = 0,
++		.ring_id = 0,
++		.ring_buffer_byte_size = 1024,
++		.verbose_level = 0,
++		.written_bytes = 0,
++		.read_bytes = 0,
++		.written_records = 0,
++	};
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	if (nla_put_u32(skb, SKW_ATTR_RING_BUFFERS_COUNT, 1) ||
++	    nla_put(skb, SKW_ATTR_RING_BUFFERS_STATUS, sizeof(status), &status)) {
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_logger_feature(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void  *data, int len)
++{
++	u32 features = 0;
++
++	skw_dbg("features: 0x%x\n", features);
++
++	return skw_vendor_cmd_reply(wiphy, &features, sizeof(features));
++}
++
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0))
++#define SKW_VENDOR_CMD(oui, cmd, flag, func, nla_policy, max_attr)  \
++{                                                                   \
++	.info = {.vendor_id = oui, .subcmd = cmd},                  \
++	.flags = flag,                                              \
++	.doit = func,                                               \
++	.policy = nla_policy,                                       \
++	.maxattr = max_attr,                                        \
++}
++#else
++#define SKW_VENDOR_CMD(oui, cmd, flag, func, nla_policy, max_attr)  \
++{                                                                   \
++	.info = {.vendor_id = oui, .subcmd = cmd},                  \
++	.flags = flag,                                              \
++	.doit = func,                                               \
++}
++#endif
++
++#define SKW_VENDOR_DEFAULT_FLAGS (WIPHY_VENDOR_CMD_NEED_WDEV |      \
++				  WIPHY_VENDOR_CMD_NEED_NETDEV)
++
++static struct wiphy_vendor_command skw_vendor_cmds[] = {
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_VALID_CHANNELS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_valid_channels,
++			skw_get_valid_channels_policy,
++			SKW_GET_VALID_CHANNELS_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_FEATURE_SET,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_feature_set,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_VERSION,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_version,
++			skw_get_version_policy,
++			SKW_GET_VERSION_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_RING_BUFFERS_STATUS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_ring_buffers_status,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_LOGGER_FEATURE,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_logger_feature,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_APF_CAPABILITIES,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_apf_capabilities,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_USABLE_CHANS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_usable_channels,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SET_COUNTRY,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_set_country,
++			skw_set_country_policy, SKW_SET_COUNTRY_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_START_LOGGING,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_start_logging,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_FIRMWARE_DUMP,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_firmware_dump,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_RING_BUFFER_DATA,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_ring_buffer_data,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_WAKE_REASON_STATS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_wake_reason_stats,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SELECT_TX_POWER_SCENARIO,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_select_tx_power_scenario,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SET_LATENCY_MODE,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_set_latency_mode,
++			VENDOR_CMD_RAW_DATA, 0),
++};
++
++static struct nl80211_vendor_cmd_info skw_vendor_events[] = {
++	{
++		.vendor_id = 0,
++		.subcmd = 0,
++	},
++};
++
++void skw_vendor_init(struct wiphy *wiphy)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
++	wiphy->vendor_commands = skw_vendor_cmds;
++	wiphy->n_vendor_commands = ARRAY_SIZE(skw_vendor_cmds);
++	wiphy->vendor_events = skw_vendor_events;
++	wiphy->n_vendor_events = ARRAY_SIZE(skw_vendor_events);
++#else
++	skw_dbg("cmd: %d, event: %d\n", ARRAY_SIZE(skw_vendor_cmds),
++		ARRAY_SIZE(skw_vendor_events));
++#endif
++}
++
++void skw_vendor_deinit(struct wiphy *wiphy)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
++	wiphy->vendor_commands = NULL;
++	wiphy->n_vendor_commands = 0;
++#endif
++}
+diff --git a/drivers/skw6621s/skwifi/skw_vendor.h b/drivers/skw6621s/skwifi/skw_vendor.h
+new file mode 100755
+index 0000000..b8a3de5
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/skw_vendor.h
+@@ -0,0 +1,162 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_VENDOR_H__
++#define __SKW_VENDOR_H__
++
++#define OUI_GOOGLE	                         0x001A11
++
++/* Vendor Command ID */
++#define SKW_VID_GET_VALID_CHANNELS               0x1009
++#define SKW_VID_GET_FEATURE_SET                  0x100A
++#define SKW_VID_SET_COUNTRY                      0x100E
++#define SKW_VID_SET_LATENCY_MODE                 0x101B
++#define SKW_VID_START_LOGGING                    0x1400
++#define SKW_VID_GET_FIRMWARE_DUMP                0x1401
++#define SKW_VID_GET_VERSION                      0x1403
++#define SKW_VID_GET_RING_BUFFERS_STATUS          0x1404
++#define SKW_VID_GET_RING_BUFFER_DATA             0x1405
++#define SKW_VID_GET_LOGGER_FEATURE               0x1406
++#define SKW_VID_GET_WAKE_REASON_STATS            0x140D
++#define SKW_VID_GET_APF_CAPABILITIES             0x1800
++#define SKW_VID_SELECT_TX_POWER_SCENARIO         0x1900
++#define SKW_VID_GET_USABLE_CHANS                 0x2000
++
++/* ATTR IE Start */
++
++/* ATTR GET_VALID_CHANNELS */
++#define SKW_ATTR_GET_VALID_CHANNELS              20
++#define SKW_ATTR_VALID_CHANNELS_COUNT            36
++#define SKW_ATTR_VALID_CHANNELS_LIST             37
++#define SKW_GET_VALID_CHANNELS_RULES             38
++/* ATTR GET_VALID_CHANNELS */
++
++/* ATTR SET_COUNTRY */
++#define SKW_ATTR_SET_COUNTRY                     5
++#define SKW_SET_COUNTRY_RULES                    6
++/* ATTR SET_COUNTRY */
++
++/* ATTR GET_APF_CAPABILITIES */
++#define SKW_ATTR_APF_VERSION                     0
++#define SKW_ATTR_APF_MAX_LEN                     1
++/* ATTR GET_APF_CAPABILITIES */
++
++/* ATTR GET_VERSION */
++#define SKW_ATTR_VERSION_DRIVER                  1
++#define SKW_ATTR_VERSION_FIRMWARE                2
++#define SKW_GET_VERSION_RULES                    3
++/* ATTR GET_VERSION */
++
++/* ATTR RING_BUFFERS_STATUS */
++#define SKW_ATTR_RING_BUFFERS_STATUS             13
++#define SKW_ATTR_RING_BUFFERS_COUNT              14
++/* ATTR RING_BUFFERS_STATUS */
++
++/* END OF ATTR IE */
++
++/* Feature enums */
++#define WIFI_FEATURE_INFRA                       0x1      // Basic infrastructure mode
++#define WIFI_FEATURE_INFRA_5G                    0x2      // Support for 5 GHz Band
++#define WIFI_FEATURE_HOTSPOT                     0x4      // Support for GAS/ANQP
++#define WIFI_FEATURE_P2P                         0x8      // Wifi-Direct
++#define WIFI_FEATURE_SOFT_AP                     0x10      // Soft AP
++#define WIFI_FEATURE_GSCAN                       0x20      // Google-Scan APIs
++#define WIFI_FEATURE_NAN                         0x40      // Neighbor Awareness Networking
++#define WIFI_FEATURE_D2D_RTT                     0x80      // Device-to-device RTT
++#define WIFI_FEATURE_D2AP_RTT                    0x100      // Device-to-AP RTT
++#define WIFI_FEATURE_BATCH_SCAN                  0x200      // Batched Scan (legacy)
++#define WIFI_FEATURE_PNO                         0x400      // Preferred network offload
++#define WIFI_FEATURE_ADDITIONAL_STA              0x800      // Support for two STAs
++#define WIFI_FEATURE_TDLS                        0x1000      // Tunnel directed link setup
++#define WIFI_FEATURE_TDLS_OFFCHANNEL             0x2000      // Support for TDLS off channel
++#define WIFI_FEATURE_EPR                         0x4000      // Enhanced power reporting
++#define WIFI_FEATURE_AP_STA                      0x8000      // Support for AP STA Concurrency
++#define WIFI_FEATURE_LINK_LAYER_STATS            0x10000     // Link layer stats collection
++#define WIFI_FEATURE_LOGGER                      0x20000     // WiFi Logger
++#define WIFI_FEATURE_HAL_EPNO                    0x40000     // WiFi PNO enhanced
++#define WIFI_FEATURE_RSSI_MONITOR                0x80000     // RSSI Monitor
++#define WIFI_FEATURE_MKEEP_ALIVE                 0x100000    // WiFi mkeep_alive
++#define WIFI_FEATURE_CONFIG_NDO                  0x200000    // ND offload configure
++#define WIFI_FEATURE_TX_TRANSMIT_POWER           0x400000    // Capture Tx transmit power levels
++#define WIFI_FEATURE_CONTROL_ROAMING             0x800000    // Enable/Disable firmware roaming
++#define WIFI_FEATURE_IE_WHITELIST                0x1000000   // Support Probe IE white listing
++#define WIFI_FEATURE_SCAN_RAND                   0x2000000   // Support MAC & Probe Sequence Number randomization
++#define WIFI_FEATURE_SET_TX_POWER_LIMIT          0x4000000   // Support Tx Power Limit setting
++#define WIFI_FEATURE_USE_BODY_HEAD_SAR           0x8000000   // Support Using Body/Head Proximity for SAR
++#define WIFI_FEATURE_DYNAMIC_SET_MAC             0x10000000  // Support changing MAC address without iface reset(down and up)
++#define WIFI_FEATURE_SET_LATENCY_MODE            0x40000000  // Support Latency mode setting
++#define WIFI_FEATURE_P2P_RAND_MAC                0x80000000  // Support P2P MAC randomization
++#define WIFI_FEATURE_INFRA_60G                   0x100000000 // Support for 60GHz Band
++
++/* Vendor Event ID */
++#define SKW_NL80211_VENDOR_SUBCMD_MONITOR_RSSI   80
++#define EXT_VENDOR_EVENT_BUF_SIZE                4096
++enum skw_wlan_vendor_attr_rssi_monitoring {
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_INVALID = 0,
++	/* Takes valid value from the enum
++	 * skw_wlan_rssi_monitoring_control
++	 * Unsigned 32-bit value enum skw_wlan_rssi_monitoring_control
++	 */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CONTROL,
++	/* Unsigned 32-bit value */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_REQUEST_ID,
++	/* Signed 8-bit value in dBm */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MAX_RSSI,
++	/* Signed 8-bit value in dBm */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MIN_RSSI,
++	/* attributes to be used/received in callback */
++	/* 6-byte MAC address used to represent current BSSID MAC address */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CUR_BSSID,
++	/* Signed 8-bit value indicating the current RSSI */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CUR_RSSI,
++	/* keep last */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_AFTER_LAST,
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MAX =
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_AFTER_LAST - 1,
++};
++
++struct skw_ring_buff_status {
++	u8 name[32];
++	u32 flags;
++	int ring_id;                  // unique integer representing the ring
++	u32 ring_buffer_byte_size;    // total memory size allocated for the buffer
++	u32 verbose_level;            // verbose level for ring buffer
++	u32 written_bytes;            // number of bytes that was written to the buffer by driver
++	u32 read_bytes;               // number of bytes that was read from the buffer by user land
++	u32 written_records;          // number of records that was written to the buffer by driver
++};
++
++struct skw_usable_chan {
++	u16 center_freq;
++	u16 band_width;
++	u16 iface_mode_mask;
++	u16 flags;
++	u32 resvd;
++};
++
++struct skw_usable_chan_req {
++	u32 band_mask;
++	u32 filter_mask;
++	u32 iface_mode_mask;
++	u32 flags;
++	u32 resvd;
++};
++
++void skw_vendor_init(struct wiphy *wiphy);
++void skw_vendor_deinit(struct wiphy *wiphy);
++
++#endif
+diff --git a/drivers/skw6621s/skwifi/skw_work.c b/drivers/skw6621s/skwifi/skw_work.c
+new file mode 100755
+index 0000000..b5ae229
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/skw_work.c
+@@ -0,0 +1,406 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/skbuff.h>
++
++#include "skw_core.h"
++#include "skw_cfg80211.h"
++#include "skw_iface.h"
++#include "skw_mlme.h"
++#include "skw_msg.h"
++#include "skw_work.h"
++#include "skw_timer.h"
++#include "skw_recovery.h"
++#include "skw_tx.h"
++#include "skw_dfs.h"
++
++#define SKW_WORK_FLAG_ASSERT        0
++#define SKW_WORK_FLAG_RCU_FREE      1
++#define SKW_WORK_FLAG_UNLOCK        2
++
++static void skw_ap_acl_check(struct wiphy *wiphy, struct skw_iface *iface)
++{
++	int idx;
++	struct skw_peer_ctx *ctx = NULL;
++	u32 peer_idx_map = atomic_read(&iface->peer_map);
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	if (peer_idx_map == 0)
++		return;
++
++	while (peer_idx_map) {
++		idx = ffs(peer_idx_map) - 1;
++
++		SKW_CLEAR(peer_idx_map, BIT(idx));
++
++		ctx = &skw->hw.lmac[iface->lmac_id].peer_ctx[idx];
++		if (!ctx)
++			continue;
++
++		if (ctx->peer && !skw_acl_allowed(iface, ctx->peer->addr))
++			skw_mlme_ap_del_sta(wiphy, iface->ndev,
++					ctx->peer->addr, false);
++	}
++}
++
++static void skw_work_async_adma_tx_free(struct skw_core *skw,
++				struct scatterlist *sglist, int nents)
++{
++	int idx;
++	struct scatterlist *sg;
++	struct sk_buff *skb;
++	unsigned long *skb_addr, *sg_addr;
++
++	for_each_sg(sglist, sg, nents, idx) {
++		sg_addr = (unsigned long *)sg_virt(sg);
++
++		skb_addr = sg_addr - 1;
++		skb = (struct sk_buff *)*skb_addr;
++		if (unlikely(skb < (struct sk_buff *)PAGE_OFFSET)) {
++			/* Invalid skb pointer */
++			skw_dbg("wrong address p_data:0x%lx from FW\n", (unsigned long)sg_addr);
++			continue;
++		}
++
++		skb->dev->stats.tx_packets++;
++		skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++		//kfree_skb(skb);
++		skw_skb_kfree(skw, skb);
++		atomic_dec(&skw->txqlen_pending);
++	}
++
++	SKW_KFREE(sglist);
++}
++
++#ifdef CONFIG_RPS
++int skw_init_rps_map(struct skw_iface *iface)
++{
++	int i, cpu;
++	struct rps_map *map, *old_map;
++	static DEFINE_SPINLOCK(rps_map_lock);
++	struct netdev_rx_queue *queue = iface->ndev->_rx;
++
++	map = kzalloc(max_t(unsigned int,
++			    RPS_MAP_SIZE(cpumask_weight(cpu_online_mask)), L1_CACHE_BYTES),
++		      GFP_KERNEL);
++	if (!map)
++		return -ENOMEM;
++
++	i = 0;
++	for_each_cpu(cpu, cpu_online_mask)
++		if (cpu != iface->cpu_id)
++			map->cpus[i++] = cpu;
++
++	if (i) {
++		map->len = i;
++	} else {
++		kfree(map);
++		map = NULL;
++	}
++
++	spin_lock(&rps_map_lock);
++	old_map = rcu_dereference_protected(queue->rps_map,
++					    lockdep_is_held(&rps_map_lock));
++	rcu_assign_pointer(queue->rps_map, map);
++	spin_unlock(&rps_map_lock);
++
++	if (map) {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
++		static_key_slow_inc(&rps_needed.key);
++#else
++		static_key_slow_inc(&rps_needed);
++#endif
++	}
++
++	if (old_map) {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
++		static_key_slow_dec(&rps_needed.key);
++#else
++		static_key_slow_dec(&rps_needed);
++#endif
++		kfree_rcu(old_map, rcu);
++	}
++
++	return 0;
++}
++#endif
++
++static int skw_work_process(struct wiphy *wiphy, struct skw_iface *iface,
++			int work_id, void *data, int data_len, const u8 *name)
++{
++	int ret = 0;
++	struct skw_sg_node *node;
++	struct skw_ba_action *ba;
++	struct skw_core *skw = wiphy_priv(wiphy);
++//	int *umask;
++	struct skw_mgmt_status *status;
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	skw_log(SKW_WORK, "[%s]: iface: %d, %s (id: %d)\n",
++		SKW_TAG_WORK, iface ? iface->id : -1, name, work_id);
++
++	switch (work_id) {
++	case SKW_WORK_BA_ACTION:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_BA_ACTION,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_SCAN_TIMEOUT:
++		skw_scan_done(skw, iface, true);
++		break;
++
++	case SKW_WORK_ACL_CHECK:
++		skw_ap_acl_check(wiphy, iface);
++		break;
++
++	case SKW_WORK_SET_MC_ADDR:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_SET_MC_ADDR,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_SET_IP:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_SET_IP,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_TX_FREE:
++		node = data;
++		skw_work_async_adma_tx_free(skw, node->sg, node->nents);
++
++		break;
++
++	case SKW_WORK_SETUP_TXBA:
++		ba = data;
++
++		skw_dbg("%s, iface: %d, peer: %d, tid: %d\n",
++			name, iface->id, ba->peer_idx, ba->tid);
++
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_BA_ACTION,
++				data, data_len, NULL, 0);
++		if (ret) {
++			struct skw_peer_ctx *ctx;
++
++			skw_err("setup TXBA failed, ret: %d\n", ret);
++
++			ctx = skw_get_ctx(skw, iface->lmac_id, ba->peer_idx);
++
++			skw_peer_ctx_lock(ctx);
++
++			if (ctx->peer)
++				SKW_CLEAR(ctx->peer->txba.bitmap, BIT(ba->tid));
++
++			skw_peer_ctx_unlock(ctx);
++		}
++
++		break;
++
++	case SKW_WORK_TX_ETHER_DATA:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_TX_DATA_FRAME,
++				data, data_len, NULL, 0);
++		break;
++#if 0
++	case SKW_WORK_RADAR_PULSE:
++		skw_dfs_radar_pulse_event(wiphy, iface, data, data_len);
++		break;
++#endif
++
++	case SKW_WORK_IFACE_RPS_INIT:
++#if 0
++#ifdef CONFIG_RPS
++		umask = (int *)data;
++		skw_init_rps_map(iface, *umask);
++#endif
++#endif
++		break;
++
++	case SKW_WORK_SPLIT_MGMT_TX_STATUS:
++		status = data;
++		skw_mgmt_tx_status(iface, status->mgmt_status_cookie,
++			status->mgmt_status_data, status->mgmt_status_data_len, true);
++
++		skw_dbg("split ack cookie:0x%llx\n", status->mgmt_status_cookie);
++
++		SKW_KFREE(status->mgmt_status_data);
++		break;
++
++	default:
++		skw_info("invalid work: %d\n", work_id);
++		break;
++	}
++
++exit:
++	return ret;
++}
++//workaround for bug3384
++static void skw_work_unlock(struct work_struct *work)
++{
++	struct skw_core *skw = container_of(work, struct skw_core, work_unlock);
++
++	skw_del_timer_work(skw, skw->cmd.data);
++	__pm_relax(skw->cmd.ws);
++	up(&skw->cmd.lock);
++}
++
++static void skw_work(struct work_struct *work)
++{
++	struct sk_buff *skb;
++	struct skw_work_cb *cb;
++	struct skw_core *skw = container_of(work, struct skw_core, work);
++	struct wiphy *wiphy = priv_to_wiphy(skw);
++
++	while (skw->work_data.flags || skb_queue_len(&skw->work_data.work_list)) {
++
++		if (test_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags)) {
++			struct rcu_head *head;
++
++			spin_lock_bh(&skw->work_data.rcu_lock);
++
++			head = skw->work_data.rcu_hdr;
++			if (head)
++				skw->work_data.rcu_hdr = head->next;
++
++			spin_unlock_bh(&skw->work_data.rcu_lock);
++
++			if (head) {
++				synchronize_rcu();
++				head->func(head);
++			} else {
++				skw->work_data.rcu_tail = &skw->work_data.rcu_hdr;
++				clear_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags);
++			}
++		}
++
++		if (test_and_clear_bit(SKW_WORK_FLAG_ASSERT, &skw->work_data.flags))
++			skw_hw_assert(skw, false);
++
++		if (!skb_queue_len(&skw->work_data.work_list))
++			continue;
++
++		skb = skb_dequeue(&skw->work_data.work_list);
++		cb = SKW_WORK_CB(skb);
++		if (skb && cb)
++			skw_work_process(wiphy, cb->iface, cb->id,
++				skb->data, skb->len, cb->name);
++		kfree_skb(skb);
++	}
++}
++
++void skw_assert_schedule(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	set_bit(SKW_WORK_FLAG_ASSERT, &skw->work_data.flags);
++	schedule_work(&skw->work);
++}
++
++void skw_unlock_schedule(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	//set_bit(SKW_WORK_FLAG_UNLOCK, &skw_work_flags);
++	schedule_work(&skw->work_unlock);
++	//schedule_work(&skw->work);
++}
++
++#ifdef CONFIG_SKW6316_GKI_DRV
++void skw_call_rcu(void *core, struct rcu_head *head, rcu_callback_t func)
++{
++	struct skw_core *skw = core;
++
++	spin_lock_bh(&skw->work_data.rcu_lock);
++
++	head->func = func;
++	head->next = NULL;
++
++	*skw->work_data.rcu_tail = head;
++	skw->work_data.rcu_tail = &head->next;
++
++	spin_unlock_bh(&skw->work_data.rcu_lock);
++
++	set_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags);
++
++	schedule_work(&skw->work);
++}
++#endif
++
++int __skw_queue_work(struct wiphy *wiphy, struct skw_iface *iface,
++		     enum SKW_WORK_ID id, void *data,
++		     int dat_len, const u8 *name)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++	struct skw_work_cb *wcb;
++	struct sk_buff *skb;
++
++	skb = dev_alloc_skb(dat_len);
++	if (!skb)
++		return -ENOMEM;
++
++	if (data)
++		skw_put_skb_data(skb, data, dat_len);
++
++	wcb = SKW_WORK_CB(skb);
++	wcb->iface = iface;
++	wcb->id = id;
++	wcb->name = name;
++
++	skb_queue_tail(&skw->work_data.work_list, skb);
++	schedule_work(&skw->work);
++
++	return 0;
++}
++
++int skw_queue_event_work(struct wiphy *wiphy, struct skw_event_work *work,
++			 struct sk_buff *skb)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	if (!atomic_read(&work->enabled))
++		return -EINVAL;
++
++	skb_queue_tail(&work->qlist, skb);
++
++	if (!work_pending(&work->work))
++		queue_work(skw->event_wq, &work->work);
++
++	return 0;
++}
++
++void skw_work_init(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	skw->work_data.rcu_hdr = NULL;
++	skw->work_data.rcu_tail = &skw->work_data.rcu_hdr;
++
++	spin_lock_init(&skw->work_data.rcu_lock);
++	skb_queue_head_init(&skw->work_data.work_list);
++	INIT_WORK(&skw->work, skw_work);
++	INIT_WORK(&skw->work_unlock, skw_work_unlock);
++}
++
++void skw_work_deinit(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	flush_work(&skw->work_unlock);
++	flush_work(&skw->work);
++	skb_queue_purge(&skw->work_data.work_list);
++}
+diff --git a/drivers/skw6621s/skwifi/skw_work.h b/drivers/skw6621s/skwifi/skw_work.h
+new file mode 100755
+index 0000000..f9b72ed
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/skw_work.h
+@@ -0,0 +1,104 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_WORK_MSG_H__
++#define __SKW_WORK_MSG_H__
++
++struct skw_sg_node {
++	struct scatterlist *sg;
++	int nents;
++	int status;
++	int lmac_id;
++	void *data;
++};
++
++enum SKW_WORK_ID {
++	SKW_WORK_BA_ACTION,
++	SKW_WORK_SCAN_TIMEOUT,
++	SKW_WORK_ACL_CHECK,
++	SKW_WORK_SET_MC_ADDR,
++	SKW_WORK_SET_IP,
++	SKW_WORK_TX_FREE,
++	SKW_WORK_SETUP_TXBA,
++	SKW_WORK_TX_ETHER_DATA,
++	SKW_WORK_RADAR_PULSE,
++	SKW_WORK_RADAR_CAC,
++	SKW_WORK_RADAR_CAC_END,
++	SKW_WORK_IFACE_RPS_INIT,
++	SKW_WORK_SPLIT_MGMT_TX_STATUS,
++};
++
++struct skw_work_cb {
++	struct skw_iface *iface;
++	const u8 *name;
++	u32 id;
++};
++
++struct skw_event_work {
++	atomic_t enabled;
++	struct work_struct work;
++	struct sk_buff_head qlist;
++};
++
++struct skw_mgmt_status {
++	void *mgmt_status_data;
++	int mgmt_status_data_len;
++	u64 mgmt_status_cookie;
++} __packed;
++
++static inline struct skw_work_cb *SKW_WORK_CB(struct sk_buff *skb)
++{
++	return (struct skw_work_cb *)skb->cb;
++}
++
++static inline void skw_event_work_init(struct skw_event_work *work,
++					work_func_t func)
++{
++	atomic_set(&work->enabled, 0);
++	skb_queue_head_init(&work->qlist);
++	INIT_WORK(&work->work, func);
++	atomic_set(&work->enabled, 1);
++}
++
++static inline void skw_event_work_deinit(struct skw_event_work *work)
++{
++	atomic_set(&work->enabled, 0);
++	cancel_work_sync(&work->work);
++	skb_queue_purge(&work->qlist);
++}
++
++int __skw_queue_work(struct wiphy *wiphy, struct skw_iface *iface,
++		     enum SKW_WORK_ID id, void *data,
++		     int dat_len, const u8 *name);
++
++#define skw_queue_work(wiphy, iface, id, data, len) \
++	__skw_queue_work(wiphy, iface, id, data, len, #id)
++
++int skw_queue_event_work(struct wiphy *wiphy, struct skw_event_work *work,
++			 struct sk_buff *skb);
++
++void skw_assert_schedule(struct wiphy *wiphy);
++void skw_unlock_schedule(struct wiphy *wiphy);
++void skw_work_init(struct wiphy *wiphy);
++void skw_work_deinit(struct wiphy *wiphy);
++int skw_init_rps_map(struct skw_iface *iface);
++
++#ifdef CONFIG_SKW6316_GKI_DRV
++void skw_call_rcu(void *skw, struct rcu_head *head, rcu_callback_t func);
++#endif
++
++#endif
+diff --git a/drivers/skw6621s/skwifi/sta_scan_assert.txt b/drivers/skw6621s/skwifi/sta_scan_assert.txt
+new file mode 100755
+index 0000000..6710c4f
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/sta_scan_assert.txt
+@@ -0,0 +1,337 @@
++
++255|console:/vendor_dlkm/lib/modules #
++255|console:/vendor_dlkm/lib/modules #
++255|console:/vendor_dlkm/lib/modules #
++255|console:/vendor_dlkm/lib/modules #
++255|console:/vendor_dlkm/lib/modules # iw wlan0 sacn
++Usage:  iw [options] command
++Options:
++        --debug         enable netlink debugging
++        --version       show version (5.16)
++Commands:
++        help [command]
++                Print usage for all or a specific command, e.g.
++                "help wowlan" or "help wowlan enable".
++
++        event [-t|-T|-r] [-f]
++                Monitor events from the kernel.
++                -t - print timestamp
++                -T - print absolute, human-readable timestamp
++                -r - print relative timestamp
++                -f - print full frame for auth/assoc etc.
++
++        phy <phyname> info
++                Show capabilities for the specified wireless device.
++
++        list
++                List all wireless devices and their capabilities.
++
++        phy
++        commands
++                list all known commands and their decimal & hex value
++
++        features
++
++
++        phy <phyname> channels
++                Show available channels.
++
++        dev <devname> cac channel <channel> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz]
++        dev <devname> cac freq <freq> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz]
++        dev <devname> cac freq <control freq> [5|10|20|40|80|80+80|160] [<center1_freq> [<center2_freq>]]
++        dev <devname> cac trigger channel <channel> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz]
++        dev <devname> cac trigger freq <frequency> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz]
++        dev <devname> cac trigger freq <frequency> [5|10|20|40|80|80+80|160] [<center1_freq> [<center2_freq>]]
++                Start or trigger a channel availability check (CAC) looking to look for
++                radars on the given channel.
++
++        phy <phyname> interface add <name> type <type> [mesh_id <meshid>] [4addr on|off] [flags <flag>*] [addr <mac-addr>]
++                Add a new virtual interface with the given configuration.
++                Valid interface types are: managed, ibss, monitor, mesh, wds.
++
++                The flags are only used for monitor interfaces, valid flags are:
++                none:     no special flags
++                fcsfail:  show frames with FCS errors
++                control:  show control frames
++                otherbss: show frames from other BSSes
++                cook:     use cooked mode
++                active:   use active mode (ACK incoming unicast packets)
++                mumimo-groupid <GROUP_ID>: use MUMIMO according to a group id
++                mumimo-follow-mac <MAC_ADDRESS>: use MUMIMO according to a MAC address
++
++                The mesh_id is used only for mesh mode.
++
++        dev <devname> interface add <name> type <type> [mesh_id <meshid>] [4addr on|off] [flags <flag>*] [addr <mac-addr>]
++        dev <devname> del
++                Remove this virtual interface
++
++        dev <devname> info
++                Show information for this interface.
++
++        dev
++                List all network interfaces for wireless hardware.
++
++        dev <devname> switch freq <freq> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz] [beacons <count>] [block-tx]
++        dev <devname> switch freq <control freq> [5|10|20|40|80|80+80|160] [<center1_freq> [<center2_freq>]] [beacons <count>] [block-tx]
++                Switch the operating channel by sending a channel switch announcement (CSA).
++
++        dev <devname> switch channel <channel> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz] [beacons <count>] [block-tx]
++        dev <devname> ibss leave
++                Leave the current IBSS cell.
++
++        dev <devname> ibss join <SSID> <freq in MHz> [NOHT|HT20|HT40+|HT40-|5MHz|10MHz|80MHz] [fixed-freq] [<fixed bssid>] [beacon-interval <TU>] [basic-rates <rate in Mbps,rate2,...>] [mcast-rate <rate in Mbps>] [key d:0:abcde]
++                Join the IBSS cell with the given SSID, if it doesn't exist create
++                it on the given frequency. When fixed frequency is requested, don't
++                join/create a cell on a different frequency. When a fixed BSSID is
++                requested use that BSSID and do not adopt another cell's BSSID even
++                if it has higher TSF and the same SSID. If an IBSS is created, create
++                it with the specified basic-rates, multicast-rate and beacon-interval.
++
++        dev <devname> station get <MAC address>
++                Get information for a specific station.
++
++        dev <devname> station del <MAC address> [subtype <subtype>] [reason-code <code>]
++                Remove the given station entry (use with caution!)
++                Example subtype values: 0xA (disassociation), 0xC (deauthentication)
++
++        dev <devname> station set <MAC address> plink_action <open|block>
++                Set mesh peer link action for this station (peer).
++
++        dev <devname> station set <MAC address> vlan <ifindex>
++                Set an AP VLAN for this station.
++
++        dev <devname> station set <MAC address> mesh_power_mode <active|light|deep>
++                Set link-specific mesh power mode for this station
++
++        dev <devname> station set <MAC address> airtime_weight <weight>
++                Set airtime weight for this station.
++
++        dev <devname> station set <MAC address> txpwr <auto|limit> [<tx power dBm>]
++                Set Tx power for this station.
++
++        dev <devname> station dump [-v]
++                List all stations known, e.g. the AP on managed interfaces
++
++        dev <devname> survey dump [--radio]
++                List all gathered channel survey data
++
++        dev <devname> ocb join <freq in MHz> <5MHz|10MHz>
++                Join the OCB mode network.
++
++        dev <devname> ocb leave
++                Leave the OCB mode network.
++
++        dev <devname> mesh join <mesh ID> [[freq <freq in MHz> <NOHT|HT20|HT40+|HT40-|80MHz>] [basic-rates <rate in Mbps,rate2,...>]], [mcast-rate <rate in Mbps>] [beacon-interval <time in TUs>] [dtim-period <value>] [vendor_sync on|off] [<param>=<value>]*
++                Join a mesh with the given mesh ID with frequency, basic-rates,
++                mcast-rate and mesh parameters. Basic-rates are applied only if
++                frequency is provided.
++
++        dev <devname> mesh leave
++                Leave a mesh.
++
++        dev <devname> mesh_param dump
++                List all supported mesh parameters
++
++        dev <devname> mpath probe <destination MAC address> frame <frame>
++                Inject ethernet frame to given peer overriding the next hop
++                lookup from mpath table.
++                .Example: iw dev wlan0 mpath probe xx:xx:xx:xx:xx:xx frame 01:xx:xx:00
++
++
++        dev <devname> mpath get <MAC address>
++                Get information on mesh path to the given node.
++
++        dev <devname> mpath del <MAC address>
++                Remove the mesh path to the given node.
++
++        dev <devname> mpath new <destination MAC address> next_hop <next hop MAC address>
++                Create a new mesh path (instead of relying on automatic discovery).
++
++        dev <devname> mpath set <destination MAC address> next_hop <next hop MAC address>
++                Set an existing mesh path's next hop.
++
++        dev <devname> mpath dump
++                List known mesh paths.
++
++        dev <devname> mpp get <MAC address>
++                Get information on mesh proxy path to the given node.
++
++        dev <devname> mpp dump
++                List known mesh proxy paths.
++
++        dev <devname> scan [-u] [freq <freq>*] [duration <dur>] [ies <hex as 00:11:..>] [meshid <meshid>] [lowpri,flush,ap-force,duration-mandatory] [randomise[=<addr>/<mask>]] [ssid <ssid>*|passive]
++                Scan on the given frequencies and probe for the given SSIDs
++                (or wildcard if not given) unless passive scanning is requested.
++                If -u is specified print unknown data in the scan results.
++                Specified (vendor) IEs must be well-formed.
++
++        dev <devname> scan dump [-u]
++                Dump the current scan results. If -u is specified, print unknown
++                data in scan results.
++
++        dev <devname> scan trigger [freq <freq>*] [duration <dur>] [ies <hex as 00:11:..>] [meshid <meshid>] [lowpri,flush,ap-force,duration-mandatory,coloc] [randomise[=<addr>/<mask>]] [ssid <ssid>*|passive]
++                Trigger a scan on the given frequencies with probing for the given
++                SSIDs (or wildcard if not given) unless passive scanning is requested.
++                Duration(in TUs), if specified, will be used to set dwell times.
++
++
++        dev <devname> scan abort
++                Abort ongoing scan
++
++        dev <devname> scan sched_start [interval <in_msecs> | scan_plans [<interval_secs:iterations>*] <interval_secs>] [delay <in_secs>] [freqs <freq>+] [matches [ssid <ssid>]+]] [active [ssid <ssid>]+|passive] [randomise[=<addr>/<mask>]] [coloc] [flush]
++                Start a scheduled scan at the specified interval on the given frequencies
++                with probing for the given SSIDs (or wildcard if not given) unless passive
++                scanning is requested.  If matches are specified, only matching results
++                will be returned.
++
++        dev <devname> scan sched_stop
++                Stop an ongoing scheduled scan.
++
++        reg set <ISO/IEC 3166-1 alpha2>
++                Notify the kernel about the current regulatory domain.
++
++        reg get
++                Print out the kernel's current regulatory domain information.
++
++        phy <phyname> reg get
++                Print out the devices' current regulatory domain information.
++
++        reg reload
++                Reload the kernel's regulatory database.
++
++        dev <devname> disconnect
++                Disconnect from the current network.
++
++        dev <devname> connect [-w] <SSID> [<freq in MHz>] [<bssid>] [auth open|shared] [key 0:abcde d:1:6162636465] [mfp:req/opt/no]
++                Join the network with the given SSID (and frequency, BSSID).
++                With -w, wait for the connect to finish or fail.
++
++        dev <devname> auth <SSID> <bssid> <type:open|shared> <freq in MHz> [key 0:abcde d:1:6162636465]
++                Authenticate with the given network.
++
++
++        dev <devname> link
++                Print information about the current link, if any.
++
++        dev <devname> offchannel <freq> <duration>
++                Leave operating channel and go to the given channel for a while.
++
++        dev <devname> cqm rssi <threshold|off> [<hysteresis>]
++                Set connection quality monitor RSSI threshold.
++
++
++        phy <phyname> wowlan enable [any] [disconnect] [magic-packet] [gtk-rekey-failure] [eap-identity-request] [4way-handshake] [rfkill-release] [net-detect [interval <in_msecs> | scan_plans [<interval_secs:iterations>*] <interval_secs>] [delay <in_secs>] [freqs <freq>+] [matches [ssid <ssid>]+]] [active [ssid <ssid>]+|passive] [randomise[=<addr>/<mask>]] [coloc] [flush]] [tcp <config-file>] [patterns [offset1+]<pattern1> ...]
++                Enable WoWLAN with the given triggers.
++                Each pattern is given as a bytestring with '-' in places where any byte
++                may be present, e.g. 00:11:22:-:44 will match 00:11:22:33:44 and
++                00:11:22:33:ff:44 etc.
++                Offset and pattern should be separated by '+', e.g. 18+43:34:00:12 will match '43:34:00:12' after 18 bytes of offset in Rx packet.
++
++                The TCP configuration file contains:
++                  source=ip[:port]
++                  dest=ip:port@mac
++                  data=<hex data packet>
++                  data.interval=seconds
++                  [wake=<hex packet with masked out bytes indicated by '-'>]
++                  [data.seq=len,offset[,start]]
++                  [data.tok=len,offset,<token stream>]
++
++                Net-detect configuration example:
++                 iw phy0 wowlan enable net-detect interval 5000 delay 30 freqs 2412 2422 matches ssid foo ssid bar
++
++        phy <phyname> wowlan disable
++                Disable WoWLAN.
++
++        phy <phyname> wowlan show
++                Show WoWLAN status.
++
++        phy <phyname> coale [ 1528.933854] usb 1-1: USB disconnect, device number 9
++[ 1528.935416] [SKWUSB INFO] skw_usb_io_disconnect: interface[0] disconnected 1
++[ 1528.937200] [SKWUSB INFO] bulkin_async_complete: endpoint2 actual = 0 status -71
++[ 1528.937388] [SKWUSB ERROR] usb_handle:  bulkin read status=-71 state=1
++[ 1528.941439] [SKWUSB INFO] bulkin_async_complete: endpoint2 actual = 0 status -108
++[ 1528.941584] [SKWUSB INFO] bulkin_async_complete: endpoint2 actual = 0 status -108
++[ 1528.941682] [SKWUSB ERROR] usb_handle:  bulkin read status=-108 state=1
++[ 1528.941931] [SKWUSB INFO] skw_usb_io_disconnect: interface[1] disconnected 1
++[ 1528.942368] [SKWUSB INFO] usb_port_async_entry:  port 1 stoped
++[ 1528.999223] [SKWUSB INFO] skw_usb_io_disconnect: interface[2] disconnected 1
++[ 1529.000266] [SKWBOOT]:skw_ucom_remove: ucom00000000d61ddecc BTCMD(0x1fe00003) -- open_count=0
++[ 1529.005616] [SKWUSB INFO] skw_usb_io_disconnect: interface[3] disconnected 1
++[ 1529.005804] [SKWBOOT]:skw_ucom_remove: ucom0000000045e38b2d BTISOC(0x1fe00004) -- open_count=0
++[ 1529.008328] [SKWUSB INFO] skw_usb_io_disconnect: interface[4] disconnected 1
++[ 1529.008487] [SKWBOOT]:skw_bt_state_event_deinit :275 release the notifier
++[ 1529.009035] [SKWBOOT]:skw_ucom_remove: ucom000000006858cb42 ATC(0x1fe00005) -- open_count=0
++[ 1529.013166] [SKWUSB INFO] skw_usb_io_disconnect: interface[5] disconnected 1
++[ 1529.013340] [SKWLOG]:skw_modem_log_exit enter
++[ 1529.013360] [SKWBOOT]:skw_ucom_remove: ucom00000000411b0642 LOG(0x1fe00006) -- open_count=0
++[ 1529.016778] [SKWUSB INFO] skw_usb_io_disconnect: interface[6] disconnected 1
++[ 1529.023210] [SKWUSB INFO] usb_loopcheck_entry:  -port6 is stopped
++[ 1530.817095] usb 1-1: new high-speed USB device number 10 using ehci-platform
++[ 1530.967496] usb 1-1: New USB device found, idVendor=3607, idProduct=6621, bcdDevice= 2.00
++[ 1530.967692] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
++[ 1530.967741] usb 1-1: Product: SV6160LITE
++[ 1530.967787] usb 1-1: Manufacturer: SeekWave
++[ 1530.967831] usb 1-1: SerialNumber: 00001
++[ 1530.983532] cdc_acm 1-1:1.0: Zero length descriptor references
++[ 1530.983741] cdc_acm: probe of 1-1:1.0 failed with error -22
++[ 1530.984345] [SKWUSB INFO] skw_usb_io_probe: schedule boot-work: 0x2fefc:0x57c80
++[ 1530.997538] usb 1-1: dloader connect susscess...
++[ 1531.347387] [SKWIFID INFO] skw_bsp_notifier: action: 8, skw flags: 0x9700, nf_flags: 0x0
++[ 1531.347593] [SKWBOOT]:skw_stop_wifi_service Enter cp_state =0
++[ 1531.347646] [SKWUSB INFO] skw_boot_loader: status:1 , chip_en_gpio=9, gpio_in=10
++[ 1531.347660] [SKWUSB INFO] skw_WIFI_service_stop: Enter,STOPWIFI--- modem status 1, 0x1
++[ 1531.347728] [SKWBOOT]:seekwave boot stop done:skw_stop_wifi_service
++[ 1531.349030] usb 1-1: USB disconnect, device number 10
++[ 1531.350541] [SKWUSB INFO] skw_usb_io_disconnect: interface[0] disconnected 1
++[ 1531.620457] usb 1-1: new high-speed USB device number 11 using ehci-platform
++[ 1531.770663] usb 1-1: New USB device found, idVendor=3607, idProduct=6621, bcdDevice= 2.00
++[ 1531.770837] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
++[ 1531.770886] usb 1-1: Product: SV6160.11
++[ 1531.770931] usb 1-1: Manufacturer: SEEK-Wave Co.Ltd
++[ 1531.770976] usb 1-1: SerialNumber: 6160
++[ 1531.789146] cdc_acm 1-1:1.0: Zero length descriptor references
++[ 1531.789358] cdc_acm: probe of 1-1:1.0 failed with error -22
++[ 1531.793384] cdc_acm 1-1:1.1: Zero length descriptor references
++[ 1531.793525] cdc_acm: probe of 1-1:1.1 failed with error -22
++[ 1531.809776] cdc_acm 1-1:1.2: Zero length descriptor references
++[ 1531.809926] cdc_acm: probe of 1-1:1.2 failed with error -22
++[ 1531.821542] cdc_acm 1-1:1.3: Zero length descriptor references
++[ 1531.821645] cdc_acm: probe of 1-1:1.3 failed with error -22
++[ 1531.827646] cdc_acm 1-1:1.4: Zero length descriptor references
++[ 1531.827749] cdc_acm: probe of 1-1:1.4 failed with error -22
++[ 1531.839401] [SKWLOG]:skw_bt_state_event_init enter  ret=0
++[ 1531.843303] cdc_acm 1-1:1.5: Zero length descriptor references
++[ 1531.843416] cdc_acm: probe of 1-1:1.5 failed with error -22
++[ 1531.849130] cdc_acm 1-1:1.6: Zero length descriptor references
++[ 1531.849231] cdc_acm: probe of 1-1:1.6 failed with error -22
++[ 1532.057548] [SKWUSB INFO] usb_loopcheck_entry: recv(60):SV6160LITE trunk_W23.20.2-rev35182-rev35626-rev35372 20250427-15:04:18
++[ 1532.057548]
++[ 1532.057679] [SKWIFID INFO] skw_bsp_notifier: action: 1, skw flags: 0x9701, nf_flags: 0x1
++[ 1532.057750] [SKWBOOT]:BT BSPREADY EVENT Comming in !!!!
++[ 1532.057958] [SKWIFID INFO] skw_recovery_work: start
++[ 1532.058435] [SKWBOOT]:skw_start_wifi_service Enter cp_state =0
++[ 1532.058500] [SKWBOOT]:skw_download_signal_ops line:765 download data ops done the dl_count=6
++[ 1532.058799] [SKWUSB INFO] skw_boot_loader: status:1 , chip_en_gpio=9, gpio_in=10
++[ 1532.058808] [SKWBOOT]:skw_start_wifi_service wifi boot sucessfull
++[ 1532.058865] [SKWUSB INFO] skw_WIFI_service_start: Enter STARTWIFI---modem_status=1, 0x0
++[ 1532.059134] [SKWUSB INFO] send_modem_service_command: (0,16384) cp_state= 0
++[ 1532.059757] [SKWUSB INFO] send_modem_service_command: ret = 0
++[ 1532.060654] [SKWUSB INFO] usb_loopcheck_entry: recv(9):SV6160LITE WIFIREADY
++[ 1532.060721] [SKWIFID DBG] skw_register_rx_callback: register cmd port: 0, data port bitmap: 0x2
++[ 1532.060750] [SKWIFID DBG] skw_hw_xmit_init: dma: 3
++[ 1532.060778] [SKWIFID DBG] skw_register_tx_callback: chip: 1, register data port: 0x2
++[ 1532.117108] [SKWUSB INFO] usb_port_async_entry:  port 1 running packet 12 SV6160LITE 0x2...
++[ 1532.120178] [SKWIFID DBG] skw_set_link_loss_mib: beacon to: 6
++[ 1532.121180] [SKWIFID DBG] skw_set_24ghz_band_mib: 24ghz_band: 1
++[ 1532.122160] [SKWIFID DBG] skw_util_set_mib_enable: set 131 mib:0
++[ 1532.123118] [SKWIFID DBG] skw_sync_chip_info: efuse mac: 49:9e:5a:da:fa:9f, invalid
++[ 1532.123147] [SKWIFID DBG] skw_calib_download: fw file: SWT6621S_SEEKWAVE_R04001.bin
++[ 1532.123415] [SKWIFID DBG] skw_calib_bin_download: file size: 2372
++[ 1532.123429] [SKWIFID DBG] skw_calib_bin_download: bb_file remain: 1860, seq: 0 len: 512 end: 0
++[ 1532.124253] [SKWIFID DBG] skw_calib_bin_download: bb_file remain: 1348, seq: 1 len: 512 end: 0
++[ 1532.125157] [SKWIFID DBG] skw_calib_bin_download: bb_file remain: 836, seq: 2 len: 512 end: 0
++[ 1532.125670] [SKWIFID DBG] skw_calib_bin_download: bb_file remain: 324, seq: 3 len: 512 end: 0
++[ 1532.126202] [SKWIFID DBG] skw_calib_bin_download: bb_file remain: 0, seq: 4 len: 324 end: 1
++[ 1532.183653] [SKWIFID INFO] skw_recovery_iface: STA: inst: 0
++[ 1532.183734] [SKWIFID DBG] skw_cmd_open_dev: STA, inst: 0, mac: fe:fd:fc:7c:16:d5, flags: 0x0
++[ 1532.184818] [SKWIFID DBG] skw_recovery_work: end 0
+diff --git a/drivers/skw6621s/skwifi/trace.c b/drivers/skw6621s/skwifi/trace.c
+new file mode 100755
+index 0000000..a460494
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/trace.c
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/module.h>
++
++#ifndef __CHECKER__
++#include <linux/ieee80211.h>
++#include <linux/nl80211.h>
++#include <net/cfg80211.h>
++
++#define CREATE_TRACE_POINTS
++#include "trace.h"
++
++#endif
+diff --git a/drivers/skw6621s/skwifi/trace.h b/drivers/skw6621s/skwifi/trace.h
+new file mode 100755
+index 0000000..21ecd8a
+--- /dev/null
++++ b/drivers/skw6621s/skwifi/trace.h
+@@ -0,0 +1,684 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#if !defined(__SKW_TRACE_H__) || defined(TRACE_HEADER_MULTI_READ)
++#define __SKW_TRACE_H__
++
++#include <linux/tracepoint.h>
++#include <linux/etherdevice.h>
++#include <linux/version.h>
++
++#include "skw_rx.h"
++#include "skw_msg.h"
++
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM skwifi
++
++TRACE_EVENT(skw_tx_add_credit,
++	    TP_PROTO(int mac, int cred),
++	    TP_ARGS(mac, cred),
++
++	    TP_STRUCT__entry(
++	    __field(int, mac)
++	    __field(int, cred)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->mac = mac;
++	    __entry->cred = cred;
++	    ),
++
++	    TP_printk("mac: %d, credit: %d", __entry->mac, __entry->cred)
++);
++
++TRACE_EVENT(skw_tx_xmit,
++	    TP_PROTO(u8 *mac, int peer_idx, int ip_prot, int fix_rate,
++		     int do_csum, int tid, int qlen),
++	    TP_ARGS(mac, peer_idx, ip_prot, fix_rate, do_csum, tid, qlen),
++	    TP_STRUCT__entry(
++	    __array(u8, dest, ETH_ALEN)
++	    __field(int, peer_idx)
++	    __field(int, ip_prot)
++	    __field(int, fix_rate)
++	    __field(int, do_csum)
++	    __field(int, tid)
++	    __field(int, qlen)
++	    ),
++
++	    TP_fast_assign(
++	    memcpy(__entry->dest, mac, ETH_ALEN);
++	    __entry->peer_idx = peer_idx;
++	    __entry->ip_prot = ip_prot;
++	    __entry->fix_rate = fix_rate;
++	    __entry->do_csum = do_csum;
++	    __entry->tid = tid;
++	    __entry->qlen = qlen;
++	    ),
++
++	    TP_printk("dest: %pM, peer: %d, ip_prot: %d, fix rate: %d, csum: %d, queue[%d]: %d",
++		      __entry->dest, __entry->peer_idx, __entry->ip_prot,
++		      __entry->fix_rate, __entry->do_csum,
++		      __entry->tid, __entry->qlen)
++);
++
++TRACE_EVENT(skw_tx_info,
++	    TP_PROTO(int mac, int ac, int cred, int tx_count, int qlen, int pending_qlen),
++	    TP_ARGS(mac, ac, cred, tx_count, qlen, pending_qlen),
++
++	    TP_STRUCT__entry(
++	    __field(int, mac)
++	    __field(int, ac)
++	    __field(int, cred)
++	    __field(int, tx_count)
++	    __field(int, qlen)
++		__field(int, pending_qlen)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->mac = mac;
++	    __entry->ac = ac;
++	    __entry->cred = cred;
++	    __entry->tx_count = tx_count;
++	    __entry->qlen = qlen;
++		__entry->pending_qlen = pending_qlen;
++	    ),
++
++	    TP_printk("mac: %d, ac: %d, credit: %d, qlen: %d, tx count: %d pending_qlen:%d",
++		      __entry->mac, __entry->ac, __entry->cred,
++		      __entry->qlen, __entry->tx_count, __entry->pending_qlen)
++);
++
++TRACE_EVENT(skw_tx_exit_check,
++	TP_PROTO(int mac, int credit, int pending_qlen),
++	TP_ARGS(mac, credit, pending_qlen),
++
++	TP_STRUCT__entry(
++	__field(int, mac)
++	__field(int, credit)
++	__field(int, pending_qlen)
++	),
++
++	TP_fast_assign(
++	__entry->mac = mac;
++	__entry->credit = credit;
++	__entry->pending_qlen = pending_qlen;
++	),
++
++	TP_printk("mac: %d, credit: %d pending_qlen:%d",
++		  __entry->mac, __entry->credit, __entry->pending_qlen)
++);
++
++TRACE_EVENT(skw_txlp_tx_list,
++	    TP_PROTO(s8 *name, int id),
++	    TP_ARGS(name, id),
++
++	    TP_STRUCT__entry(
++	    __field(s8 *, name)
++		__field(int, id)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->name = name;
++		__entry->id = id;
++	    ),
++
++	    TP_printk("name: %s, iface id:%d",
++		      __entry->name, __entry->id)
++);
++
++TRACE_EVENT(skw_txlp_mac,
++	    TP_PROTO(int mac, int cred, int current_qlen, int base),
++	    TP_ARGS(mac, cred, current_qlen, base),
++
++	    TP_STRUCT__entry(
++		__field(int, mac)
++		__field(int, cred)
++		__field(int, current_qlen)
++		__field(int, base)
++	    ),
++
++	    TP_fast_assign(
++		__entry->mac = mac;
++		__entry->cred = cred;
++		__entry->current_qlen = current_qlen;
++		__entry->base = base;
++	    ),
++
++	    TP_printk("mac:%d, cred:%d, current_qlen:%d, base:%d",
++			  __entry->mac,
++			  __entry->cred,
++			  __entry->current_qlen,
++			  __entry->base)
++);
++
++TRACE_EVENT(skw_txq_prepare,
++	    TP_PROTO(s8 *name, int qlen),
++	    TP_ARGS(name, qlen),
++
++	    TP_STRUCT__entry(
++	    __field(s8 *, name)
++		__field(int, qlen)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->name = name;
++		__entry->qlen = qlen;
++	    ),
++
++	    TP_printk("name: %s, qlen:%d",
++		      __entry->name, __entry->qlen)
++);
++
++TRACE_EVENT(skw_get_credit,
++	    TP_PROTO(int credit, int mac),
++	    TP_ARGS(credit, mac),
++
++	    TP_STRUCT__entry(
++		__field(int, credit)
++		__field(int, mac)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->credit = credit;
++		__entry->mac = mac;
++	    ),
++
++	    TP_printk("credit: %d, mac:%d",
++		      __entry->credit, __entry->mac)
++);
++
++#if 0
++TRACE_EVENT(skw_tx_thread,
++	    TP_PROTO(u32 cred, u32 nents, u32 tx_data_len, u32 tx_buff_len, u8 *tx_ac, u32 *cached),
++	    TP_ARGS(cred, nents, tx_data_len, tx_buff_len, tx_ac, cached),
++
++	    TP_STRUCT__entry(
++	    __field(u32, cred)
++	    __field(u32, nents)
++	    __field(u32, tx_data_len)
++	    __field(u32, tx_buff_len)
++	    __array(u8, tx_ac, SKW_WMM_AC_MAX)
++	    __array(u32, cached, SKW_WMM_AC_MAX)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->cred = cred;
++	    __entry->nents = nents;
++	    __entry->tx_data_len = tx_data_len;
++	    __entry->tx_buff_len = tx_buff_len;
++	    memcpy(__entry->tx_ac, tx_ac, sizeof(u32) * SKW_WMM_AC_MAX);
++	    memcpy(__entry->cached, cached, sizeof(u32) * SKW_WMM_AC_MAX);
++	    ),
++
++	    TP_printk("creds: %d, tx: %d, len: %d/%d, VO[%d:%d] VI[%d:%d] BE[%d:%d] BK[%d:%d]",
++		      __entry->cred, __entry->nents,
++		      __entry->tx_data_len,
++		      __entry->tx_buff_len,
++
++		      __entry->tx_ac[SKW_WMM_AC_VO],
++		      __entry->cached[SKW_WMM_AC_VO],
++
++		      __entry->tx_ac[SKW_WMM_AC_VI],
++		      __entry->cached[SKW_WMM_AC_VI],
++
++		      __entry->tx_ac[SKW_WMM_AC_BE],
++		      __entry->cached[SKW_WMM_AC_BE],
++
++		      __entry->tx_ac[SKW_WMM_AC_BK],
++		      __entry->cached[SKW_WMM_AC_BK])
++);
++
++TRACE_EVENT(skw_tx_thread_ret,
++	    TP_PROTO(int ret, u32 pending_qlen, u32 ac_reset),
++	    TP_ARGS(ret, pending_qlen, ac_reset),
++
++	    TP_STRUCT__entry(
++	    __field(int, ret)
++	    __field(u32, pending_qlen)
++	    __field(u32, ac_reset)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->ret = ret;
++	    __entry->pending_qlen = pending_qlen;
++	    __entry->ac_reset = ac_reset;
++	    ),
++
++	    TP_printk("ret: %d, pending: %d, ac_reset: 0x%x",
++		      __entry->ret, __entry->pending_qlen, __entry->ac_reset)
++);
++
++#endif
++
++TRACE_EVENT(skw_tx_runing,
++	    TP_PROTO(int tx, int pending_qlen, long timeout, int keep_running),
++	    TP_ARGS(tx, pending_qlen, timeout, keep_running),
++
++	    TP_STRUCT__entry(
++	    __field(int, tx)
++	    __field(int, pending_qlen)
++	    __field(long, timeout)
++	    __field(int, keep_running)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->tx = tx;
++	    __entry->pending_qlen = pending_qlen;
++	    __entry->timeout = timeout;
++	    __entry->keep_running = keep_running;
++	    ),
++
++	    TP_printk("tx: %d, pending_qlen: %d, timeout: %ld, pending_qlen: %d",
++		      __entry->tx, __entry->pending_qlen,
++		      __entry->timeout, __entry->keep_running)
++);
++
++TRACE_EVENT(skw_tx_pcie_edma_free,
++	    TP_PROTO(u16 count),
++	    TP_ARGS(count),
++
++	    TP_STRUCT__entry(
++	    __field(u16, count)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->count = count;
++	    ),
++
++	    TP_printk("count: %u",
++		      __entry->count)
++);
++
++TRACE_EVENT(skw_rx_set_reorder_timer,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 seq, unsigned long rx_time, unsigned long timeout),
++	    TP_ARGS(inst, pid, tid, seq, rx_time, timeout),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, seq)
++	    __field(unsigned long, rx_time)
++	    __field(unsigned long, timeout)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->seq = seq;
++	    __entry->rx_time = rx_time;
++	    __entry->timeout = timeout;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, seq: %d, rx_time: %ld, timeout: %ld",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->seq,
++		      __entry->rx_time, __entry->timeout)
++);
++
++TRACE_EVENT(skw_rx_reorder_timeout,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 expired_sn),
++	    TP_ARGS(inst, pid, tid, expired_sn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, expired_sn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->expired_sn = expired_sn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, expired_sn: %d",
++		    __entry->inst, __entry->pid,
++		    __entry->tid, __entry->expired_sn)
++);
++
++TRACE_EVENT(skw_rx_expired_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 expired_sn),
++	    TP_ARGS(inst, pid, tid, expired_sn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, expired_sn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->expired_sn = expired_sn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, expired_sn: %d",
++		    __entry->inst, __entry->pid,
++		    __entry->tid, __entry->expired_sn)
++);
++
++TRACE_EVENT(skw_rx_data,
++	    TP_PROTO(u8 inst, u8 pid, u8 tid, u8 filter, u16 seq, u8 qos,
++		     u8 retry, u8 amsdu, u8 idx, u8 first, u8 last, bool fake_ack),
++	    TP_ARGS(inst, pid, tid, filter, seq, qos, retry, amsdu,
++		    idx, first, last, fake_ack),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u8, tid)
++	    __field(u8, filter)
++	    __field(u16, seq)
++	    __field(u8, qos)
++	    __field(u8, retry)
++	    __field(u8, amsdu)
++	    __field(u8, idx)
++	    __field(u8, first)
++	    __field(u8, last)
++	    __field(bool, fake_ack)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->filter = filter;
++	    __entry->seq = seq;
++	    __entry->qos = qos;
++	    __entry->retry = retry;
++	    __entry->amsdu = amsdu;
++	    __entry->idx = idx;
++	    __entry->first = first;
++	    __entry->last = last;
++	    __entry->fake_ack = fake_ack;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, filter: %d, seq: %d, qos: %d, "
++		      "retry: %d, amsdu: %d, idx: %d(F: %d, L: %d), fake ack: %d",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->filter,
++		      __entry->seq, __entry->qos,
++		      __entry->retry, __entry->amsdu,
++		      __entry->idx, __entry->first,
++		      __entry->last, __entry->fake_ack)
++);
++
++TRACE_EVENT(skw_rx_reorder,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 sn, u8 is_amsdu, u8 amsdu_idx,
++		     u16 win_size, u16 win_start, u32 stored_num,
++		     bool release, bool drop),
++	    TP_ARGS(inst, pid, tid, sn, is_amsdu, amsdu_idx, win_size,
++		    win_start, stored_num, release, drop),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, sn)
++	    __field(u8, is_amsdu)
++	    __field(u8, amsdu_idx)
++	    __field(u16, win_size)
++	    __field(u16, win_start)
++	    __field(u32, stored_num)
++	    __field(bool, release)
++	    __field(bool, drop)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->sn = sn;
++	    __entry->is_amsdu = is_amsdu;
++	    __entry->amsdu_idx = amsdu_idx;
++	    __entry->win_size = win_size;
++	    __entry->win_start = win_start;
++	    __entry->stored_num = stored_num;
++	    __entry->release = release;
++	    __entry->drop = drop;
++	    ),
++
++	    TP_printk("ssn: %d, sn: %d (%d, %d), release: %d, drop: %d, stored: %d, "
++		      "I: %d, P: %d, T: %d, win_sz: %d, amsdu: %d, idx: %d",
++		      __entry->win_start, __entry->sn,
++		      __entry->win_start % __entry->win_size,
++		      __entry->sn % __entry->win_size,
++		      __entry->release, __entry->drop,
++		      __entry->stored_num,
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->win_size,
++		      __entry->is_amsdu, __entry->amsdu_idx)
++);
++
++TRACE_EVENT(skw_rx_reorder_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 win_start, u16 seq, u16 index, u16 ssn, u16 left),
++	    TP_ARGS(inst, pid, tid, win_start, seq, index, ssn, left),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, win_start)
++	    __field(u16, seq)
++	    __field(u16, index)
++	    __field(u16, ssn)
++	    __field(u16, left)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->win_start = win_start;
++	    __entry->seq = seq;
++	    __entry->index = index;
++	    __entry->ssn = ssn;
++	    __entry->left = left;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, win start: %d, seq: %d (index: %d), ssn: %d, left: %d",
++		      __entry->inst, __entry->pid, __entry->tid, __entry->win_start,
++		      __entry->seq, __entry->index, __entry->ssn, __entry->left)
++);
++
++TRACE_EVENT(skw_rx_force_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 index, u16 ssn, u16 target, u16 left, int reason),
++	    TP_ARGS(inst, pid, tid, index, ssn, target, left, reason),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, index)
++	    __field(u16, ssn)
++	    __field(u16, target)
++	    __field(u16, left)
++	    __field(int, reason)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->index = index;
++	    __entry->ssn = ssn;
++	    __entry->target = target;
++	    __entry->left = left;
++	    __entry->reason = reason;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, seq: %d(index: %d), target: %d, left: %d, reason: %d",
++		    __entry->inst, __entry->pid, __entry->tid,
++		    __entry->ssn, __entry->index, __entry->target,
++		    __entry->left, __entry->reason)
++);
++
++TRACE_EVENT(skw_rx_handler_seq,
++	    TP_PROTO(u16 sn, u8 msdu_filter),
++	    TP_ARGS(sn, msdu_filter),
++
++	    TP_STRUCT__entry(
++	    __field(u16, sn)
++	    __field(u8, msdu_filter)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->sn = sn;
++	    __entry->msdu_filter = msdu_filter;
++	    ),
++
++	    TP_printk("seq: %d msdu_filter: %u",
++		    __entry->sn, __entry->msdu_filter)
++);
++
++TRACE_EVENT(skw_rx_add_ba,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 ssn, u16 buf_size),
++	    TP_ARGS(inst, pid, tid, ssn, buf_size),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, ssn)
++	    __field(u16, buf_size)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->ssn = ssn;
++	    __entry->buf_size = buf_size;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d,  ssn: %d, buf_size: %d",
++		      __entry->inst, __entry->pid, __entry->tid,
++		      __entry->ssn, __entry->buf_size)
++);
++
++TRACE_EVENT(skw_rx_update_ba,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 ssn),
++	    TP_ARGS(inst, pid, tid, ssn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, ssn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->ssn = ssn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, ssn: %d",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->ssn)
++);
++
++TRACE_EVENT(skw_rx_del_ba,
++	    TP_PROTO(u16 tid),
++	    TP_ARGS(tid),
++
++	    TP_STRUCT__entry(
++	    __field(u16, tid)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->tid = tid;
++	    ),
++
++	    TP_printk("del ba, tid: %d", __entry->tid)
++);
++
++TRACE_EVENT(skw_rx_irq,
++	    TP_PROTO(int nents, int idx,  int port, int len),
++	    TP_ARGS(nents, idx, port, len),
++
++	    TP_STRUCT__entry(
++	    __field(int, nents)
++	    __field(int, idx)
++	    __field(int, port)
++	    __field(int, len)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->nents = nents;
++	    __entry->idx = idx;
++	    __entry->port = port;
++	    __entry->len = len;
++	    ),
++
++	    TP_printk("nents: %d, idx: %d, port: %d, len: %d",
++		      __entry->nents, __entry->idx,
++		      __entry->port, __entry->len)
++);
++
++TRACE_EVENT(skw_msg_rx,
++	    TP_PROTO(u8 inst, u8 type, u16 id, u16 seq, u16 len),
++	    TP_ARGS(inst, type, id, seq, len),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, type)
++	    __field(u16, id)
++	    __field(u16, seq)
++	    __field(u16, len)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->type = type;
++	    __entry->id = id;
++	    __entry->seq = seq;
++	    __entry->len = len;
++	    ),
++
++	    TP_printk("inst: %d, type: %d, id: %d, seq: %d, len: %d",
++		      __entry->inst, __entry->type, __entry->id,
++		      __entry->seq, __entry->len)
++);
++
++TRACE_EVENT(skw_hw_adma_tx_done,
++	TP_PROTO(u8 num),
++	TP_ARGS(num),
++
++	TP_STRUCT__entry(__field(u8, num)),
++
++	TP_fast_assign(__entry->num = num;),
++
++	TP_printk("num:%d", __entry->num)
++);
++
++#endif
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE trace
++
++#include <trace/define_trace.h>
+-- 
+2.34.1
+

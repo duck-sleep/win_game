@@ -1,0 +1,37 @@
+From f8e2ad6af170ba9051b13c4dbf0b2e112dc53123 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 26 May 2026 15:29:52 +0800
+Subject: [PATCH 7/7] debian: add onboard package, wireplumber restart, and
+ overlay files
+
+- Install onboard (on-screen keyboard) in rootfs
+- Restart wireplumber after boot for audio
+- Add kickpi-resume.sh for resume hooks
+- Add overlay files for linaro user config (autostart, onboard)
+- Add skel directory
+- Update .gitignore for rootfs images
+
+Origin: kickpi e7103ea3c98d11f135259a3912e788164efe0435
+---
+ .gitignore | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 34ddd04..619ced3 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -4,9 +4,11 @@ device/rockchip/rk3566_rk3568
+ device/rockchip/rk3588
+ device/rockchip/.BoardConfig.mk
+ debian/binary/
++debian/linaro-rootfs.img
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
+ ubuntu/binary/
++ubuntu/ubuntu-rootfs.img
+ ubuntu/ubuntu-base-*.tar.gz
+ ubuntu/ubuntu-noble-*.tar.gz
+ ubuntu/history.txt
+-- 
+2.34.1
+

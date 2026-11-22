@@ -1,0 +1,25 @@
+From 45625cfda8d2d6638a15bbe43ad636bd98749ee0 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Mon, 25 May 2026 14:18:51 +0800
+Subject: [PATCH 39/50] feat(ch340): add ch340 defconfig
+
+Origin: kickpi c46502724b02727429a369c2408f262a3a6ba423
+---
+ arch/arm64/configs/rockchip_linux_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 0aa620d..3abd514 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -491,6 +491,7 @@ CONFIG_USB_SERIAL_OTI6858=y
+ CONFIG_USB_SERIAL_QUALCOMM=y
+ CONFIG_USB_SERIAL_SIERRAWIRELESS=y
+ CONFIG_USB_SERIAL_OPTION=y
++CONFIG_USB_SERIAL_CH341=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_GADGET_DEBUG_FILES=y
+ CONFIG_USB_GADGET_VBUS_DRAW=500
+-- 
+2.34.1
+

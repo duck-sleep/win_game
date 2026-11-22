@@ -1,0 +1,45 @@
+From 8387ee8e2e2a490ceea3676321e2cba1685eef25 Mon Sep 17 00:00:00 2001
+From: xie <swxie@kickpi.com>
+Date: Fri, 10 Jul 2026 11:30:46 +0800
+Subject: [PATCH 34/34] feat(K8C): add K8C (RK3588+LPDDR5) board support for
+ Linux
+
+Add BoardConfig defconfigs (debian/ubuntu) and kernel DTS files for
+K8C board in rk-linux6.1 SDK, ported from android14 adaptation.
+
+- Board defconfig: rockchip_rk3588_kickpi_k8c_debian/ubuntu_defconfig
+- Kernel DTS: rk3588-kickpi-k8c-linux.dts, rk3588-kickpi-k8c.dtsi,
+  rk3588-kickpi-k8c-evb.dtsi (RK806 PMIC, CPU/NPU regulators, SDMMC)
+- DTS add-ons: gmac0/1 (dual RTL8211F RGMII), PCIe (M.2, combphy),
+  30-pin extension header (SPI0, PWM12, CAN1, UART1/4/6, I2C4/8),
+  HDMI1 output
+
+Origin: kickpi f5fd0034ed5b981a6e180ea1aa7ee4d8120515d2
+---
+ .chips/rk3588/rockchip_rk3588_kickpi_k8c_debian_defconfig | 3 +++
+ .chips/rk3588/rockchip_rk3588_kickpi_k8c_ubuntu_defconfig | 3 +++
+ 2 files changed, 6 insertions(+)
+ create mode 100755 device/rockchip/.chips/rk3588/rockchip_rk3588_kickpi_k8c_debian_defconfig
+ create mode 100755 device/rockchip/.chips/rk3588/rockchip_rk3588_kickpi_k8c_ubuntu_defconfig
+
+diff --git a/.chips/rk3588/rockchip_rk3588_kickpi_k8c_debian_defconfig b/.chips/rk3588/rockchip_rk3588_kickpi_k8c_debian_defconfig
+new file mode 100755
+index 0000000..186088a
+--- /dev/null
++++ b/.chips/rk3588/rockchip_rk3588_kickpi_k8c_debian_defconfig
+@@ -0,0 +1,3 @@
++RK_KERNEL_DTS_NAME="rk3588-kickpi-k8c-linux"
++RK_ROOTFS_SYSTEM=debian
++RK_ROOTFS_SYSTEM_DEBIAN=y
+diff --git a/.chips/rk3588/rockchip_rk3588_kickpi_k8c_ubuntu_defconfig b/.chips/rk3588/rockchip_rk3588_kickpi_k8c_ubuntu_defconfig
+new file mode 100755
+index 0000000..bf9a9e7
+--- /dev/null
++++ b/.chips/rk3588/rockchip_rk3588_kickpi_k8c_ubuntu_defconfig
+@@ -0,0 +1,3 @@
++RK_KERNEL_DTS_NAME="rk3588-kickpi-k8c-linux"
++RK_ROOTFS_SYSTEM=ubuntu
++RK_ROOTFS_SYSTEM_UBUNTU=y
+-- 
+2.34.1
+

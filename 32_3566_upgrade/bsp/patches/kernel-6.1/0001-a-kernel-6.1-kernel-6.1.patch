@@ -1,0 +1,739 @@
+From 34f85efdeef3d39801a20d98a324428e042fe066 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:30:11 -0500
+Subject: [PATCH] kernel-6.1: kernel-6.1
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/rk/kernel-stable@b4ef083dc0c3608e744deabb43dc6b781aadbe6e, path kernel-6.1
+---
+ .gitignore                                    |  2 +
+ .scmversion                                   |  0
+ Documentation/devicetree/bindings/.yamllint   | 39 --------
+ arch/alpha/boot/bootloader.lds                | 25 -----
+ arch/arm/boot/bootp/bootp.lds                 | 27 ------
+ arch/ia64/scripts/check-segrel.lds            | 13 ---
+ arch/m68k/kernel/vmlinux-nommu.lds            | 94 -------------------
+ arch/m68k/kernel/vmlinux-std.lds              | 66 -------------
+ arch/m68k/kernel/vmlinux-sun3.lds             | 59 ------------
+ arch/powerpc/platforms/44x/ppc476_modules.lds | 15 ---
+ drivers/clk/.kunitconfig                      |  5 -
+ drivers/firmware/efi/libstub/zboot.lds        | 46 ---------
+ drivers/gpu/drm/tests/.kunitconfig            |  3 -
+ drivers/hid/.kunitconfig                      |  6 --
+ fs/ext4/.kunitconfig                          |  3 -
+ fs/fat/.kunitconfig                           |  5 -
+ kernel/kcsan/.kunitconfig                     | 24 -----
+ lib/kunit/.kunitconfig                        |  3 -
+ mm/kfence/.kunitconfig                        |  6 --
+ tools/testing/selftests/arm64/tags/.gitignore |  2 -
+ tools/testing/selftests/arm64/tags/Makefile   |  7 --
+ .../selftests/arm64/tags/run_tags_test.sh     | 12 ---
+ .../testing/selftests/arm64/tags/tags_test.c  | 35 -------
+ tools/testing/selftests/sgx/test_encl.lds     | 37 --------
+ 24 files changed, 2 insertions(+), 532 deletions(-)
+ delete mode 100644 kernel-6.1/.scmversion
+ delete mode 100644 kernel-6.1/Documentation/devicetree/bindings/.yamllint
+ delete mode 100644 kernel-6.1/arch/alpha/boot/bootloader.lds
+ delete mode 100644 kernel-6.1/arch/arm/boot/bootp/bootp.lds
+ delete mode 100644 kernel-6.1/arch/ia64/scripts/check-segrel.lds
+ delete mode 100644 kernel-6.1/arch/m68k/kernel/vmlinux-nommu.lds
+ delete mode 100644 kernel-6.1/arch/m68k/kernel/vmlinux-std.lds
+ delete mode 100644 kernel-6.1/arch/m68k/kernel/vmlinux-sun3.lds
+ delete mode 100644 kernel-6.1/arch/powerpc/platforms/44x/ppc476_modules.lds
+ delete mode 100644 kernel-6.1/drivers/clk/.kunitconfig
+ delete mode 100644 kernel-6.1/drivers/firmware/efi/libstub/zboot.lds
+ delete mode 100644 kernel-6.1/drivers/gpu/drm/tests/.kunitconfig
+ delete mode 100644 kernel-6.1/drivers/hid/.kunitconfig
+ delete mode 100644 kernel-6.1/fs/ext4/.kunitconfig
+ delete mode 100644 kernel-6.1/fs/fat/.kunitconfig
+ delete mode 100644 kernel-6.1/kernel/kcsan/.kunitconfig
+ delete mode 100644 kernel-6.1/lib/kunit/.kunitconfig
+ delete mode 100644 kernel-6.1/mm/kfence/.kunitconfig
+ delete mode 100644 kernel-6.1/tools/testing/selftests/arm64/tags/.gitignore
+ delete mode 100644 kernel-6.1/tools/testing/selftests/arm64/tags/Makefile
+ delete mode 100755 kernel-6.1/tools/testing/selftests/arm64/tags/run_tags_test.sh
+ delete mode 100644 kernel-6.1/tools/testing/selftests/arm64/tags/tags_test.c
+ delete mode 100644 kernel-6.1/tools/testing/selftests/sgx/test_encl.lds
+
+diff --git a/.gitignore b/.gitignore
+index 1ccfbfb..d505bf0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,6 +14,8 @@
+ *.a
+ *.asn1.[ch]
+ *.bin
++!drivers/gpu/arm/valhall/mali_csffw.bin
++!drivers/gpu/arm/bifrost/mali_csffw.bin
+ *.bz2
+ *.c.[012]*.*
+ *.dt.yaml
+diff --git a/.scmversion b/.scmversion
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/Documentation/devicetree/bindings/.yamllint b/Documentation/devicetree/bindings/.yamllint
+deleted file mode 100644
+index 214abd3..0000000
+--- a/Documentation/devicetree/bindings/.yamllint
++++ /dev/null
+@@ -1,39 +0,0 @@
+-extends: relaxed
+-
+-rules:
+-  line-length:
+-    # 80 chars should be enough, but don't fail if a line is longer
+-    max: 110
+-    allow-non-breakable-words: true
+-    level: warning
+-  braces:
+-    min-spaces-inside: 0
+-    max-spaces-inside: 1
+-    min-spaces-inside-empty: 0
+-    max-spaces-inside-empty: 0
+-  brackets:
+-    min-spaces-inside: 0
+-    max-spaces-inside: 1
+-    min-spaces-inside-empty: 0
+-    max-spaces-inside-empty: 0
+-  colons: {max-spaces-before: 0, max-spaces-after: 1}
+-  commas: {min-spaces-after: 1, max-spaces-after: 1}
+-  comments:
+-    require-starting-space: false
+-    min-spaces-from-content: 1
+-  comments-indentation: disable
+-  document-start:
+-    present: true
+-  empty-lines:
+-    max: 3
+-    max-end: 1
+-  empty-values:
+-    forbid-in-block-mappings: true
+-    forbid-in-flow-mappings: true
+-  hyphens:
+-    max-spaces-after: 1
+-  indentation:
+-    spaces: 2
+-    indent-sequences: true
+-    check-multi-line-strings: false
+-  trailing-spaces: false
+diff --git a/arch/alpha/boot/bootloader.lds b/arch/alpha/boot/bootloader.lds
+deleted file mode 100644
+index 8cdff54..0000000
+--- a/arch/alpha/boot/bootloader.lds
++++ /dev/null
+@@ -1,25 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-OUTPUT_FORMAT("elf64-alpha")
+-ENTRY(__start)
+-printk = srm_printk;
+-SECTIONS
+-{
+-  . = 0x20000000;
+-  .text : { *(.text) }
+-  _etext = .;
+-  PROVIDE (etext = .);
+-  .rodata : { *(.rodata) *(.rodata.*) }
+-  .data : { *(.data) CONSTRUCTORS }
+-  .got : { *(.got) }
+-  .sdata : { *(.sdata) }
+-  _edata = .;
+-  PROVIDE (edata = .);
+-  .sbss : { *(.sbss) *(.scommon) }
+-  .bss : { *(.bss) *(COMMON) }
+-  _end = . ;
+-  PROVIDE (end = .);
+-
+-  .mdebug 0 : { *(.mdebug) }
+-  .note 0 : { *(.note) }
+-  .comment 0 : { *(.comment) }
+-}
+diff --git a/arch/arm/boot/bootp/bootp.lds b/arch/arm/boot/bootp/bootp.lds
+deleted file mode 100644
+index 1601281..0000000
+--- a/arch/arm/boot/bootp/bootp.lds
++++ /dev/null
+@@ -1,27 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-only */
+-/*
+- *  linux/arch/arm/boot/bootp/bootp.lds
+- *
+- *  Copyright (C) 2000-2002 Russell King
+- */
+-OUTPUT_ARCH(arm)
+-ENTRY(_start)
+-SECTIONS
+-{
+-  . = 0;
+-  .text : {
+-   _stext = .;
+-   *(.start)
+-   *(.text)
+-   initrd_size = initrd_end - initrd_start;
+-   _etext = .;
+-  }
+-
+-  .stab 0 : { *(.stab) }
+-  .stabstr 0 : { *(.stabstr) }
+-  .stab.excl 0 : { *(.stab.excl) }
+-  .stab.exclstr 0 : { *(.stab.exclstr) }
+-  .stab.index 0 : { *(.stab.index) }
+-  .stab.indexstr 0 : { *(.stab.indexstr) }
+-  .comment 0 : { *(.comment) }
+-}
+diff --git a/arch/ia64/scripts/check-segrel.lds b/arch/ia64/scripts/check-segrel.lds
+deleted file mode 100644
+index c385d24..0000000
+--- a/arch/ia64/scripts/check-segrel.lds
++++ /dev/null
+@@ -1,13 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-SECTIONS {
+-	. = SIZEOF_HEADERS;
+-	.rodata : { *(.rodata) } :ro
+-	.note : { *(.note*) }
+-	. = 0xa0000;
+-	.data : { *(.data) } :dat
+-	/DISCARD/ : { *(*) }
+-}
+-PHDRS {
+-  ro PT_LOAD FILEHDR PHDRS;
+-  dat PT_LOAD;
+-}
+diff --git a/arch/m68k/kernel/vmlinux-nommu.lds b/arch/m68k/kernel/vmlinux-nommu.lds
+deleted file mode 100644
+index 387f334..0000000
+--- a/arch/m68k/kernel/vmlinux-nommu.lds
++++ /dev/null
+@@ -1,94 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- *	vmlinux.lds.S -- master linker script for m68knommu arch
+- *
+- *	(C) Copyright 2002-2012, Greg Ungerer <gerg@snapgear.com>
+- *
+- *	This linker script is equipped to build either ROM loaded or RAM
+- *	run kernels.
+- */
+-
+-#if defined(CONFIG_RAMKERNEL)
+-#define	KTEXT_ADDR	CONFIG_KERNELBASE
+-#endif
+-#if defined(CONFIG_ROMKERNEL)
+-#define	KTEXT_ADDR	CONFIG_ROMSTART
+-#define	KDATA_ADDR	CONFIG_KERNELBASE
+-#define	LOAD_OFFSET	KDATA_ADDR + (ADDR(.text) + SIZEOF(.text))
+-#endif
+-
+-#include <asm/page.h>
+-#include <asm/thread_info.h>
+-#include <asm-generic/vmlinux.lds.h>
+-
+-OUTPUT_ARCH(m68k)
+-ENTRY(_start)
+-
+-jiffies = jiffies_64 + 4;
+-
+-SECTIONS {
+-
+-#ifdef CONFIG_ROMVEC
+-	. = CONFIG_ROMVEC;
+-	.romvec : {
+-		__rom_start = .;
+-		_romvec = .;
+-		*(.romvec)
+-		*(.data..initvect)
+-	}
+-#endif
+-
+-	. = KTEXT_ADDR;
+-
+-	_text = .;
+-	_stext = .;
+-	.text : {
+-		HEAD_TEXT
+-		TEXT_TEXT
+-		IRQENTRY_TEXT
+-		SOFTIRQENTRY_TEXT
+-		SCHED_TEXT
+-		CPUIDLE_TEXT
+-		LOCK_TEXT
+-		*(.fixup)
+-		. = ALIGN(16);
+-	}
+-	_etext = .;
+-
+-#ifdef KDATA_ADDR
+-	. = KDATA_ADDR;
+-#endif
+-
+-	_sdata = .;
+-	RO_DATA(PAGE_SIZE)
+-	RW_DATA(16, PAGE_SIZE, THREAD_SIZE)
+-	_edata = .;
+-
+-	EXCEPTION_TABLE(16)
+-
+-	. = ALIGN(PAGE_SIZE);
+-	__init_begin = .;
+-	INIT_TEXT_SECTION(PAGE_SIZE)
+-	INIT_DATA_SECTION(16)
+-	PERCPU_SECTION(16)
+-	.m68k_fixup : {
+-		__start_fixup = .;
+-		*(.m68k_fixup)
+-		__stop_fixup = .;
+-	}
+-	.init.data : {
+-		. = ALIGN(PAGE_SIZE);
+-		__init_end = .;
+-	}
+-
+-	BSS_SECTION(4, 0, 4)
+-
+-	_end = .;
+-
+-	STABS_DEBUG
+-	ELF_DETAILS
+-
+-	/* Sections to be discarded */
+-	DISCARDS
+-}
+-
+diff --git a/arch/m68k/kernel/vmlinux-std.lds b/arch/m68k/kernel/vmlinux-std.lds
+deleted file mode 100644
+index ed1d9ed..0000000
+--- a/arch/m68k/kernel/vmlinux-std.lds
++++ /dev/null
+@@ -1,66 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/* ld script to make m68k Linux kernel */
+-
+-#include <asm-generic/vmlinux.lds.h>
+-#include <asm/page.h>
+-#include <asm/thread_info.h>
+-
+-OUTPUT_FORMAT("elf32-m68k", "elf32-m68k", "elf32-m68k")
+-OUTPUT_ARCH(m68k)
+-ENTRY(_start)
+-jiffies = jiffies_64 + 4;
+-SECTIONS
+-{
+-  . = 0x1000;
+-  _text = .;			/* Text and read-only data */
+-  .text : {
+-	HEAD_TEXT
+-	TEXT_TEXT
+-	IRQENTRY_TEXT
+-	SOFTIRQENTRY_TEXT
+-	SCHED_TEXT
+-	CPUIDLE_TEXT
+-	LOCK_TEXT
+-	*(.fixup)
+-	*(.gnu.warning)
+-	} :text = 0x4e75
+-
+-  _etext = .;			/* End of text section */
+-
+-  EXCEPTION_TABLE(16)
+-
+-  _sdata = .;			/* Start of data section */
+-
+-  RO_DATA(4096)
+-
+-  RW_DATA(16, PAGE_SIZE, THREAD_SIZE)
+-
+-  BSS_SECTION(0, 0, 0)
+-
+-  _edata = .;			/* End of data section */
+-
+-  /* will be freed after init */
+-  . = ALIGN(PAGE_SIZE);		/* Init code and data */
+-  __init_begin = .;
+-  INIT_TEXT_SECTION(PAGE_SIZE) :data
+-  INIT_DATA_SECTION(16)
+-  .m68k_fixup : {
+-	__start_fixup = .;
+-	*(.m68k_fixup)
+-	__stop_fixup = .;
+-  }
+-  .init_end : {
+-	/* This ALIGN be in a section so that _end is at the end of the
+-	   load segment. */
+-	. = ALIGN(PAGE_SIZE);
+-	__init_end = .;
+-  }
+-
+-  _end = . ;
+-
+-  STABS_DEBUG
+-  ELF_DETAILS
+-
+-  /* Sections to be discarded */
+-  DISCARDS
+-}
+diff --git a/arch/m68k/kernel/vmlinux-sun3.lds b/arch/m68k/kernel/vmlinux-sun3.lds
+deleted file mode 100644
+index 4a52f44..0000000
+--- a/arch/m68k/kernel/vmlinux-sun3.lds
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/* ld script to make m68k Linux kernel */
+-
+-#include <asm-generic/vmlinux.lds.h>
+-#include <asm/page.h>
+-#include <asm/thread_info.h>
+-
+-OUTPUT_FORMAT("elf32-m68k", "elf32-m68k", "elf32-m68k")
+-OUTPUT_ARCH(m68k)
+-ENTRY(_start)
+-jiffies = jiffies_64 + 4;
+-SECTIONS
+-{
+-  . = 0xE002000;
+-  _text = .;			/* Text and read-only data */
+-  .text : {
+-	HEAD_TEXT
+-	TEXT_TEXT
+-	IRQENTRY_TEXT
+-	SOFTIRQENTRY_TEXT
+-	SCHED_TEXT
+-	CPUIDLE_TEXT
+-	LOCK_TEXT
+-	*(.fixup)
+-	*(.gnu.warning)
+-	} :text = 0x4e75
+-	RO_DATA(4096)
+-
+-  _etext = .;			/* End of text section */
+-
+-  EXCEPTION_TABLE(16) :data
+-  _sdata = .;			/* Start of rw data section */
+-  RW_DATA(16, PAGE_SIZE, THREAD_SIZE) :data
+-  /* End of data goes *here* so that freeing init code works properly. */
+-  _edata = .;
+-
+-  /* will be freed after init */
+-  . = ALIGN(PAGE_SIZE);	/* Init code and data */
+-__init_begin = .;
+-	INIT_TEXT_SECTION(PAGE_SIZE)
+-	INIT_DATA_SECTION(16)
+-	.m68k_fixup : {
+-		__start_fixup = .;
+-		*(.m68k_fixup)
+-		__stop_fixup = .;
+-	}
+-	. = ALIGN(PAGE_SIZE);
+-	__init_end = .;
+-
+-  BSS_SECTION(0, 0, 0)
+-
+-  _end = . ;
+-
+-  STABS_DEBUG
+-  ELF_DETAILS
+-
+-  /* Sections to be discarded */
+-  DISCARDS
+-}
+diff --git a/arch/powerpc/platforms/44x/ppc476_modules.lds b/arch/powerpc/platforms/44x/ppc476_modules.lds
+deleted file mode 100644
+index 9fec5d3..0000000
+--- a/arch/powerpc/platforms/44x/ppc476_modules.lds
++++ /dev/null
+@@ -1,15 +0,0 @@
+-SECTIONS
+-{
+-	.text : ALIGN(4096)
+-	{
+-		*(.text .text.* .fixup)
+-	}
+-	.init.text : ALIGN(4096)
+-	{
+-		*(.init.text .init.text.*)
+-	}
+-	.exit.text : ALIGN(4096)
+-	{
+-		*(.exit.text .exit.text.*)
+-	}
+-}
+diff --git a/drivers/clk/.kunitconfig b/drivers/clk/.kunitconfig
+deleted file mode 100644
+index 2fbeb71..0000000
+--- a/drivers/clk/.kunitconfig
++++ /dev/null
+@@ -1,5 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_COMMON_CLK=y
+-CONFIG_CLK_KUNIT_TEST=y
+-CONFIG_CLK_GATE_KUNIT_TEST=y
+-CONFIG_UML_PCI_OVER_VIRTIO=n
+diff --git a/drivers/firmware/efi/libstub/zboot.lds b/drivers/firmware/efi/libstub/zboot.lds
+deleted file mode 100644
+index a7fffba..0000000
+--- a/drivers/firmware/efi/libstub/zboot.lds
++++ /dev/null
+@@ -1,46 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-
+-ENTRY(__efistub_efi_zboot_header);
+-
+-SECTIONS
+-{
+-	.head : ALIGN(4096) {
+-		*(.head)
+-	}
+-
+-	.text : {
+-		*(.text* .init.text*)
+-	}
+-
+-	.rodata : ALIGN(8) {
+-		__efistub__gzdata_start = .;
+-		*(.gzdata)
+-		__efistub__gzdata_end = .;
+-		*(.rodata* .init.rodata* .srodata*)
+-		_etext = ALIGN(4096);
+-		. = _etext;
+-	}
+-
+-	.data : ALIGN(4096) {
+-		*(.data* .init.data*)
+-		_edata = ALIGN(512);
+-		. = _edata;
+-	}
+-
+-	.bss : {
+-		*(.bss* .init.bss*)
+-		_end = ALIGN(512);
+-		. = _end;
+-	}
+-
+-	/DISCARD/ : {
+-		*(.discard .discard.*)
+-		*(.modinfo .init.modinfo)
+-	}
+-}
+-
+-PROVIDE(__efistub__gzdata_size =
+-		ABSOLUTE(__efistub__gzdata_end - __efistub__gzdata_start));
+-
+-PROVIDE(__data_rawsize = ABSOLUTE(_edata - _etext));
+-PROVIDE(__data_size = ABSOLUTE(_end - _etext));
+diff --git a/drivers/gpu/drm/tests/.kunitconfig b/drivers/gpu/drm/tests/.kunitconfig
+deleted file mode 100644
+index 6ec04b4..0000000
+--- a/drivers/gpu/drm/tests/.kunitconfig
++++ /dev/null
+@@ -1,3 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_DRM=y
+-CONFIG_DRM_KUNIT_TEST=y
+diff --git a/drivers/hid/.kunitconfig b/drivers/hid/.kunitconfig
+deleted file mode 100644
+index 675a820..0000000
+--- a/drivers/hid/.kunitconfig
++++ /dev/null
+@@ -1,6 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_USB=y
+-CONFIG_USB_HID=y
+-CONFIG_HID_BATTERY_STRENGTH=y
+-CONFIG_HID_UCLOGIC=y
+-CONFIG_HID_KUNIT_TEST=y
+diff --git a/fs/ext4/.kunitconfig b/fs/ext4/.kunitconfig
+deleted file mode 100644
+index bf51da7..0000000
+--- a/fs/ext4/.kunitconfig
++++ /dev/null
+@@ -1,3 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_EXT4_FS=y
+-CONFIG_EXT4_KUNIT_TESTS=y
+diff --git a/fs/fat/.kunitconfig b/fs/fat/.kunitconfig
+deleted file mode 100644
+index 0a6971d..0000000
+--- a/fs/fat/.kunitconfig
++++ /dev/null
+@@ -1,5 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_FAT_FS=y
+-CONFIG_MSDOS_FS=y
+-CONFIG_VFAT_FS=y
+-CONFIG_FAT_KUNIT_TEST=y
+diff --git a/kernel/kcsan/.kunitconfig b/kernel/kcsan/.kunitconfig
+deleted file mode 100644
+index e82f0f5..0000000
+--- a/kernel/kcsan/.kunitconfig
++++ /dev/null
+@@ -1,24 +0,0 @@
+-# Note that the KCSAN tests need to run on an SMP setup.
+-# Under kunit_tool, this can be done by using the --qemu_args
+-# option to configure a machine with several cores. For example:
+-# ./tools/testing/kunit/kunit.py run --kunitconfig=kernel/kcsan \
+-# 				 --arch=x86_64 --qemu_args="-smp 8"
+-
+-CONFIG_KUNIT=y
+-
+-CONFIG_DEBUG_KERNEL=y
+-
+-# Need some level of concurrency to test a concurrency sanitizer.
+-CONFIG_SMP=y
+-
+-CONFIG_KCSAN=y
+-CONFIG_KCSAN_KUNIT_TEST=y
+-
+-# Set these if you want to run test_barrier_nothreads
+-#CONFIG_KCSAN_STRICT=y
+-#CONFIG_KCSAN_WEAK_MEMORY=y
+-
+-# This prevents the test from timing out on many setups. Feel free to remove
+-# (or alter) this, in conjunction with setting a different test timeout with,
+-# for example, the --timeout kunit_tool option.
+-CONFIG_KCSAN_REPORT_ONCE_IN_MS=100
+diff --git a/lib/kunit/.kunitconfig b/lib/kunit/.kunitconfig
+deleted file mode 100644
+index 9235b7d..0000000
+--- a/lib/kunit/.kunitconfig
++++ /dev/null
+@@ -1,3 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_KUNIT_TEST=y
+-CONFIG_KUNIT_EXAMPLE_TEST=y
+diff --git a/mm/kfence/.kunitconfig b/mm/kfence/.kunitconfig
+deleted file mode 100644
+index f3d65e9..0000000
+--- a/mm/kfence/.kunitconfig
++++ /dev/null
+@@ -1,6 +0,0 @@
+-CONFIG_KUNIT=y
+-CONFIG_KFENCE=y
+-CONFIG_KFENCE_KUNIT_TEST=y
+-
+-# Additional dependencies.
+-CONFIG_FTRACE=y
+diff --git a/tools/testing/selftests/arm64/tags/.gitignore b/tools/testing/selftests/arm64/tags/.gitignore
+deleted file mode 100644
+index f4f6c51..0000000
+--- a/tools/testing/selftests/arm64/tags/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-# SPDX-License-Identifier: GPL-2.0-only
+-tags_test
+diff --git a/tools/testing/selftests/arm64/tags/Makefile b/tools/testing/selftests/arm64/tags/Makefile
+deleted file mode 100644
+index 6d29cfd..0000000
+--- a/tools/testing/selftests/arm64/tags/Makefile
++++ /dev/null
+@@ -1,7 +0,0 @@
+-# SPDX-License-Identifier: GPL-2.0
+-
+-CFLAGS += $(KHDR_INCLUDES)
+-TEST_GEN_PROGS := tags_test
+-TEST_PROGS := run_tags_test.sh
+-
+-include ../../lib.mk
+diff --git a/tools/testing/selftests/arm64/tags/run_tags_test.sh b/tools/testing/selftests/arm64/tags/run_tags_test.sh
+deleted file mode 100755
+index 745f113..0000000
+--- a/tools/testing/selftests/arm64/tags/run_tags_test.sh
++++ /dev/null
+@@ -1,12 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-echo "--------------------"
+-echo "running tags test"
+-echo "--------------------"
+-./tags_test
+-if [ $? -ne 0 ]; then
+-	echo "[FAIL]"
+-else
+-	echo "[PASS]"
+-fi
+diff --git a/tools/testing/selftests/arm64/tags/tags_test.c b/tools/testing/selftests/arm64/tags/tags_test.c
+deleted file mode 100644
+index 955f87c..0000000
+--- a/tools/testing/selftests/arm64/tags/tags_test.c
++++ /dev/null
+@@ -1,35 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <unistd.h>
+-#include <stdint.h>
+-#include <sys/prctl.h>
+-#include <sys/utsname.h>
+-#include "../../kselftest.h"
+-
+-#define SHIFT_TAG(tag)		((uint64_t)(tag) << 56)
+-#define SET_TAG(ptr, tag)	(((uint64_t)(ptr) & ~SHIFT_TAG(0xff)) | \
+-					SHIFT_TAG(tag))
+-
+-int main(void)
+-{
+-	static int tbi_enabled = 0;
+-	unsigned long tag = 0;
+-	struct utsname *ptr;
+-	int err;
+-
+-	if (prctl(PR_SET_TAGGED_ADDR_CTRL, PR_TAGGED_ADDR_ENABLE, 0, 0, 0) == 0)
+-		tbi_enabled = 1;
+-	ptr = (struct utsname *)malloc(sizeof(*ptr));
+-	if (!ptr)
+-		ksft_exit_fail_msg("Failed to allocate utsname buffer\n");
+-
+-	if (tbi_enabled)
+-		tag = 0x42;
+-	ptr = (struct utsname *)SET_TAG(ptr, tag);
+-	err = uname(ptr);
+-	free(ptr);
+-
+-	return err;
+-}
+diff --git a/tools/testing/selftests/sgx/test_encl.lds b/tools/testing/selftests/sgx/test_encl.lds
+deleted file mode 100644
+index 108bc11..0000000
+--- a/tools/testing/selftests/sgx/test_encl.lds
++++ /dev/null
+@@ -1,37 +0,0 @@
+-OUTPUT_FORMAT(elf64-x86-64)
+-
+-PHDRS
+-{
+-	tcs PT_LOAD;
+-	text PT_LOAD;
+-	data PT_LOAD;
+-}
+-
+-SECTIONS
+-{
+-	. = 0;
+-	.tcs : {
+-		*(.tcs*)
+-	} : tcs
+-
+-	. = ALIGN(4096);
+-	.text : {
+-		*(.text*)
+-		*(.rodata*)
+-		FILL(0xDEADBEEF);
+-		. = ALIGN(4096);
+-	} : text
+-
+-	.data : {
+-		*(.data*)
+-	} : data
+-
+-	/DISCARD/ : {
+-		*(.comment*)
+-		*(.note*)
+-		*(.debug*)
+-		*(.eh_frame*)
+-	}
+-}
+-
+-ASSERT(!DEFINED(_GLOBAL_OFFSET_TABLE_), "Libcalls through GOT are not supported in enclaves")
+-- 
+2.34.1
+

@@ -1,0 +1,28 @@
+From d4e76d9d67b15e3ae522f814030f87a48db6d941 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 6 Jun 2026 11:40:33 +0800
+Subject: [PATCH 73/73] chore(build): enable K1Mini build, disable K8D ubuntu,
+ fix BT init order
+
+Origin: kickpi 9d0c24745fb172c78e971655ad6737c588591886
+---
+ scripts/wifibt-init.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/wifibt-init.sh b/scripts/wifibt-init.sh
+index 048e338..59477fc 100755
+--- a/scripts/wifibt-init.sh
++++ b/scripts/wifibt-init.sh
+@@ -334,8 +334,8 @@ start_wifibt()
+ 	case "$1" in
+ 		start | restart)
+ 			log "Starting Wi-Fi/BT..."
+-			start_wifi
+ 			do_init_bt
++			start_wifi
+ 			rfkill unblock bluetooth 2>/dev/null || true
+ 			case "$WIFIBT_VENDOR" in SeekwaveU|SeekwaveS) hciconfig hci0 up 2>/dev/null || true ;; *) bluetoothctl power on 2>/dev/null || true ;; esac
+ 			log "Done"
+-- 
+2.34.1
+

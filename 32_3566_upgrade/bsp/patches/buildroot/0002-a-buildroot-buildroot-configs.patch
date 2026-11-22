@@ -1,0 +1,136 @@
+From d1896ae386109aad834aeec30fd2f28eb5e810d9 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:40 -0500
+Subject: [PATCH 02/19] buildroot: buildroot/configs
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ configs/rockchip_rk3506_64M_defconfig     | 35 -----------------------
+ configs/rockchip_rk3576_dv_defconfig      |  1 -
+ configs/rockchip_rk3576_vehicle_defconfig | 26 -----------------
+ configs/rockchip_rk3588_vehicle_defconfig | 26 -----------------
+ 4 files changed, 88 deletions(-)
+ delete mode 100644 buildroot/configs/rockchip_rk3506_64M_defconfig
+ delete mode 100644 buildroot/configs/rockchip_rk3576_vehicle_defconfig
+ delete mode 100644 buildroot/configs/rockchip_rk3588_vehicle_defconfig
+
+diff --git a/configs/rockchip_rk3506_64M_defconfig b/configs/rockchip_rk3506_64M_defconfig
+deleted file mode 100644
+index d390171..0000000
+--- a/configs/rockchip_rk3506_64M_defconfig
++++ /dev/null
+@@ -1,35 +0,0 @@
+-#include "base/base.config"
+-#include "chips/rk3506_arm.config"
+-#include "fs/vfat.config"
+-#include "wifibt/bt.config"
+-#include "wifibt/wireless.config"
+-#include "multimedia/audio.config"
+-#include "gui/lvgl/lvgl_drm.config"
+-#include "gui/lvgl/widgets.config"
+-# BR2_PACKAGE_CHRONY is reset to default
+-# BR2_PACKAGE_DNSMASQ is reset to default
+-# BR2_PACKAGE_DROPBEAR is reset to default
+-BR2_PACKAGE_EVTEST=y
+-BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_1=y
+-BR2_PACKAGE_LIBCAP=y
+-BR2_PACKAGE_MHZ=y
+-BR2_PACKAGE_MTD=y
+-# BR2_PACKAGE_PULSEAUDIO is reset to default
+-BR2_PACKAGE_RIPGREP=y
+-BR2_PACKAGE_RKADK_EXAMPLES=y
+-BR2_PACKAGE_ROCKCHIP_RGA=y
+-BR2_PACKAGE_ROCKCHIP_TEST=y
+-BR2_ROCKCHIP_ALSA_CONFIG_INSTALL_INIT_SCRIPT=y
+-BR2_ROOTFS_OVERLAY+="board/rockchip/rk3506/fast-display-overlay/"
+-BR2_ROOTFS_POST_BUILD_SCRIPT+="board/rockchip/rk3506/post-build-fast-display.sh"
+-# BR2_TARGET_GENERIC_REMOUNT_ROOTFS_RW is not set
+-BR2_TARGET_ROOTFS_SQUASHFS4_ZSTD=y
+-BR2_TARGET_ROOTFS_UBI=y
+-BR2_TARGET_ROOTFS_UBI_SQUASHFS=y
+-# BR2_TARGET_ROOTFS_UBI_SQUASHFS_STATIC is not set
+-BR2_TARGET_ROOTFS_UBI_SUBSIZE=2048
+-BR2_TIME_BITS_64=y
+-BR2_PACKAGE_RECOVERY=y
+-BR2_PACKAGE_RECOVERY_NO_UI=y
+-BR2_PACKAGE_RECOVERY_USE_UPDATEENGINE=y
+-BR2_PACKAGE_RECOVERY_UPDATEENGINEBIN=y
+diff --git a/configs/rockchip_rk3576_dv_defconfig b/configs/rockchip_rk3576_dv_defconfig
+index 7fba6dc..e0b7b34 100644
+--- a/configs/rockchip_rk3576_dv_defconfig
++++ b/configs/rockchip_rk3576_dv_defconfig
+@@ -1,7 +1,6 @@
+ #include "rockchip_rk3576_ipc_defconfig"
+ #include "fs/ubifs.config"
+ #include "gui/lvgl/v8/base.config"
+-BR2_GCC_ENABLE_OPENMP=y
+ # BR2_PACKAGE_CAMERA_ENGINE_RKAIQ_INSTALL_AIISP is reset to default
+ BR2_PACKAGE_HOST_E2FSPROGS=y
+ # BR2_PACKAGE_IPCWEB_BACKEND is reset to default
+diff --git a/configs/rockchip_rk3576_vehicle_defconfig b/configs/rockchip_rk3576_vehicle_defconfig
+deleted file mode 100644
+index 1654bd2..0000000
+--- a/configs/rockchip_rk3576_vehicle_defconfig
++++ /dev/null
+@@ -1,26 +0,0 @@
+-#include "base/base.config"
+-#include "bus/can.config"
+-#include "bus/pci.config"
+-#include "chips/rk3576_aarch64.config"
+-#include "font/chinese.config"
+-#include "fs/exfat.config"
+-#include "fs/ntfs.config"
+-#include "fs/vfat.config"
+-#include "gpu/mali.config"
+-#include "multimedia/audio.config"
+-#include "multimedia/camera.config"
+-#include "multimedia/gst/audio.config"
+-#include "multimedia/gst/camera.config"
+-#include "multimedia/gst/rtsp.config"
+-#include "multimedia/gst/video.config"
+-#include "multimedia/mpp.config"
+-#include "wifibt/bt.config"
+-#include "wifibt/wireless.config"
+-#include "tools/benchmark.config"
+-#include "tools/common.config"
+-#include "tools/test.config"
+-#include "network/chromium.config"
+-#include "ai/npu2.config"
+-#include "gui/weston.config"
+-
+-BR2_ROOTFS_OVERLAY+="board/rockchip/rk3576/fs-overlay-vehicle/"
+diff --git a/configs/rockchip_rk3588_vehicle_defconfig b/configs/rockchip_rk3588_vehicle_defconfig
+deleted file mode 100644
+index 9dcf046..0000000
+--- a/configs/rockchip_rk3588_vehicle_defconfig
++++ /dev/null
+@@ -1,26 +0,0 @@
+-#include "base/base.config"
+-#include "bus/can.config"
+-#include "bus/pci.config"
+-#include "chips/rk3588_aarch64.config"
+-#include "font/chinese.config"
+-#include "fs/exfat.config"
+-#include "fs/ntfs.config"
+-#include "fs/vfat.config"
+-#include "gpu/mali.config"
+-#include "multimedia/audio.config"
+-#include "multimedia/camera.config"
+-#include "multimedia/gst/audio.config"
+-#include "multimedia/gst/camera.config"
+-#include "multimedia/gst/rtsp.config"
+-#include "multimedia/gst/video.config"
+-#include "multimedia/mpp.config"
+-#include "wifibt/bt.config"
+-#include "wifibt/wireless.config"
+-#include "tools/benchmark.config"
+-#include "tools/common.config"
+-#include "tools/test.config"
+-#include "network/chromium.config"
+-#include "ai/npu2.config"
+-#include "gui/weston.config"
+-
+-BR2_ROOTFS_OVERLAY+="board/rockchip/rk3588/fs-overlay-vehicle/"
+-- 
+2.34.1
+

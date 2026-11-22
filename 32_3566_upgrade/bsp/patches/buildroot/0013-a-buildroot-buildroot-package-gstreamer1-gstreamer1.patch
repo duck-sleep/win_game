@@ -1,0 +1,279 @@
+From 3100c9bba7280581eb745ccf9edb721027a83f9b Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 13/19] buildroot: buildroot/package/gstreamer1/gstreamer1
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ ...lesrc-Fix-stopping-race-in-pull-mode.patch |  6 ++--
+ ...pad-Add-1-sec-timeout-for-activation.patch | 12 ++++----
+ ...sider-dmabuf-subset-of-system-memory.patch | 28 +++++++++----------
+ ...-gst-launch-Fix-random-hang-when-EOS.patch | 10 +++----
+ package/gstreamer1/gstreamer1/gstreamer1.hash |  4 +--
+ package/gstreamer1/gstreamer1/gstreamer1.mk   |  2 +-
+ 6 files changed, 31 insertions(+), 31 deletions(-)
+
+diff --git a/package/gstreamer1/gstreamer1/0001-filesrc-Fix-stopping-race-in-pull-mode.patch b/package/gstreamer1/gstreamer1/0001-filesrc-Fix-stopping-race-in-pull-mode.patch
+index 5f3bacc..7e9eeff 100644
+--- a/package/gstreamer1/gstreamer1/0001-filesrc-Fix-stopping-race-in-pull-mode.patch
++++ b/package/gstreamer1/gstreamer1/0001-filesrc-Fix-stopping-race-in-pull-mode.patch
+@@ -1,4 +1,4 @@
+-From ee7320d204a7781b5df66402aaec3d24ae4f1552 Mon Sep 17 00:00:00 2001
++From f2f7d3583921eb145c1ff383ac7e7aed42943cc0 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 6 Apr 2021 10:51:35 +0800
+ Subject: [PATCH 1/4] filesrc: Fix stopping race in pull-mode
+@@ -15,7 +15,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 2 insertions(+), 2 deletions(-)
+ 
+ diff --git a/plugins/elements/gstfilesrc.c b/plugins/elements/gstfilesrc.c
+-index 7c5712a..39e4c14 100644
++index 01d2ff6..7447673 100644
+ --- a/plugins/elements/gstfilesrc.c
+ +++ b/plugins/elements/gstfilesrc.c
+ @@ -191,7 +191,7 @@ static void
+@@ -37,5 +37,5 @@ index 7c5712a..39e4c14 100644
+  
+    return TRUE;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gstreamer1/0002-HACK-gstpad-Add-1-sec-timeout-for-activation.patch b/package/gstreamer1/gstreamer1/0002-HACK-gstpad-Add-1-sec-timeout-for-activation.patch
+index b24fc7e..b6dc263 100644
+--- a/package/gstreamer1/gstreamer1/0002-HACK-gstpad-Add-1-sec-timeout-for-activation.patch
++++ b/package/gstreamer1/gstreamer1/0002-HACK-gstpad-Add-1-sec-timeout-for-activation.patch
+@@ -1,4 +1,4 @@
+-From de693908ef4454046c25573b83cd3f377d37d33f Mon Sep 17 00:00:00 2001
++From cda7df0a7797e5aa1b51cc6dcf20fa1327879ff7 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 29 Nov 2021 14:49:25 +0800
+ Subject: [PATCH 2/4] HACK: gstpad: Add 1 sec timeout for activation
+@@ -15,10 +15,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 22 insertions(+)
+ 
+ diff --git a/gst/gstpad.c b/gst/gstpad.c
+-index dafc3d8..a508e84 100644
++index 2341808..c244bb2 100644
+ --- a/gst/gstpad.c
+ +++ b/gst/gstpad.c
+-@@ -981,6 +981,18 @@ gst_pad_mode_get_name (GstPadMode mode)
++@@ -972,6 +972,18 @@ gst_pad_mode_get_name (GstPadMode mode)
+    return "unknown";
+  }
+  
+@@ -37,7 +37,7 @@ index dafc3d8..a508e84 100644
+  /* Returns TRUE if pad wasn't already in the new_mode */
+  static gboolean
+  pre_activate (GstPad * pad, GstPadMode new_mode)
+-@@ -988,8 +1000,13 @@ pre_activate (GstPad * pad, GstPadMode new_mode)
++@@ -979,8 +991,13 @@ pre_activate (GstPad * pad, GstPadMode new_mode)
+    switch (new_mode) {
+      case GST_PAD_MODE_NONE:
+        GST_OBJECT_LOCK (pad);
+@@ -51,7 +51,7 @@ index dafc3d8..a508e84 100644
+        if (new_mode == GST_PAD_MODE (pad)) {
+          GST_WARNING_OBJECT (pad,
+              "Pad is already in the process of being deactivated");
+-@@ -1008,8 +1025,13 @@ pre_activate (GstPad * pad, GstPadMode new_mode)
++@@ -999,8 +1016,13 @@ pre_activate (GstPad * pad, GstPadMode new_mode)
+      case GST_PAD_MODE_PUSH:
+      case GST_PAD_MODE_PULL:
+        GST_OBJECT_LOCK (pad);
+@@ -66,5 +66,5 @@ index dafc3d8..a508e84 100644
+          GST_WARNING_OBJECT (pad,
+              "Pad is already in the process of being activated");
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gstreamer1/0003-HACK-caps-Consider-dmabuf-subset-of-system-memory.patch b/package/gstreamer1/gstreamer1/0003-HACK-caps-Consider-dmabuf-subset-of-system-memory.patch
+index e06d577..76d8b16 100644
+--- a/package/gstreamer1/gstreamer1/0003-HACK-caps-Consider-dmabuf-subset-of-system-memory.patch
++++ b/package/gstreamer1/gstreamer1/0003-HACK-caps-Consider-dmabuf-subset-of-system-memory.patch
+@@ -1,4 +1,4 @@
+-From a6e8d9b1a6edaef8e2dda99b889539b100752b94 Mon Sep 17 00:00:00 2001
++From df3c8ebf24462f0f237e7f86b5dbc906981e8d67 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 19 Jul 2022 18:19:48 +0800
+ Subject: [PATCH 3/4] HACK: caps: Consider dmabuf subset of system memory
+@@ -11,10 +11,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 87 insertions(+)
+ 
+ diff --git a/gst/gstcaps.c b/gst/gstcaps.c
+-index a398862..2d9af55 100644
++index 373e2b4..7c81d88 100644
+ --- a/gst/gstcaps.c
+ +++ b/gst/gstcaps.c
+-@@ -126,6 +126,23 @@ typedef struct _GstCapsImpl
++@@ -125,6 +125,23 @@ typedef struct _GstCapsImpl
+  /* lock to protect multiple invocations of static caps to caps conversion */
+  G_LOCK_DEFINE_STATIC (static_caps_lock);
+  
+@@ -38,7 +38,7 @@ index a398862..2d9af55 100644
+  static void gst_caps_transform_to_string (const GValue * src_value,
+      GValue * dest_value);
+  static gboolean gst_caps_from_string_inplace (GstCaps * caps,
+-@@ -1694,6 +1711,8 @@ gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
++@@ -1340,6 +1357,8 @@ gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
+      if (!f1)
+        f1 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+  
+@@ -47,7 +47,7 @@ index a398862..2d9af55 100644
+      for (j = GST_CAPS_LEN (superset) - 1; j >= 0; j--) {
+        s2 = gst_caps_get_structure_unchecked (superset, j);
+        f2 = gst_caps_get_features_unchecked (superset, j);
+-@@ -1708,6 +1727,11 @@ gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
++@@ -1354,6 +1373,11 @@ gst_caps_is_subset (const GstCaps * subset, const GstCaps * superset)
+        }
+      }
+  
+@@ -59,7 +59,7 @@ index a398862..2d9af55 100644
+      /* If we found no superset for this subset structure
+       * we return FALSE immediately */
+      if (j == -1) {
+-@@ -1950,10 +1974,26 @@ gst_caps_can_intersect (const GstCaps * caps1, const GstCaps * caps2)
++@@ -1596,10 +1620,26 @@ gst_caps_can_intersect (const GstCaps * caps1, const GstCaps * caps2)
+        features2 = gst_caps_get_features_unchecked (caps2, k);
+        if (!features2)
+          features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+@@ -86,7 +86,7 @@ index a398862..2d9af55 100644
+        /* move down left */
+        k++;
+        if (G_UNLIKELY (j == 0))
+-@@ -1976,6 +2016,7 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
++@@ -1622,6 +1662,7 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
+    GstCapsFeatures *features2;
+    GstCaps *dest;
+    GstStructure *istruct;
+@@ -94,7 +94,7 @@ index a398862..2d9af55 100644
+  
+    dest = gst_caps_new_empty ();
+    /* run zigzag on top line then right line, this preserves the caps order
+-@@ -1996,6 +2037,8 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
++@@ -1642,6 +1683,8 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
+     */
+    len1 = GST_CAPS_LEN (caps1);
+    len2 = GST_CAPS_LEN (caps2);
+@@ -103,7 +103,7 @@ index a398862..2d9af55 100644
+    for (i = 0; i < len1 + len2 - 1; i++) {
+      /* caps1 index goes from 0 to GST_CAPS_LEN (caps1)-1 */
+      j = MIN (i, len1 - 1);
+-@@ -2013,6 +2056,15 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
++@@ -1659,6 +1702,15 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
+        features2 = gst_caps_get_features_unchecked (caps2, k);
+        if (!features2)
+          features2 = GST_CAPS_FEATURES_MEMORY_SYSTEM_MEMORY;
+@@ -119,7 +119,7 @@ index a398862..2d9af55 100644
+        if (gst_caps_features_is_equal (features1, features2)) {
+          istruct = gst_structure_intersect (struct1, struct2);
+          if (istruct) {
+-@@ -2026,6 +2078,10 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
++@@ -1672,6 +1724,10 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
+                  gst_caps_features_copy_conditional (features1));
+          }
+        }
+@@ -130,7 +130,7 @@ index a398862..2d9af55 100644
+        /* move down left */
+        k++;
+        if (G_UNLIKELY (j == 0))
+-@@ -2033,6 +2089,13 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
++@@ -1679,6 +1735,13 @@ gst_caps_intersect_zig_zag (GstCaps * caps1, GstCaps * caps2)
+        j--;
+      }
+    }
+@@ -144,7 +144,7 @@ index a398862..2d9af55 100644
+    return dest;
+  }
+  
+-@@ -2060,20 +2123,34 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
++@@ -1706,20 +1769,34 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
+    GstCapsFeatures *features2;
+    GstCaps *dest;
+    GstStructure *istruct;
+@@ -179,7 +179,7 @@ index a398862..2d9af55 100644
+        if (gst_caps_features_is_equal (features1, features2)) {
+          istruct = gst_structure_intersect (struct1, struct2);
+          if (istruct) {
+-@@ -2087,7 +2164,17 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
++@@ -1733,7 +1810,17 @@ gst_caps_intersect_first (GstCaps * caps1, GstCaps * caps2)
+                  gst_caps_features_copy_conditional (features1));
+          }
+        }
+@@ -198,5 +198,5 @@ index a398862..2d9af55 100644
+  
+    return dest;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gstreamer1/0004-gst-launch-Fix-random-hang-when-EOS.patch b/package/gstreamer1/gstreamer1/0004-gst-launch-Fix-random-hang-when-EOS.patch
+index 3e90612..4c65e84 100644
+--- a/package/gstreamer1/gstreamer1/0004-gst-launch-Fix-random-hang-when-EOS.patch
++++ b/package/gstreamer1/gstreamer1/0004-gst-launch-Fix-random-hang-when-EOS.patch
+@@ -1,4 +1,4 @@
+-From 5213af575467294e33e6d5af3207e3475da4e567 Mon Sep 17 00:00:00 2001
++From d7079637012c142e7688854afac60e2042f64929 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 3 Oct 2022 15:07:33 +0800
+ Subject: [PATCH 4/4] gst-launch: Fix random hang when EOS
+@@ -14,7 +14,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 12 insertions(+)
+ 
+ diff --git a/tools/gst-launch.c b/tools/gst-launch.c
+-index 6e6159e..c76ed77 100644
++index c27d5da..9342764 100644
+ --- a/tools/gst-launch.c
+ +++ b/tools/gst-launch.c
+ @@ -83,6 +83,7 @@ static gchar **exclude_args = NULL;
+@@ -25,7 +25,7 @@ index 6e6159e..c76ed77 100644
+  static gboolean is_live = FALSE;
+  static gboolean buffering = FALSE;
+  static LaunchExitCode last_launch_code = LEC_NO_ERROR;
+-@@ -754,12 +755,22 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer data)
++@@ -742,12 +743,22 @@ bus_handler (GstBus * bus, GstMessage * message, gpointer data)
+              PRINT (_("Prerolled, waiting for progress to finish...\n"));
+              break;
+            }
+@@ -48,7 +48,7 @@ index 6e6159e..c76ed77 100644
+        case GST_MESSAGE_BUFFERING:{
+          gint percent;
+  
+-@@ -1310,6 +1321,7 @@ real_main (int argc, char *argv[])
++@@ -1298,6 +1309,7 @@ real_main (int argc, char *argv[])
+          break;
+        case GST_STATE_CHANGE_ASYNC:
+          PRINT (_("Pipeline is PREROLLING ...\n"));
+@@ -57,5 +57,5 @@ index 6e6159e..c76ed77 100644
+        default:
+          break;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gstreamer1/gstreamer1.hash b/package/gstreamer1/gstreamer1/gstreamer1.hash
+index 54e3d20..edfd60d 100644
+--- a/package/gstreamer1/gstreamer1/gstreamer1.hash
++++ b/package/gstreamer1/gstreamer1/gstreamer1.hash
+@@ -1,3 +1,3 @@
+-# Locally calculated
+-sha256  d7f20bec75edeb8677662926c33e987da64a42616c24fc3353b9ad44ed750cd6  gstreamer-1.26.10.tar.xz
++# From https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.24.13.tar.xz.sha256sum
++sha256  ed4678e1d0708db01a469ae5dd31c10cac73c0fb3f7c2c471b0d3cab0affc7d1  gstreamer-1.24.13.tar.xz
+ sha256  ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db  COPYING
+diff --git a/package/gstreamer1/gstreamer1/gstreamer1.mk b/package/gstreamer1/gstreamer1/gstreamer1.mk
+index 6b2468c..e27055e 100644
+--- a/package/gstreamer1/gstreamer1/gstreamer1.mk
++++ b/package/gstreamer1/gstreamer1/gstreamer1.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-GSTREAMER1_VERSION = 1.26.10
++GSTREAMER1_VERSION = 1.24.13
+ GSTREAMER1_SOURCE = gstreamer-$(GSTREAMER1_VERSION).tar.xz
+ GSTREAMER1_SITE = https://gstreamer.freedesktop.org/src/gstreamer
+ GSTREAMER1_INSTALL_STAGING = YES
+-- 
+2.34.1
+

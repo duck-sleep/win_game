@@ -1,0 +1,26 @@
+From d719c4aa4ea8a0b873e55fc9e501e5bf46a9326d Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 2 Apr 2026 09:39:04 +0800
+Subject: [PATCH 2/5] feat(multi_dtb): fix multi dtb boot err
+
+Origin: kickpi 26a38b857b786669ed498b58da7f0b9f5c95ae49
+---
+ lib/fdtdec.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/lib/fdtdec.c b/lib/fdtdec.c
+index eca707c..ff7e26a 100644
+--- a/lib/fdtdec.c
++++ b/lib/fdtdec.c
+@@ -1299,6 +1299,8 @@ int fdtdec_setup(void)
+ #    ifdef CONFIG_USING_KERNEL_DTB
+ 	gd->fdt_blob_kern = (ulong *)ALIGN((ulong)gd->fdt_blob +
+ 				fdt_totalsize(gd->fdt_blob), 8);
++	if (fdt_check_header(gd->fdt_blob_kern))
++		gd->fdt_blob_kern = NULL;
+ #    endif
+ #  endif
+ # elif defined(CONFIG_OF_BOARD)
+-- 
+2.34.1
+

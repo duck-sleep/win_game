@@ -1,0 +1,38 @@
+From 491db49c18da7dbf00e3e55384f358f5bcb49790 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 12/19] buildroot:
+ buildroot/package/gstreamer1/gst1-plugins-ugly
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.hash | 4 ++--
+ package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.mk   | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.hash b/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.hash
+index 1991972..322c617 100644
+--- a/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.hash
++++ b/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.hash
+@@ -1,3 +1,3 @@
+-# Locally calculated
+-sha256  b2c648ef62cbf03cdc215f55dca01e2e8372983d8c88de3fa03671ddf08d7d14  gst-plugins-ugly-1.26.10.tar.xz
++# From https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-1.24.13.tar.xz.sha256sum
++sha256  dc08bb11dce0a43453466fb9034e4fe06709fb5af68475bcf6d288693b661a5d  gst-plugins-ugly-1.24.13.tar.xz
+ sha256  6095e9ffa777dd22839f7801aa845b31c9ed07f3d6bf8a26dc5d2dec8ccc0ef3  COPYING
+diff --git a/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.mk b/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.mk
+index 701f8f2..02b6e59 100644
+--- a/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.mk
++++ b/package/gstreamer1/gst1-plugins-ugly/gst1-plugins-ugly.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-GST1_PLUGINS_UGLY_VERSION = 1.26.10
++GST1_PLUGINS_UGLY_VERSION = 1.24.13
+ GST1_PLUGINS_UGLY_SOURCE = gst-plugins-ugly-$(GST1_PLUGINS_UGLY_VERSION).tar.xz
+ GST1_PLUGINS_UGLY_SITE = https://gstreamer.freedesktop.org/src/gst-plugins-ugly
+ GST1_PLUGINS_UGLY_LICENSE_FILES = COPYING
+-- 
+2.34.1
+

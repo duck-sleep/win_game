@@ -1,0 +1,58 @@
+From 9f53f81607881717621f9aa168fb18096f3a9dee Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:40 -0500
+Subject: [PATCH 06/19] buildroot: buildroot/package/dhcpcd
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/dhcpcd/Config.in   | 4 ++--
+ package/dhcpcd/dhcpcd.hash | 6 +++---
+ package/dhcpcd/dhcpcd.mk   | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/package/dhcpcd/Config.in b/package/dhcpcd/Config.in
+index 0d72340..f55e613 100644
+--- a/package/dhcpcd/Config.in
++++ b/package/dhcpcd/Config.in
+@@ -12,11 +12,11 @@ config BR2_PACKAGE_DHCPCD
+ if BR2_PACKAGE_DHCPCD
+ 
+ config BR2_PACKAGE_DHCPCD_ENABLE_PRIVSEP
+-	bool "enable privilege separation"
++	bool
+ 	default y
+ 	depends on BR2_USE_MMU
+ 	# Audit headers were only added in recent kernels for some arches
+-	depends on !BR2_arcle || \
++	depends on !(BR2_arceb || BR2_arcle) || \
+ 		BR2_TOOLCHAIN_HEADERS_AT_LEAST_5_2
+ 	depends on !(BR2_microblazeel || BR2_microblazebe) || \
+ 		BR2_TOOLCHAIN_HEADERS_AT_LEAST_3_18
+diff --git a/package/dhcpcd/dhcpcd.hash b/package/dhcpcd/dhcpcd.hash
+index a5d80b1..34f6419 100644
+--- a/package/dhcpcd/dhcpcd.hash
++++ b/package/dhcpcd/dhcpcd.hash
+@@ -1,4 +1,4 @@
+-# sha256 from https://github.com/NetworkConfiguration/dhcpcd/releases/tag/v10.2.4
+-sha256  6721e606609226dbf4d864a78802a9e96beec0ee034a1bd84138b3e037bba7d9  dhcpcd-10.2.4.tar.xz
++# sha256 from https://github.com/NetworkConfiguration/dhcpcd/releases/tag/v10.1.0
++sha256  abc307c63853da3199baa5c1e15fd5ede9d68d068b2a59ca14c5a6768e9cc3b7  dhcpcd-10.1.0.tar.xz
+ # Locally calculated
+-sha256  3aeab006b01c1573b42d4440d7edad0adfe61ad05848ca82e02e745424a2b4fa  LICENSE
++sha256  224b37cd1ef1365bd2ac9eaec9f32fee94e85dd40f95461ebcb21e758357ac1f  LICENSE
+diff --git a/package/dhcpcd/dhcpcd.mk b/package/dhcpcd/dhcpcd.mk
+index dc03fb5..f63c96d 100644
+--- a/package/dhcpcd/dhcpcd.mk
++++ b/package/dhcpcd/dhcpcd.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-DHCPCD_VERSION = 10.2.4
++DHCPCD_VERSION = 10.1.0
+ DHCPCD_SOURCE = dhcpcd-$(DHCPCD_VERSION).tar.xz
+ DHCPCD_SITE = https://github.com/NetworkConfiguration/dhcpcd/releases/download/v$(DHCPCD_VERSION)
+ DHCPCD_DEPENDENCIES = host-pkgconf
+-- 
+2.34.1
+

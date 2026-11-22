@@ -1,0 +1,37 @@
+From 1524aeca8ee2373f570a786be724084ac9f678e8 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 08/19] buildroot: buildroot/package/gstreamer1/gst1-libav
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/gstreamer1/gst1-libav/gst1-libav.hash | 4 ++--
+ package/gstreamer1/gst1-libav/gst1-libav.mk   | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/package/gstreamer1/gst1-libav/gst1-libav.hash b/package/gstreamer1/gst1-libav/gst1-libav.hash
+index 0664ea0..57416e4 100644
+--- a/package/gstreamer1/gst1-libav/gst1-libav.hash
++++ b/package/gstreamer1/gst1-libav/gst1-libav.hash
+@@ -1,3 +1,3 @@
+-# Locally calculated
+-sha256  c8c2fd29cc063a6d26c314cd1a0a3a3060c8a029981b9520fab52c4206d11611  gst-libav-1.26.10.tar.xz
++# From https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.24.13.tar.xz.sha256sum
++sha256  150e2b70588fa32a1294f42665756f2175417ce4b5988e2c2081b683719aa6c1  gst-libav-1.24.13.tar.xz
+ sha256  ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db  COPYING
+diff --git a/package/gstreamer1/gst1-libav/gst1-libav.mk b/package/gstreamer1/gst1-libav/gst1-libav.mk
+index d0d5a62..f01ca0d 100644
+--- a/package/gstreamer1/gst1-libav/gst1-libav.mk
++++ b/package/gstreamer1/gst1-libav/gst1-libav.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-GST1_LIBAV_VERSION = 1.26.10
++GST1_LIBAV_VERSION = 1.24.13
+ GST1_LIBAV_SOURCE = gst-libav-$(GST1_LIBAV_VERSION).tar.xz
+ GST1_LIBAV_SITE = https://gstreamer.freedesktop.org/src/gst-libav
+ GST1_LIBAV_LICENSE = LGPL-2.1+
+-- 
+2.34.1
+

@@ -1,0 +1,26 @@
+From 21ef63d6e9416e5d4709b221316b6030ce95662c Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 3 Apr 2026 17:45:14 +0800
+Subject: [PATCH 65/73] feat(wifi/bt): fix reboot bt brcm err
+
+Origin: kickpi 303c97cd3f94fbd6dbfcfaf119dcada48b16bca5
+---
+ scripts/wifibt-init.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/wifibt-init.sh b/scripts/wifibt-init.sh
+index cdd6e92..b360d1a 100755
+--- a/scripts/wifibt-init.sh
++++ b/scripts/wifibt-init.sh
+@@ -205,7 +205,7 @@ do_init_bt()
+ 			;;
+ 		*)
+ 			log "Unknown Wi-Fi/BT chip, fallback to Broadcom..."
+-			init_bt_brcm
++			# init_bt_brcm
+ 			;;
+ 	esac
+ }
+-- 
+2.34.1
+

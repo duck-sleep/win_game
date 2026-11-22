@@ -1,0 +1,512 @@
+From 5f1d75fbdb669b4d8ac56a671af72a8bc7124d3b Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:10:01 -0500
+Subject: [PATCH] prebuilts: prebuilts
+
+Origin: rockchip sdk import 1f9d3a8 vs https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz@sha256:1e33d53dea59c8de823bbdfe0798280bdcd138636c7060da9d77a97ded095a84, path prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
+---
+ bin/aarch64-rockchip1031-linux-gnu-addr2line  |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-ar         |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-as         |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-c++        |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-c++filt    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-cpp        |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-dwp        |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-elfedit    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-g++        |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcc        |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcc-10.3.1 |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcc-ar     |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcc-nm     |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcc-ranlib |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcov       |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcov-dump  |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gcov-tool  |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gdb        |  1 +
+ ...rch64-rockchip1031-linux-gnu-gdb-add-index |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gfortran   |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-gprof      |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-ld         |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-ld.bfd     |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-ld.gold    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-lto-dump   |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-nm         |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-objcopy    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-objdump    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-ranlib     |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-readelf    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-size       |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-strings    |  1 +
+ bin/aarch64-rockchip1031-linux-gnu-strip      |  1 +
+ env_install_toolchain.sh                      | 45 ++++++++++
+ readme.txt                                    | 11 +++
+ runtime_lib/readme                            | 90 +++++++++++++++++++
+ 36 files changed, 179 insertions(+)
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-addr2line
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-ar
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-as
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-c++
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-c++filt
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-cpp
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-dwp
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-elfedit
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc-10.3.1
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc-ar
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc-nm
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc-ranlib
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcov
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcov-dump
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcov-tool
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gdb
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gdb-add-index
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gfortran
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gprof
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-ld
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-ld.bfd
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-ld.gold
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-lto-dump
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-nm
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-objcopy
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-objdump
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-ranlib
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-readelf
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-size
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-strings
+ create mode 120000 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-strip
+ create mode 100755 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/env_install_toolchain.sh
+ create mode 100644 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/readme.txt
+ create mode 100644 prebuilts/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/runtime_lib/readme
+
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-addr2line b/bin/aarch64-rockchip1031-linux-gnu-addr2line
+new file mode 120000
+index 0000000..75368f5
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-addr2line
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-addr2line
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-ar b/bin/aarch64-rockchip1031-linux-gnu-ar
+new file mode 120000
+index 0000000..4a4c12d
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-ar
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-ar
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-as b/bin/aarch64-rockchip1031-linux-gnu-as
+new file mode 120000
+index 0000000..0bd73c5
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-as
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-as
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-c++ b/bin/aarch64-rockchip1031-linux-gnu-c++
+new file mode 120000
+index 0000000..a5a2dad
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-c++
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-c++
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-c++filt b/bin/aarch64-rockchip1031-linux-gnu-c++filt
+new file mode 120000
+index 0000000..6053b63
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-c++filt
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-c++filt
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-cpp b/bin/aarch64-rockchip1031-linux-gnu-cpp
+new file mode 120000
+index 0000000..f4b55f1
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-cpp
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-cpp
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-dwp b/bin/aarch64-rockchip1031-linux-gnu-dwp
+new file mode 120000
+index 0000000..9f185a4
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-dwp
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-dwp
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-elfedit b/bin/aarch64-rockchip1031-linux-gnu-elfedit
+new file mode 120000
+index 0000000..3e56ad8
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-elfedit
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-elfedit
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-g++ b/bin/aarch64-rockchip1031-linux-gnu-g++
+new file mode 120000
+index 0000000..fee33f8
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-g++
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-g++
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcc b/bin/aarch64-rockchip1031-linux-gnu-gcc
+new file mode 120000
+index 0000000..ef56bdf
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcc
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcc
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcc-10.3.1 b/bin/aarch64-rockchip1031-linux-gnu-gcc-10.3.1
+new file mode 120000
+index 0000000..b61ecb3
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcc-10.3.1
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcc-10.3.1
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcc-ar b/bin/aarch64-rockchip1031-linux-gnu-gcc-ar
+new file mode 120000
+index 0000000..2612de0
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcc-ar
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcc-ar
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcc-nm b/bin/aarch64-rockchip1031-linux-gnu-gcc-nm
+new file mode 120000
+index 0000000..f381e8f
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcc-nm
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcc-nm
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcc-ranlib b/bin/aarch64-rockchip1031-linux-gnu-gcc-ranlib
+new file mode 120000
+index 0000000..3c55335
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcc-ranlib
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcc-ranlib
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcov b/bin/aarch64-rockchip1031-linux-gnu-gcov
+new file mode 120000
+index 0000000..e2e06c1
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcov
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcov
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcov-dump b/bin/aarch64-rockchip1031-linux-gnu-gcov-dump
+new file mode 120000
+index 0000000..b8d1ec4
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcov-dump
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcov-dump
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gcov-tool b/bin/aarch64-rockchip1031-linux-gnu-gcov-tool
+new file mode 120000
+index 0000000..38a83d1
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gcov-tool
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gcov-tool
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gdb b/bin/aarch64-rockchip1031-linux-gnu-gdb
+new file mode 120000
+index 0000000..72d5ad7
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gdb
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gdb
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gdb-add-index b/bin/aarch64-rockchip1031-linux-gnu-gdb-add-index
+new file mode 120000
+index 0000000..910f500
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gdb-add-index
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gdb-add-index
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gfortran b/bin/aarch64-rockchip1031-linux-gnu-gfortran
+new file mode 120000
+index 0000000..fb4bd8c
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gfortran
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gfortran
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-gprof b/bin/aarch64-rockchip1031-linux-gnu-gprof
+new file mode 120000
+index 0000000..996e5af
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-gprof
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-gprof
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-ld b/bin/aarch64-rockchip1031-linux-gnu-ld
+new file mode 120000
+index 0000000..260c2ca
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-ld
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-ld
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-ld.bfd b/bin/aarch64-rockchip1031-linux-gnu-ld.bfd
+new file mode 120000
+index 0000000..092f1a2
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-ld.bfd
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-ld.bfd
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-ld.gold b/bin/aarch64-rockchip1031-linux-gnu-ld.gold
+new file mode 120000
+index 0000000..b5f1240
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-ld.gold
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-ld.gold
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-lto-dump b/bin/aarch64-rockchip1031-linux-gnu-lto-dump
+new file mode 120000
+index 0000000..7082851
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-lto-dump
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-lto-dump
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-nm b/bin/aarch64-rockchip1031-linux-gnu-nm
+new file mode 120000
+index 0000000..05f9bc8
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-nm
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-nm
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-objcopy b/bin/aarch64-rockchip1031-linux-gnu-objcopy
+new file mode 120000
+index 0000000..e221529
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-objcopy
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-objcopy
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-objdump b/bin/aarch64-rockchip1031-linux-gnu-objdump
+new file mode 120000
+index 0000000..4967e1b
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-objdump
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-objdump
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-ranlib b/bin/aarch64-rockchip1031-linux-gnu-ranlib
+new file mode 120000
+index 0000000..31f22c5
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-ranlib
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-ranlib
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-readelf b/bin/aarch64-rockchip1031-linux-gnu-readelf
+new file mode 120000
+index 0000000..59e42e7
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-readelf
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-readelf
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-size b/bin/aarch64-rockchip1031-linux-gnu-size
+new file mode 120000
+index 0000000..de976d9
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-size
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-size
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-strings b/bin/aarch64-rockchip1031-linux-gnu-strings
+new file mode 120000
+index 0000000..9115ecc
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-strings
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-strings
+\ No newline at end of file
+diff --git a/bin/aarch64-rockchip1031-linux-gnu-strip b/bin/aarch64-rockchip1031-linux-gnu-strip
+new file mode 120000
+index 0000000..9bff192
+--- /dev/null
++++ b/bin/aarch64-rockchip1031-linux-gnu-strip
+@@ -0,0 +1 @@
++aarch64-none-linux-gnu-strip
+\ No newline at end of file
+diff --git a/env_install_toolchain.sh b/env_install_toolchain.sh
+new file mode 100755
+index 0000000..02311aa
+--- /dev/null
++++ b/env_install_toolchain.sh
+@@ -0,0 +1,45 @@
++#!/bin/bash
++
++# command to install toolchain in the "dirname" which you Specified.
++# source ./env_install_toolchain.sh dirname
++INSTALL_TARGET_DIR=
++toolchain_cross=`pwd`
++toolchain_cross=$(basename ${toolchain_cross})
++if [ -n "$1" ]; then
++	if [ -d "$1" ]; then
++		INSTALL_TARGET_DIR=$1
++		build_toolchain_path="${INSTALL_TARGET_DIR}/$toolchain_cross/bin"
++	else
++		echo "error: not found dir $1"
++		echo "command format: source $0 [dirname]"
++		echo "     [dirname] is optional"
++		return 1
++	fi
++else
++	build_toolchain_path="${PWD}/bin"
++fi
++
++# default 1
++selectopt=1
++
++case $selectopt in
++        0)
++                if [ -n "$INSTALL_TARGET_DIR" ]; then
++                        sudo cp -rfa $PWD $INSTALL_TARGET_DIR
++                fi
++                sudo echo "export PATH=$build_toolchain_path/:\$PATH" >> /etc/profile
++                source /etc/profile
++                ;;
++        1)
++                if [ -n "$INSTALL_TARGET_DIR" ]; then
++                        cp -rfa $PWD $INSTALL_TARGET_DIR
++                fi
++                cmdsed="sed -i '/^export PATH.*${toolchain_cross}\/bin/d' \$HOME\/.bashrc"
++                eval $cmdsed
++                echo "export PATH=$build_toolchain_path:\$PATH" >> $HOME/.bashrc
++                source $HOME/.bashrc
++                ;;
++        *)
++                echo "Please check input."
++                ;;
++esac
+diff --git a/readme.txt b/readme.txt
+new file mode 100644
+index 0000000..a600576
+--- /dev/null
++++ b/readme.txt
+@@ -0,0 +1,11 @@
++The env_install_toolchain.sh is a shell script to install this toolchain.
++
++We can use
++    source ./env_install_toolchain.sh /opt/toolchain
++command line to install toolchain in /opt/toolchain.
++
++Or we can use
++    source ./env_install_toolchain.sh dirname
++command line to install toolchain in the "dirname" which you Specified.
++
++For now, we can use toolchain in everywhere.
+diff --git a/runtime_lib/readme b/runtime_lib/readme
+new file mode 100644
+index 0000000..006fd65
+--- /dev/null
++++ b/runtime_lib/readme
+@@ -0,0 +1,90 @@
++runtime目录下的库是从aarch64-none-linux-gnu/libc下整理拷贝的。
++
++lib.tar.bz2的结构如下：
++
++lib/
++lib64 -> lib
++lib/ld-linux-aarch64.so.1
++lib/ld-2.33.so
++lib/libthread_db-1.0.so
++lib/librt.so.1
++lib/libutil.so
++lib/libnss_db-2.33.so
++lib/libitm.so.1.0.0
++lib/libnss_dns.so
++lib/libatomic.so.1
++lib/libSegFault.so
++lib/libgfortran.so.5
++lib/libgcc_s.so.1
++lib/libdl-2.33.so
++lib/libgfortran.so.5.0.0
++lib/libBrokenLocale.so.1
++lib/libm-2.33.so
++lib/libasan.so
++lib/libBrokenLocale-2.33.so
++lib/libc.so.6
++lib/libgomp.so.1
++lib/librt-2.33.so
++lib/librt.so
++lib/libnsl-2.33.so
++lib/libasan.so.6
++lib/libpthread.so
++lib/libatomic.so
++lib/libpthread-2.33.so
++lib/libgomp.so.1.0.0
++lib/libdl.so.2
++lib/libtsan.so
++lib/libnss_db.so.2
++lib/libanl.so
++lib/libc.so
++lib/libnss_compat.so
++lib/libnsl.so.1
++lib/libc-2.33.so
++lib/libutil-2.33.so
++lib/libanl-2.33.so
++lib/libm.so.6
++lib/libmemusage.so
++lib/libdl.so
++lib/liblsan.so
++lib/libubsan.so.1.0.0
++lib/libnss_files.so
++lib/libresolv.so.2
++lib/libnss_dns.so.2
++lib/liblsan.so.0.0.0
++lib/libBrokenLocale.so
++lib/liblsan.so.0
++lib/libstdc++.so.6.0.28
++lib/audit/
++lib/audit/sotruss-lib.so
++lib/libcrypt.so
++lib/libcrypt.so.1
++lib/libstdc++.so.6
++lib/libatomic.so.1.2.0
++lib/libgomp.so
++lib/libasan.so.6.0.0
++lib/libpthread.so.0
++lib/libnss_hesiod.so
++lib/libnss_files-2.33.so
++lib/libnss_hesiod.so.2
++lib/libtsan.so.0
++lib/libstdc++.so
++lib/libcrypt-2.33.so
++lib/libthread_db.so.1
++lib/libresolv.so
++lib/libnss_compat-2.33.so
++lib/libthread_db.so
++lib/libgcc_s.so
++lib/libgfortran.so
++lib/libubsan.so
++lib/libnss_dns-2.33.so
++lib/libnss_hesiod-2.33.so
++lib/libresolv-2.33.so
++lib/libnss_files.so.2
++lib/libnss_compat.so.2
++lib/libpcprofile.so
++lib/libnss_db.so
++lib/libanl.so.1
++lib/libutil.so.1
++lib/libtsan.so.0.0.0
++lib/libubsan.so.1
++lib/libinproctrace.so
+-- 
+2.34.1
+

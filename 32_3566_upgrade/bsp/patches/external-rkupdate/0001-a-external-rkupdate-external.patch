@@ -1,0 +1,1089 @@
+From 015d499cb5ea71b2893e78a6b2f58967e0177f95 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:27:31 -0500
+Subject: [PATCH] external-rkupdate: external
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/external/rkupdate@bf7b5fa4cff84ebbc69c3bd5821b001149bebc6e, path external/rkupdate
+---
+ RKAndroidDevice.cpp | 556 +++++++++++++++++++++++++++++++++++++-------
+ RKAndroidDevice.h   |   6 +
+ RKComm.cpp          | 226 ++++++++++++++++++
+ RKComm.h            |  10 +
+ 4 files changed, 717 insertions(+), 81 deletions(-)
+
+diff --git a/RKAndroidDevice.cpp b/RKAndroidDevice.cpp
+index e62b7fe..d26d793 100644
+--- a/RKAndroidDevice.cpp
++++ b/RKAndroidDevice.cpp
+@@ -216,7 +216,7 @@ bool CRKAndroidDevice::CalcIDBCount()
+             }
+             return false;
+         }
+-        uiIdSectorNum = m_usFlashHeadSec + m_usFlashDataSec + m_usFlashBootSec;
++        uiIdSectorNum = m_usFlashHeadSec;/*m_usFlashHeadSec + m_usFlashDataSec + m_usFlashBootSec*/
+     }
+     else
+     {
+@@ -295,6 +295,45 @@ bool CRKAndroidDevice::GetLoaderDataSize()
+ 
+ bool CRKAndroidDevice::GetLoaderHeadSize()
+ {
++#if 1
++    int i = 0;
++
++    if (!m_pImage)
++    {
++        return false;
++    }
++    char index;
++    bool bRet;
++    tchar loaderName[] = "FlashHead";
++    index = m_pImage->m_bootObject->GetIndexByName(ENTRYLOADER, loaderName);
++    if (index == -1)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:GetLoaderHeadSize-->no found flashhead entry"));
++        }
++        return false;
++    }
++    unsigned int dwDelay, dwCount, dwEntrySize;
++    dwCount = m_pImage->m_bootObject->EntryLoaderCount;
++    m_usFlashHeadSec = 0;
++    for (i = 0; i<dwCount; i++)
++    {
++        bRet = m_pImage->m_bootObject->GetEntryProperty(ENTRYLOADER, i, dwEntrySize, dwDelay);
++        if (!bRet)
++        {
++            if (m_pLog)
++            {
++                m_pLog->Record(_T("ERROR:GetLoaderHeadSize-->failed to get NO%d entry"), i + 1);
++            }
++            return false;
++        }
++        m_usFlashHeadSec += (PAGEALIGN(BYTE2SECTOR(dwEntrySize)) * 4);
++    }
++
++    return true;
++
++#else
+     if (!m_pImage)
+     {
+         return false;
+@@ -314,6 +353,7 @@ bool CRKAndroidDevice::GetLoaderHeadSize()
+         m_usFlashHeadSec = PAGEALIGN(BYTE2SECTOR(m_dwLoaderHeadSize)) * 4;
+     }
+     return bRet;
++#endif
+ }
+ 
+ CRKAndroidDevice::CRKAndroidDevice(STRUCT_RKDEVICE_DESC &device): CRKDevice(device)
+@@ -697,7 +737,7 @@ int CRKAndroidDevice::MakeIDBlockData(PBYTE lpIDBlock)
+ 
+ int CRKAndroidDevice::MakeNewIDBlockData(PBYTE lpIDBlock)
+ {
+-    int i;
++    int i, j, ret = 0;
+ 
+     if (m_pLog)
+     {
+@@ -712,112 +752,89 @@ int CRKAndroidDevice::MakeNewIDBlockData(PBYTE lpIDBlock)
+         }
+         return -1;
+     }
++
++    bool bRet;
+     char index;
+-    tchar loaderCodeName[] = _T("FlashBoot");
+-    index = m_pImage->m_bootObject->GetIndexByName(ENTRYLOADER, loaderCodeName);
++    unsigned char *buffer = NULL;
++    tchar loaderHeadName[] = "FlashHead";
++    unsigned int dwEntrySize, dwDelay, dwOffset;
++    index = m_pImage->m_bootObject->GetIndexByName(ENTRYLOADER, loaderHeadName);
+     if (index == -1)
+     {
+         if (m_pLog)
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderCode Entry failed"));
++            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get FlashHead Entry failed"));
+         }
+-        return -2;
++        ret = -2;
++        goto Exit_NewIDBlock;
+     }
+-    PBYTE loaderCodeBuffer;
+-    loaderCodeBuffer = new BYTE[m_dwLoaderSize];
+-    memset(loaderCodeBuffer, 0, m_dwLoaderSize);
+-    if (!m_pImage->m_bootObject->GetEntryData(ENTRYLOADER, index, loaderCodeBuffer))
++    bRet = m_pImage->m_bootObject->GetEntryProperty(ENTRYLOADER, index, dwEntrySize, dwDelay);
++    dwEntrySize = PAGEALIGN(BYTE2SECTOR(dwEntrySize)) * RK_PAGE_SIZE;
++    buffer = new unsigned char[dwEntrySize];
++    memset(buffer, 0, dwEntrySize);
++    if (!m_pImage->m_bootObject->GetEntryData(ENTRYLOADER, index, buffer))
+     {
+         if (m_pLog)
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderCode Data failed"));
++            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get FlashHead Data failed"));
+         }
+-        delete []loaderCodeBuffer;
+-        return -3;
++        ret = -3;
++        goto Exit_NewIDBlock;
+     }
+-
+-    tchar loaderDataName[] = _T("FlashData");
+-    index = m_pImage->m_bootObject->GetIndexByName(ENTRYLOADER, loaderDataName);
+-    if (index == -1)
+-    {
+-        if (m_pLog)
++    if (m_pImage->m_bootObject->Rc4DisableFlag)
++    {//close rc4 encryption
++        for (j = 0; j < dwEntrySize/SECTOR_SIZE; j++)
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderData Entry failed"));
++            P_RC4(buffer + SECTOR_SIZE * j, SECTOR_SIZE);
+         }
+-        delete []loaderCodeBuffer;
+-        return -4;
+     }
+-    PBYTE loaderDataBuffer;
+-    loaderDataBuffer = new BYTE[m_dwLoaderDataSize];
+-    memset(loaderDataBuffer, 0, m_dwLoaderDataSize);
+-    if (!m_pImage->m_bootObject->GetEntryData(ENTRYLOADER, index, loaderDataBuffer))
++    memcpy(lpIDBlock, buffer, dwEntrySize);
++    dwOffset = dwEntrySize;
++    for (i = 0; i < m_pImage->m_bootObject->EntryLoaderCount; i++)
+     {
+-        if (m_pLog)
++        if (i == index)
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderData Data failed"));
++            continue;
+         }
+-        delete []loaderDataBuffer;
+-        delete []loaderCodeBuffer;
+-        return -5;
+-    }
+-
+-    tchar loaderHeadName[] = _T("FlashHead");
+-    index = m_pImage->m_bootObject->GetIndexByName(ENTRYLOADER, loaderHeadName);
+-    if (index == -1)
+-    {
+-        if (m_pLog)
++        if (buffer)
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderHead Entry failed"));
++            delete []buffer;
++            buffer = NULL;
+         }
+-        delete []loaderDataBuffer;
+-        delete []loaderCodeBuffer;
+-        return -6;
+-    }
+-    PBYTE loaderHeadBuffer;
+-    loaderHeadBuffer = new BYTE[m_dwLoaderHeadSize];
+-    memset(loaderHeadBuffer, 0, m_dwLoaderHeadSize);
+-    if (!m_pImage->m_bootObject->GetEntryData(ENTRYLOADER, index, loaderHeadBuffer))
+-    {
+-        if (m_pLog)
++        bRet = m_pImage->m_bootObject->GetEntryProperty(ENTRYLOADER, i, dwEntrySize, dwDelay);
++        dwEntrySize = PAGEALIGN(BYTE2SECTOR(dwEntrySize)) * RK_PAGE_SIZE;
++        buffer = new unsigned char[dwEntrySize];
++        memset(buffer, 0, dwEntrySize);
++        if (!m_pImage->m_bootObject->GetEntryData(ENTRYLOADER, i, buffer))
+         {
+-            m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get LoaderHead Data failed"));
++            if (m_pLog)
++            {
++                m_pLog->Record(_T("ERROR:MakeNewIDBlockData-->Get Entry%d Data failed"), i + 1);
++            }
++            ret = -4;
++            goto Exit_NewIDBlock;
+         }
+-        delete []loaderDataBuffer;
+-        delete []loaderCodeBuffer;
+-        delete []loaderHeadBuffer;
+-        return -7;
++        if (m_pImage->m_bootObject->Rc4DisableFlag)
++        {//close rc4 encryption
++            for (j = 0; j < dwEntrySize/SECTOR_SIZE; j++)
++            {
++                P_RC4(buffer+SECTOR_SIZE*j,SECTOR_SIZE);
++            }
++        }
++        memcpy(lpIDBlock+dwOffset, buffer, dwEntrySize);
++        dwOffset += dwEntrySize;
+     }
+ 
+-    if (m_pImage->m_bootObject->Rc4DisableFlag)
++Exit_NewIDBlock:
++    if (buffer)
+     {
+-        //close rc4 encryption
+-        for (i = 0; i < m_dwLoaderHeadSize / SECTOR_SIZE; i++)
+-        {
+-            P_RC4(loaderHeadBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
+-        }
+-        for (i = 0; i < m_dwLoaderDataSize / SECTOR_SIZE; i++)
+-        {
+-            P_RC4(loaderDataBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
+-        }
+-        for (i = 0; i < m_dwLoaderSize / SECTOR_SIZE; i++)
+-        {
+-            P_RC4(loaderCodeBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
+-        }
++        delete []buffer;
+     }
+-    memcpy(lpIDBlock, loaderHeadBuffer, m_dwLoaderHeadSize);
+-    memcpy(lpIDBlock + SECTOR_SIZE * m_usFlashHeadSec, loaderDataBuffer, m_dwLoaderDataSize);
+-    memcpy(lpIDBlock + SECTOR_SIZE * (m_usFlashHeadSec + m_usFlashDataSec), loaderCodeBuffer, m_dwLoaderSize);
+-
+-
+-    delete []loaderDataBuffer;
+-    delete []loaderCodeBuffer;
+-    delete []loaderHeadBuffer;
+-
+     if (m_pLog)
+     {
+         m_pLog->Record(_T("INFO:MakeNewIDBlockData out"));
+     }
+-    return 0;
++    return ret;
+ }
+ 
+ bool CRKAndroidDevice::MakeSpareData(PBYTE lpIDBlock, DWORD dwSectorNum, PBYTE lpSpareBuffer)
+@@ -862,7 +879,14 @@ int CRKAndroidDevice::WriteIDBlock(PBYTE lpIDBlock, DWORD dwSectorNum, bool bEra
+         //iRet = m_pComm->RKU_EndWriteSector((BYTE*)&end_write_sector_data);
+         for (i = 0; i <= 4; i++)
+         {
+-            iRet = m_pComm->RKU_LoaderWriteLBA(64 + i * 1024, dwSectorNum, lpIDBlock);
++            if(m_pComm->RKU_IsUfs())
++            {
++                iRet = m_pComm->RKU_WriteUfsLoader(64 + i * 1024, dwSectorNum, lpIDBlock);
++            }
++            else
++            {
++                iRet = m_pComm->RKU_LoaderWriteLBA(64 + i * 1024, dwSectorNum, lpIDBlock);
++            }
+             if (iRet != ERR_SUCCESS)
+             {
+                 if (m_pLog)
+@@ -1357,6 +1381,14 @@ int CRKAndroidDevice::DownloadImage()
+         }
+         return -1;
+     }
++
++    if ((rkImageHead.manufacturer[56] == 0x55) && (rkImageHead.manufacturer[57] == 0x66))
++    {
++        USHORT *pItemRemain;
++        pItemRemain = (USHORT *)(&rkImageHead.manufacturer[58]);
++        rkImageHead.item_count += *pItemRemain;
++    }
++
+     if (rkImageHead.item_count <= 0)
+     {
+         if (m_pLog)
+@@ -1505,7 +1537,14 @@ int CRKAndroidDevice::DownloadImage()
+             if (GptFlag)
+             {
+                 m_pLog->Record(_T("########### RKA_Gpt_Download #########"));
+-                bRet = RKA_Gpt_Download(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                if(m_pComm->RKU_IsUfs())
++                {
++                    bRet = RKA_Gpt_Download_UFS(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                }
++                else
++                {
++                    bRet = RKA_Gpt_Download(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                }
+                 if (!bRet)
+                 {
+                     if (m_pLog)
+@@ -1655,7 +1694,14 @@ int CRKAndroidDevice::DownloadImage()
+             }
+             if (GptFlag)
+             {
+-                bRet = RKA_Gpt_Check(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                if(m_pComm->RKU_IsUfs())
++                {
++                    bRet = RKA_Gpt_Check_UFS(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                }
++                else
++                {
++                    bRet = RKA_Gpt_Check(rkImageHead.item[i], uiCurrentByte, uiTotalSize);
++                }
+                 if (!bRet)
+                 {
+                     if (m_pLog)
+@@ -3067,6 +3113,231 @@ bool CRKAndroidDevice::RKA_Gpt_Check(STRUCT_RKIMAGE_ITEM &entry, long long &curr
+     return true;
+ }
+ 
++bool CRKAndroidDevice::RKA_Gpt_Download_UFS(STRUCT_RKIMAGE_ITEM &entry,long long &currentByte,long long totalByte)
++{
++    int  iRet;
++    bool bRet;
++    PARAM_ITEM_VECTOR vecItems;
++    CONFIG_ITEM_VECTOR vecUuids;
++    BYTE *backup_gpt;
++    int nGptSector, nLBsector, nGptEntryLB, nMasterGptSector;
++    (void)entry; (void)totalByte;
++
++    /*UFS 4k align, 8 sector = 4K, uiLogicalBlockSize=8*/
++    if (m_pComm->RKU_IsUfs())
++    {
++        nLBsector = 8;
++        nGptEntryLB = CALC_UNIT(128, (nLBsector * 4));
++        nGptSector = (3 + nGptEntryLB * 2) * nLBsector;
++        nMasterGptSector = (2 + nGptEntryLB) * nLBsector;
++    }
++    else
++    {
++        nLBsector = 1;
++        nGptEntryLB = 32;
++        nGptSector = 67;
++        nMasterGptSector = 34;
++    }
++
++    if (m_pLog)
++    {
++        m_pLog->Record(_T("INFO:RKA_Gpt_Download_UFS-->nLBsector=%d nGptEntryLB=%d nGptSector=%d nMasterGptSector=%d \n"),
++                        nLBsector, nGptEntryLB, nGptSector, nMasterGptSector);
++    }
++
++    if (m_gptBuffer) {
++        delete []m_gptBuffer;
++        m_gptBuffer = NULL;
++    }
++
++
++    if (!m_gptBuffer)
++    {
++        m_gptBuffer = new BYTE[nGptSector * SECTOR_SIZE];
++        if (!m_gptBuffer)
++        {
++            if (m_pLog)
++            {
++                m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->new memory failed,err=%d)"), errno);
++            }
++            return false;
++        }
++    }
++
++    memset(m_gptBuffer, 0, nGptSector * SECTOR_SIZE);
++    bRet = parse_parameter((char *)(m_paramBuffer + 8), vecItems);
++    if (!bRet)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->parse_parameter failed)"));
++        }
++        return false;
++    }
++    bRet = get_uuid_from_parameter((char *)(m_paramBuffer + 8), vecUuids);
++    backup_gpt = m_gptBuffer + nMasterGptSector * SECTOR_SIZE;
++    create_gpt_buffer_ufs(m_gptBuffer, vecItems, vecUuids, m_flashInfo.uiFlashSize * 2048, nLBsector, NULL);
++    if (m_pLog)
++    {
++        m_pLog->Record(_T("INFO:RKA_Gpt_Download_UFS-->disk_sector=%u \n)"), m_flashInfo.uiFlashSize * 2048);
++    }
++
++    memcpy(backup_gpt, m_gptBuffer + 2 * nLBsector * SECTOR_SIZE, nGptEntryLB * nLBsector * SECTOR_SIZE);
++    memcpy(backup_gpt + nGptEntryLB * nLBsector * SECTOR_SIZE, m_gptBuffer + nLBsector * SECTOR_SIZE, nLBsector * SECTOR_SIZE);
++    prepare_gpt_backup_ufs(m_gptBuffer, backup_gpt, nLBsector);
++
++    iRet = m_pComm->RKU_WriteLBA(0, nMasterGptSector, m_gptBuffer);
++    if (iRet != ERR_SUCCESS)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->write gpt master failed,RetCode(%d)"), iRet);
++        }
++        return false;
++    }
++    if (m_pLog)
++    {
++        m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->write gpt master successfully!"));
++    }
++
++    iRet = m_pComm->RKU_WriteLBA(m_flashInfo.uiFlashSize * 2048 - (nGptSector - nMasterGptSector), (nGptSector - nMasterGptSector), backup_gpt);
++    if (iRet != ERR_SUCCESS)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->write gpt backup failed,RetCode(%d)"), iRet);
++        }
++        return false;
++    }
++
++    currentByte += (nGptSector * SECTOR_SIZE);
++    if (m_pLog)
++    {
++        m_pLog->Record(_T("ERROR:RKA_Gpt_Download_UFS-->write gpt backup also successfully!"));
++    }
++
++    return true;
++}
++
++bool CRKAndroidDevice::RKA_Gpt_Check_UFS(STRUCT_RKIMAGE_ITEM &entry,long long &currentByte,long long totalByte)
++{
++    int iRet;
++    (void)entry; (void)totalByte;
++    PBYTE pRead=NULL;
++    int nGptSector, nLBsector, nGptEntryLB, nMasterGptSector;
++
++    if (m_pComm->RKU_IsUfs())
++    {
++        nLBsector = 8;
++        nGptEntryLB = CALC_UNIT(128, (nLBsector * 4));
++        nGptSector = (3 + nGptEntryLB * 2) * nLBsector;
++        nMasterGptSector = (2 + nGptEntryLB) * nLBsector;
++    }
++    else
++    {
++        nLBsector = 1;
++        nGptEntryLB = 32;
++        nGptSector = 67;
++        nMasterGptSector = 34;
++    }
++
++    if (m_pLog)
++    {
++        m_pLog->Record(_T("INFO:RKA_Gpt_Check_UFS-->nLBsector=%d nGptEntryLB=%d nGptSector=%d nMasterGptSector=%d \n"),
++                        nLBsector, nGptEntryLB, nGptSector, nMasterGptSector);
++    }
++
++    pRead = new BYTE[nMasterGptSector * SECTOR_SIZE];
++    if (!pRead)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Check_UFS-->New ReadBuffer failed,err=%d"), errno);
++        }
++        return false;
++    }
++
++    iRet = m_pComm->RKU_ReadLBA(0,nMasterGptSector,pRead);
++    if (iRet!=ERR_SUCCESS)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Check_UFS-->read gpt master failed,RetCode(%d)"), iRet);
++        }
++        delete []pRead;
++        return false;
++    }
++
++    if (memcmp(m_gptBuffer,pRead,nMasterGptSector * SECTOR_SIZE) != 0)
++    {
++        if (m_pLog)
++        {
++            if (m_pLog)
++            {
++                m_pLog->Record(_T("ERROR:RKA_Gpt_Check_UFS-->compare gpt master failed"));
++            }
++            tchar szDateTime[100];
++            tstring strFile;
++            time_t	now;
++            struct tm timeNow;
++            time(&now);
++            localtime_r(&now,&timeNow);
++            _stprintf(szDateTime,_T("%02d-%02d-%02d"), timeNow.tm_hour + 1, timeNow.tm_min + 1, timeNow.tm_sec + 1);
++            strFile = m_pLog->LogSavePath;
++            strFile += szDateTime;
++            strFile += _T("file.bin");
++            m_pLog->SaveBuffer(strFile,m_gptBuffer,nMasterGptSector * SECTOR_SIZE);
++            strFile = m_pLog->LogSavePath;
++            strFile += szDateTime;
++            strFile += _T("flash.bin");
++            m_pLog->SaveBuffer(strFile,pRead,nMasterGptSector * SECTOR_SIZE);
++        }
++        delete []pRead;
++        return false;
++    }
++    iRet = m_pComm->RKU_ReadLBA(m_flashInfo.uiFlashSize * 2048 - (nGptSector - nMasterGptSector), (nGptSector - nMasterGptSector), pRead);
++    if (iRet != ERR_SUCCESS)
++    {
++        if (m_pLog)
++        {
++            m_pLog->Record(_T("ERROR:RKA_Gpt_Check_UFS-->read gpt backup failed,RetCode(%d)"), iRet);
++        }
++        delete []pRead;
++        return false;
++    }
++    if (memcmp(m_gptBuffer + nMasterGptSector * SECTOR_SIZE, pRead, (nGptSector - nMasterGptSector) * SECTOR_SIZE) != 0)
++    {
++        if (m_pLog)
++        {
++            if (m_pLog)
++            {
++                m_pLog->Record(_T("ERROR:RKA_Gpt_Check_UFS-->compare gpt backup failed"));
++            }
++            tchar szDateTime[100];
++            tstring strFile;
++            time_t	now;
++            struct tm timeNow;
++            time(&now);
++            localtime_r(&now,&timeNow);
++            _stprintf(szDateTime,_T("%02d-%02d-%02d"), timeNow.tm_hour + 1, timeNow.tm_min + 1, timeNow.tm_sec + 1);
++            strFile = m_pLog->LogSavePath;
++            strFile += szDateTime;
++            strFile += _T("file.bin");
++            m_pLog->SaveBuffer(strFile, m_gptBuffer + nMasterGptSector * SECTOR_SIZE, (nGptSector - nMasterGptSector) * SECTOR_SIZE);
++            strFile = m_pLog->LogSavePath;
++            strFile += szDateTime;
++            strFile += _T("flash.bin");
++            m_pLog->SaveBuffer(strFile,pRead, (nGptSector - nMasterGptSector) * SECTOR_SIZE);
++        }
++        delete []pRead;
++        return false;
++    }
++    currentByte += (nGptSector * SECTOR_SIZE);
++
++    delete []pRead;
++    return true;
++}
++
+ bool CRKAndroidDevice::MakeParamFileBuffer(STRUCT_RKIMAGE_ITEM &entry)
+ {
+     bool bRet;
+@@ -3530,6 +3801,31 @@ void prepare_gpt_backup(u8 *master, u8 *backup)
+     calc_crc32 = crc32_le(0, (unsigned char *)gptBackupHead, le32_to_cpu(gptBackupHead->header_size));
+     gptBackupHead->header_crc32 = cpu_to_le32(calc_crc32);
+ }
++
++void prepare_gpt_backup_ufs(u8 *master, u8 *backup, u32 logicalBlockSectors)
++{
++    gpt_header *gptMasterHead;
++    gpt_header *gptBackupHead;
++    u32 calc_crc32;
++    u64 val;
++    u32 nGptEntryLB;
++
++    nGptEntryLB = CALC_UNIT(128, (logicalBlockSectors * 4));
++
++    gptMasterHead = (gpt_header*)(master + logicalBlockSectors * SECTOR_SIZE);
++    gptBackupHead = (gpt_header*)(backup + nGptEntryLB * logicalBlockSectors * SECTOR_SIZE);
++
++    /* recalculate the values for the Backup GPT Header */
++    val = le64_to_cpu(gptMasterHead->my_lba);
++    gptBackupHead->my_lba = gptMasterHead->alternate_lba;
++    gptBackupHead->alternate_lba = cpu_to_le64(val);
++    gptBackupHead->partition_entry_lba = cpu_to_le64(le64_to_cpu(gptMasterHead->alternate_lba) - nGptEntryLB);
++    gptBackupHead->header_crc32 = 0;
++
++    calc_crc32 = crc32_le(0, (unsigned char *)gptBackupHead, le32_to_cpu(gptBackupHead->header_size));
++    gptBackupHead->header_crc32 = cpu_to_le32(calc_crc32);
++}
++
+ void gen_rand_uuid(unsigned char *uuid_bin)
+ {
+     efi_guid_t id;
+@@ -3618,6 +3914,104 @@ void create_gpt_buffer(u8 *gpt, PARAM_ITEM_VECTOR &vecParts, CONFIG_ITEM_VECTOR
+     gptHead->header_crc32 = cpu_to_le32(crc32_le(0, gpt + SECTOR_SIZE, sizeof(gpt_header)));
+ 
+ }
++
++void create_gpt_buffer_ufs(u8 *gpt, PARAM_ITEM_VECTOR &vecParts, CONFIG_ITEM_VECTOR &vecUuid, u64 diskSectors, u32 logicalBlockSectors, bool *align_flag)
++{
++    legacy_mbr *mbr = (legacy_mbr *)gpt;
++    gpt_header *gptHead = (gpt_header *)(gpt + logicalBlockSectors * SECTOR_SIZE);
++    gpt_entry *gptEntry = (gpt_entry *)(gpt + 2 * logicalBlockSectors * SECTOR_SIZE);
++    u32 i,j;
++    int pos,backup_gpt_secs;
++    u32 nGptEntryLB,nDiskLB,nMasterGptLB;
++    tstring strPartName;
++    string::size_type iPos;
++
++    nDiskLB = CALC_UNIT(diskSectors, logicalBlockSectors);
++    nGptEntryLB = CALC_UNIT(128, (logicalBlockSectors * 4));
++    nMasterGptLB = 2 + nGptEntryLB;
++
++    backup_gpt_secs = 1 + nGptEntryLB;
++    if (align_flag)
++    {
++        if (*align_flag)
++        {
++            backup_gpt_secs = CALC_UNIT(64, logicalBlockSectors);
++        }
++    }
++    else
++    {
++        bool b_exist_cache = false;
++        for (i = 0; i < vecParts.size(); i++) {
++            if (strcasecmp(vecParts[i].szItemName, "cache") == 0)
++            {
++                b_exist_cache = true;
++                break;
++            }
++        }
++        if (b_exist_cache)
++        {
++            backup_gpt_secs = CALC_UNIT(64, logicalBlockSectors);
++        }
++    }
++
++    /*1.protective mbr*/
++    memset(gpt, 0, logicalBlockSectors * SECTOR_SIZE);
++    mbr->signature = MSDOS_MBR_SIGNATURE;
++    mbr->partition_record[0].sys_ind = EFI_PMBR_OSTYPE_EFI_GPT;
++    mbr->partition_record[0].start_sect = 1;
++    mbr->partition_record[0].nr_sects = (u32)-1;
++    /*2.gpt header*/
++    memset(gpt + logicalBlockSectors * SECTOR_SIZE, 0, logicalBlockSectors * SECTOR_SIZE);
++    gptHead->signature = cpu_to_le64(GPT_HEADER_SIGNATURE);
++    gptHead->revision = cpu_to_le32(GPT_HEADER_REVISION_V1);
++    gptHead->header_size = cpu_to_le32(sizeof(gpt_header));
++    gptHead->my_lba = cpu_to_le64(1);
++    gptHead->alternate_lba = cpu_to_le64(nDiskLB - 1);
++    gptHead->first_usable_lba = cpu_to_le64(nMasterGptLB);
++    gptHead->last_usable_lba = cpu_to_le64(nDiskLB - nMasterGptLB);
++    gptHead->partition_entry_lba = cpu_to_le64(2);
++    gptHead->num_partition_entries = cpu_to_le32(GPT_ENTRY_NUMBERS);
++    gptHead->sizeof_partition_entry = cpu_to_le32(GPT_ENTRY_SIZE);
++    gptHead->header_crc32 = 0;
++    gptHead->partition_entry_array_crc32 = 0;
++    gen_rand_uuid(gptHead->disk_guid.raw);
++
++    /*3.gpt partition entry*/
++    memset(gpt + 2 * logicalBlockSectors * SECTOR_SIZE, 0, nGptEntryLB * logicalBlockSectors * SECTOR_SIZE);
++    for (i = 0; i < vecParts.size(); i++)
++    {
++        gen_rand_uuid(gptEntry->partition_type_guid.raw);
++        gen_rand_uuid(gptEntry->unique_partition_guid.raw);
++        gptEntry->starting_lba = cpu_to_le64(CALC_UNIT(vecParts[i].uiItemOffset, logicalBlockSectors));
++        gptEntry->ending_lba = cpu_to_le64(gptEntry->starting_lba + CALC_UNIT(vecParts[i].uiItemSize, logicalBlockSectors) - 1);
++        gptEntry->attributes.raw = 0;
++        strPartName = vecParts[i].szItemName;
++        iPos = strPartName.find(':');
++        if (iPos != string::npos)
++        {
++            transform(strPartName.begin(),strPartName.end(),strPartName.begin(),(int(*)(int))tolower);
++            if (strPartName.find("bootable") != string::npos)
++                gptEntry->attributes.raw = PART_PROPERTY_BOOTABLE;
++            if (strPartName.find("efi") != string::npos)
++            {
++                gptEntry->attributes.raw = PART_PROPERTY_BOOTABLE;
++            }
++            if (strPartName.find("grow") != string::npos)
++                gptEntry->ending_lba = cpu_to_le64(nDiskLB - backup_gpt_secs - 1);
++            strPartName = strPartName.substr(0, iPos);
++            vecParts[i].szItemName[strPartName.size()] = 0;
++        }
++        for (j = 0; j < strlen(vecParts[i].szItemName); j++)
++            gptEntry->partition_name[j] = vecParts[i].szItemName[j];
++        if ((pos = find_uuid_item(vecUuid, vecParts[i].szItemName)) != -1)
++            memcpy(gptEntry->unique_partition_guid.raw, vecUuid[pos].szItemValue, 16);
++        gptEntry++;
++    }
++
++    gptHead->partition_entry_array_crc32 = cpu_to_le32(crc32_le(0, gpt + 2 * logicalBlockSectors * SECTOR_SIZE, GPT_ENTRY_SIZE * GPT_ENTRY_NUMBERS));
++    gptHead->header_crc32 = cpu_to_le32(crc32_le(0, gpt + logicalBlockSectors * SECTOR_SIZE, sizeof(gpt_header)));
++}
++
+ bool ParseUuidInfo(string &strUuidInfo, string &strName, string &strUUid)
+ {
+     string::size_type pos(0);
+diff --git a/RKAndroidDevice.h b/RKAndroidDevice.h
+index 44f0990..d2ce296 100644
+--- a/RKAndroidDevice.h
++++ b/RKAndroidDevice.h
+@@ -111,6 +111,8 @@ const BYTE Wipe_All[] = {0x72, 0x65, 0x63, 0x6F, 0x76, 0x65,
+ #define LBA_TRANSFER_SIZE_1M        (1024*1024)
+ #define LBA_LOOP_SIZE               (1024*1024)
+ 
++#define RK_PAGE_SIZE                (2048)
++
+ #define MAX_PACKAGE_FILES           16
+ #define RKIMAGE_TAG             0x46414B52
+ #define PARTNAME_PACKAGE_FILE   "package-file"
+@@ -253,6 +255,8 @@ private:
+     bool RKA_File_Check(STRUCT_RKIMAGE_ITEM &entry, long long &currentByte, long long totalByte);
+     bool RKA_Gpt_Download(STRUCT_RKIMAGE_ITEM &entry, long long &currentByte, long long totalByte);
+     bool RKA_Gpt_Check(STRUCT_RKIMAGE_ITEM &entry, long long &currentByte, long long totalByte);
++    bool RKA_Gpt_Download_UFS(STRUCT_RKIMAGE_ITEM &entry, long long &currentByte, long long totalByte);
++    bool RKA_Gpt_Check_UFS(STRUCT_RKIMAGE_ITEM &entry, long long &currentByte, long long totalByte);
+ 
+     bool GetParameterPartSize(STRUCT_RKIMAGE_ITEM &paramItem);
+     bool ParsePartitionInfo(string &strPartInfo, string &strName, UINT &uiOffset, UINT &uiLen);
+@@ -264,6 +268,8 @@ private:
+ };
+ void create_gpt_buffer(u8 *gpt, PARAM_ITEM_VECTOR &vecParts, CONFIG_ITEM_VECTOR &vecUuid, u64 diskSectors);
+ void prepare_gpt_backup(u8 *master, u8 *backup);
++void create_gpt_buffer_ufs(u8 *gpt, PARAM_ITEM_VECTOR &vecParts, CONFIG_ITEM_VECTOR &vecUuid, u64 diskSectors, u32 logicalBlockSectors, bool *align_flag);
++void prepare_gpt_backup_ufs(u8 *master, u8 *backup, u32 logicalBlockSectors);
+ void gen_rand_uuid(unsigned char *uuid_bin);
+ unsigned int crc32_le(unsigned int crc, unsigned char *p, unsigned int len);
+ bool parse_parameter(char *pParameter, PARAM_ITEM_VECTOR &vecItem);
+diff --git a/RKComm.cpp b/RKComm.cpp
+index 157a1d1..618193e 100644
+--- a/RKComm.cpp
++++ b/RKComm.cpp
+@@ -10,6 +10,7 @@ CRKComm::CRKComm(CRKLog *pLog)
+ {
+     m_log = pLog;
+     m_bEmmc = false;
++    m_ufs = false;
+     m_hDev = m_hLbaDev = -1;
+ }
+ CRKComm::~CRKComm()
+@@ -45,6 +46,78 @@ CRKUsbComm::CRKUsbComm(CRKLog *pLog): CRKComm(pLog)
+     }
+ 
+     m_log = pLog;
++    if(!m_bEmmc)
++    {
++        char param[4096];
++        int fd, ret;
++        char *s = NULL;
++        int is_ufs = 0;
++
++        memset(param, 0, 4096);
++        fd= open("/proc/cmdline", O_RDONLY);
++        ret = read(fd, (char*)param, 4096);
++
++        s = strstr(param, "storagemedia=scsi");
++        if(s != NULL)
++        {
++            is_ufs = 1;
++        }
++        else
++        {
++            if((strstr(param, "storagemedia=sd") != NULL) && (strstr(param, "sdfwupdate") != NULL))
++            {
++                printf("CRKUsbComm storagemedia=sd sdfwupdate \n");
++                if((access((char*)UFS_SDA_NAME, F_OK) == 0) && (access((char*)UFS_SDB_NAME, F_OK) == 0)
++                    && (access((char*)UFS_SDC_NAME, F_OK) == 0) && (access((char*)UFS_SDD_NAME, F_OK) == 0))
++                {
++                    printf("CRKUsbComm storagemedia=sd sdfwupdate and sdX exist!\n");
++                    is_ufs = 1;
++                }
++            }
++            else if((strstr(param,"storagemedia=usb") != NULL) && (strstr(param,"usbfwupdate") != NULL))
++            {
++                printf("CRKUsbComm storagemedia=usb usbfwupdate \n");
++                if((access((char*)UFS_SDA_NAME, F_OK) == 0) && (access((char*)UFS_SDB_NAME, F_OK) == 0)
++                    && (access((char*)UFS_SDC_NAME, F_OK) == 0) && (access((char*)UFS_SDD_NAME, F_OK) == 0))
++                {
++                    printf("CRKUsbComm storagemedia=usb usbfwupdate and sdX exist!\n");
++                    is_ufs = 1;
++                }
++            }
++        }
++        close(fd);
++        printf("CRKUsbComm is_ufs=%d \n", is_ufs);
++        if(is_ufs)
++        {
++            if (pLog)
++            {
++                pLog->Record(_T("INFO:is ufs devices..."));
++            }
++            printf("RKU_IsUfs is ufs UFS_SDA_NAME=%s \n", (char*)UFS_SDA_NAME);
++            m_hLbaDev = open((char*)UFS_SDA_NAME, O_RDWR|O_SYNC, 0);
++            if(m_hLbaDev < 0)
++            {
++                if (pLog)
++                {
++                    pLog->Record(_T("ERROR:CRKUsbComm-->open %s failed,err=%s"),(char*)UFS_SDA_NAME, strerror(errno));
++                }
++            }
++            else
++            {
++                if (pLog)
++                {
++                    pLog->Record(_T("INFO:is ufs devices UFS_SDA_NAME..."));
++                }
++                m_ufs = true;
++                long long  filelen= lseek(m_hLbaDev, 0L, SEEK_END);
++                lseek(m_hLbaDev, 0L, SEEK_SET);
++                printf("ufs flashSize is %lld\n", filelen);
++                m_FlashSize = filelen;
++                close(m_hLbaDev);
++            }
++        }
++    }
++	printf("CRKUsbComm INFO m_bEmmc=%d m_ufs=%d \n", (int)m_bEmmc, (int)m_ufs);
+ 
+     if (m_bEmmc)
+     {
+@@ -102,6 +175,26 @@ CRKUsbComm::CRKUsbComm(CRKLog *pLog): CRKComm(pLog)
+             }
+         }
+     }
++    else if(m_ufs)
++    {
++        m_hDev = -1;
++        printf("CRKUsbComm is ufs UFS_SDA_NAME=%s \n", (char*)UFS_SDA_NAME);
++        m_hLbaDev = open((char*)UFS_SDA_NAME, O_RDWR|O_SYNC, 0);
++        if(m_hLbaDev < 0)
++        {
++            if (pLog)
++            {
++                pLog->Record(_T("ERROR:CRKUsbComm-->open %s failed,err=%s"), (char*)UFS_SDA_NAME, strerror(errno));
++            }
++        }
++        else
++        {
++            if (pLog)
++            {
++                pLog->Record(_T("INFO:CRKUsbComm UFS_SDA_NAME-->%s=%d"), (char*)UFS_SDA_NAME, m_hLbaDev);
++            }
++        }
++    }
+     else
+     {
+         if (pLog)
+@@ -145,6 +238,10 @@ void CRKUsbComm::RKU_ReopenLBAHandle()
+     {
+         return;
+     }
++    if (m_ufs)
++    {
++        return;
++    }
+     if (m_hLbaDev > 0)
+     {
+         close(m_hLbaDev);
+@@ -191,6 +288,10 @@ int CRKUsbComm::RKU_ShowNandLBADevice()
+     {
+         return ERR_SUCCESS;
+     }
++    if (m_ufs)
++    {
++        return ERR_SUCCESS;
++    }
+     BYTE blockState[64];
+     memset(blockState, 0, 64);
+     int iRet;
+@@ -210,6 +311,24 @@ bool CRKUsbComm::RKU_IsEmmcFlash()
+     return m_bEmmc ? true : false;
+ }
+ 
++bool CRKUsbComm::RKU_IsUfs()
++{
++    if (m_bEmmc)
++    {
++        printf("RKU_IsUfs is_ufs = 0, is_emmc\n");
++        return 0;
++    }
++
++    if (m_ufs)
++    {
++        printf("RKU_IsUfs is_ufs=1, m_ufs is true\n");
++        return 1;
++    }
++
++    printf("RKU_IsUfs is_ufs = 0 \n");
++    return 0;
++}
++
+ CRKUsbComm::~CRKUsbComm()
+ {
+     if (m_hDev > 0)
+@@ -348,6 +467,8 @@ int CRKUsbComm::RKU_ReadLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE byS
+     long long dwPosBuf;
+     if (m_hLbaDev < 0)
+     {
++        if (m_log)
++            m_log->Record(_T("RKU_ReadLBA shouldn't been here!"));
+         if (!m_bEmmc)
+         {
+             m_hLbaDev = open(NAND_DRIVER_DEV_LBA, O_RDWR | O_SYNC, 0);
+@@ -374,6 +495,8 @@ int CRKUsbComm::RKU_ReadLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE byS
+     }
+     if (m_bEmmc && !CRKAndroidDevice::bGptFlag)
+     {
++        if (m_log)
++            m_log->Record(_T("add----8192"));
+         dwPos += 8192;
+     }
+ 
+@@ -487,6 +610,8 @@ int CRKUsbComm::RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE by
+     }
+     if (m_bEmmc && !CRKAndroidDevice::bGptFlag)
+     {
++        if (m_log)
++            m_log->Record(_T("add----8192"));
+         dwPos += 8192;
+     }
+ 
+@@ -518,6 +643,99 @@ int CRKUsbComm::RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE by
+     return ERR_SUCCESS;
+ }
+ 
++#define RK_LOADER_FILL_SIZE		(4096)
++static unsigned char fill_4k[RK_LOADER_FILL_SIZE] = {0};
++
++int CRKUsbComm::RKU_WriteUfsLoader(DWORD dwPos, DWORD dwCount, BYTE* lpBuffer, BYTE bySubCode)
++{
++    long long ret;
++    long long dwPosBuf;
++    int m_ufs_loader_hLbaDev;
++    (void)bySubCode;
++
++    m_ufs_loader_hLbaDev = open((char*)UFS_SDB_NAME, O_RDWR|O_SYNC, 0);
++    if(m_ufs_loader_hLbaDev < 0)
++    {
++        printf("RKU_WriteUfsLoader Open %s failed\n", (char*)UFS_SDB_NAME);
++        if (m_log)
++        {
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader-->open %s failed,err=%d"), (char*)UFS_SDB_NAME, errno);
++        }
++        return ERR_DEVICE_OPEN_FAILED;
++    }
++    else
++    {
++        printf("RKU_WriteUfsLoader Open %s Sucessful!\n", (char*)UFS_SDB_NAME);
++        if (m_log)
++        {
++            m_log->Record(_T("INFO:RKU_WriteUfsLoader-->open %s Successful"), (char*)UFS_SDB_NAME);
++        }
++    }
++
++    dwPosBuf = dwPos;
++    ret = lseek64(m_ufs_loader_hLbaDev, (off64_t)dwPosBuf * 512, SEEK_SET);
++    if (ret < 0)
++    {
++        if (m_log)
++        {
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader seek failed,err=%d,ret:%lld"), errno, ret);
++            m_log->Record(_T("ERROR:the dwPosBuf = dwPosBuf*512,dwPosBuf:%lld!"), dwPosBuf * 512);
++        }
++
++        return ERR_FAILED;
++    }
++    /*1.write zero to first 4k*/
++    memset(fill_4k, 0x0, RK_LOADER_FILL_SIZE);
++    ret = write(m_ufs_loader_hLbaDev, fill_4k, RK_LOADER_FILL_SIZE);
++    if (ret != RK_LOADER_FILL_SIZE)
++    {
++        sleep(1);
++        if (m_log)
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader write fill 4k failed,err=%d"), errno);
++        return ERR_FAILED;
++    }
++
++    /*2.write remainding data*/
++    ret = write(m_ufs_loader_hLbaDev, lpBuffer + RK_LOADER_FILL_SIZE, (dwCount * 512 - RK_LOADER_FILL_SIZE));
++    if (ret != (dwCount * 512 - RK_LOADER_FILL_SIZE))
++    {
++        sleep(1);
++        if (m_log)
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader write remainding data failed,err=%d"), errno);
++        return ERR_FAILED;
++    }
++
++    /*3.write first 4k*/
++    ret = lseek64(m_ufs_loader_hLbaDev, (off64_t)dwPosBuf * 512, SEEK_SET);
++    if (ret < 0)
++    {
++        if (m_log)
++        {
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader Reseek to first failed,err=%d,ret:%lld"), errno, ret);
++            m_log->Record(_T("ERROR:the dwPosBuf = dwPosBuf*512,dwPosBuf:%lld!"), dwPosBuf * 512);
++        }
++
++        return ERR_FAILED;
++    }
++    ret = write(m_ufs_loader_hLbaDev, lpBuffer, RK_LOADER_FILL_SIZE);
++    if (ret != RK_LOADER_FILL_SIZE)
++    {
++        sleep(1);
++        if (m_log)
++            m_log->Record(_T("ERROR:RKU_WriteUfsLoader write failed,err=%d"), errno);
++        return ERR_FAILED;
++    }
++
++    fsync(m_ufs_loader_hLbaDev);
++
++    if(m_ufs_loader_hLbaDev > 0)
++    {
++        close(m_ufs_loader_hLbaDev);
++    }
++
++    return ERR_SUCCESS;
++}
++
+ int CRKUsbComm::RKU_LoaderWriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode)
+ {
+     long long ret;
+@@ -668,6 +886,10 @@ bool CRKUsbComm::CtrlNandLbaWrite(bool bEnable)
+     {
+         return false;
+     }
++    if (m_ufs)
++    {
++        return false;
++    }
+     if (m_hLbaDev < 0)
+     {
+         return false;
+@@ -698,6 +920,10 @@ bool CRKUsbComm::CtrlNandLbaRead(bool bEnable)
+     {
+         return false;
+     }
++    if (m_ufs)
++    {
++        return false;
++    }
+     if (m_hLbaDev < 0)
+     {
+         return false;
+diff --git a/RKComm.h b/RKComm.h
+index b1cd66b..5f26c04 100644
+--- a/RKComm.h
++++ b/RKComm.h
+@@ -101,6 +101,10 @@ typedef struct
+ //#define EMMC_DRIVER_DEV_LBA "/dev/block/mmcblk0"
+ #define EMMC_DRIVER_DEV_LBA "/dev/mmcblk0"
+ #define EMMC_POINT_NAME "emmc_point_name"
++#define UFS_SDA_NAME	"/dev/sda"
++#define UFS_SDB_NAME	"/dev/sdb"
++#define UFS_SDC_NAME	"/dev/sdc"
++#define UFS_SDD_NAME	"/dev/sdd"
+ 
+ #define READ_SECTOR_IO          _IOW('r', READ_SECTOR, unsigned int)
+ #define WRITE_SECTOR_IO         _IOW('r', WRITE_SECTOR, unsigned int)
+@@ -166,6 +170,7 @@ public:
+     virtual int RKU_TestDeviceReady(DWORD *dwTotal = NULL, DWORD *dwCurrent = NULL, BYTE bySubCode = TU_NONE_SUBCODE) = 0;
+     virtual int RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE) = 0;
+     virtual int RKU_LoaderWriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE) = 0;
++    virtual int RKU_WriteUfsLoader(DWORD dwPos, DWORD dwCount, BYTE* lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE) = 0;
+     virtual int RKU_WriteSector(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer) = 0;
+     virtual int RKU_EndWriteSector(BYTE *lpBuffer) = 0;
+     virtual int RKU_GetLockFlag(BYTE *lpBuffer) = 0;
+@@ -173,11 +178,14 @@ public:
+     virtual void RKU_ReopenLBAHandle() = 0;
+     virtual int RKU_ShowNandLBADevice() = 0;
+     virtual bool RKU_IsEmmcFlash() = 0;
++    virtual bool RKU_IsUfs() = 0;
+     CRKComm(CRKLog *pLog);
+     virtual ~CRKComm();
+ protected:
+     CRKLog *m_log;
+     bool m_bEmmc;
++    bool m_ufs;
++    long long m_FlashSize;
+     int m_hDev;
+     int m_hLbaDev;
+ private:
+@@ -197,6 +205,7 @@ public:
+     virtual int RKU_TestDeviceReady(DWORD *dwTotal = NULL, DWORD *dwCurrent = NULL, BYTE bySubCode = TU_NONE_SUBCODE);
+     virtual int RKU_WriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE);
+     virtual int RKU_LoaderWriteLBA(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE);
++    virtual int RKU_WriteUfsLoader(DWORD dwPos, DWORD dwCount, BYTE* lpBuffer, BYTE bySubCode = RWMETHOD_IMAGE);
+     virtual int RKU_WriteSector(DWORD dwPos, DWORD dwCount, BYTE *lpBuffer);
+     virtual int RKU_EndWriteSector(BYTE *lpBuffer);
+     virtual int RKU_GetLockFlag(BYTE *lpBuffer);
+@@ -204,6 +213,7 @@ public:
+     virtual void RKU_ReopenLBAHandle();
+     virtual int RKU_ShowNandLBADevice();
+     virtual bool RKU_IsEmmcFlash();
++    virtual bool RKU_IsUfs();
+     CRKUsbComm(CRKLog *pLog);
+     ~CRKUsbComm();
+ 
+-- 
+2.34.1
+

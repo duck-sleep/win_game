@@ -1,0 +1,26 @@
+From 65350d1def08e4230a609e00ac9f43847358b12b Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 10 Apr 2026 17:22:25 +0800
+Subject: [PATCH 22/34] feat(ubuntu): fix ubuntu build mali
+
+Origin: kickpi ee738ca0b2c0e499b62c8ebfd92719e5cf17e3df
+---
+ common/scripts/post-ubuntu.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/common/scripts/post-ubuntu.sh b/common/scripts/post-ubuntu.sh
+index 7672fa8..331c9ee 100755
+--- a/common/scripts/post-ubuntu.sh
++++ b/common/scripts/post-ubuntu.sh
+@@ -1,5 +1,8 @@
+ #!/bin/bash -e
+ 
++### this func move to mk-rootfs-noble.sh
++exit 0
++
+ function mnt() {
+     echo "MOUNTING"
+     sudo mount -t proc /proc ${2}/proc
+-- 
+2.34.1
+

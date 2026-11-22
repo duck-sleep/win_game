@@ -1,0 +1,45 @@
+From 33057311653396a153d766b3cd738094f8b52445 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 09:54:13 +0800
+Subject: [PATCH 10/50] feat(tp): add ft8756 gt9xx driver (part 1/4)
+
+Origin: kickpi a81df9b0496578d780a0ec2320393295366544b8
+---
+ drivers/input/touchscreen/Kconfig  | 8 ++++++++
+ drivers/input/touchscreen/Makefile | 1 +
+ 2 files changed, 9 insertions(+)
+
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index 66d4e41..9872647 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -392,6 +392,14 @@ config TOUCHSCREEN_FT5726
+ 	  Say Y here if you have Focaltech touch panel.
+ 	  If unsure, say N.
+ 
++config TOUCHSCREEN_FT8756
++	tristate "Focaltech Touchscreen FT8756"
++	depends on I2C
++	default n
++	help
++	  Say Y here if you have Focaltech touch panel.
++	  If unsure, say N.
++
+ config TOUCHSCREEN_FUJITSU
+ 	tristate "Fujitsu serial touchscreen"
+ 	select SERIO
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index b698a01..c03b88e 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -49,6 +49,7 @@ obj-$(CONFIG_TOUCHSCREEN_EGALAX_SERIAL)	+= egalax_ts_serial.o
+ obj-$(CONFIG_TOUCHSCREEN_EXC3000)	+= exc3000.o
+ obj-$(CONFIG_TOUCHSCREEN_FTS)		+= focaltech_touch/
+ obj-$(CONFIG_TOUCHSCREEN_FT5726)	+= focaltech_touch_ft5726/
++obj-$(CONFIG_TOUCHSCREEN_FT8756)	+= focaltech_touch_ft8756/
+ obj-$(CONFIG_TOUCHSCREEN_FUJITSU)	+= fujitsu_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_GSL3673)	+= gsl3673-ts.o
+-- 
+2.34.1
+

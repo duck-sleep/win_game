@@ -28,6 +28,9 @@ Ubuntu 22.04.5 LTS (jammy)｜内核 6.8.0-138｜6 vCPU｜内存 15.6G（可用�
 对照官方要求：磁盘 ✅、CPU ✅、**内存 15.6G 略低于官方 16G**（RK 线远比 AOSP 轻，实测编得动，
 buildroot 那段也没因内存出问题）。swap 2G 够用，用户没补。
 
+补充（2026-11-20）：磁盘已用 270G / 剩 196G（bsp-work 多棵全量树）。**python3 = 3.10.12**（crypt 模块可用；
+反序列化 buildroot 的 3.11 pyc 要用树里 host/bin/python3，系统 3.10 marshal 报 unknown type code）。
+
 ## 当前状态（2026-10-15 收工）
 
 - 依赖全装好（55 个官方包 + 补的 `gettext cpio file pkg-config libtool dpkg-dev`），`python` 按官方指向 2.7

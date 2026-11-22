@@ -1,0 +1,837 @@
+From 9c05f59ac0f178d7b658f50898cc1979da2a828c Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 16 Jul 2026 16:01:15 +0800
+Subject: [PATCH 46/50] feat(k11c): k11c v1.1 v1.2 config
+
+Origin: kickpi c3daab79761d4075ade4a7b2a1f9f22c7737a3f2
+---
+ arch/arm64/boot/dts/rockchip/Makefile         |   3 +
+ .../dts/rockchip/rk3566-kickpi-camera.dtsi    |  46 ++-
+ .../rockchip/rk3566-kickpi-k11c-v11-linux.dts |  25 ++
+ .../dts/rockchip/rk3566-kickpi-k11c-v11.dtsi  | 283 ++++++++++++++++++
+ .../rockchip/rk3566-kickpi-k11c-v12-linux.dts |  25 ++
+ .../dts/rockchip/rk3566-kickpi-k11c-v12.dtsi  | 283 ++++++++++++++++++
+ drivers/media/i2c/ov5647.c                    |   2 +-
+ scripts/mkmultidtb.py                         |  30 ++
+ 8 files changed, 691 insertions(+), 6 deletions(-)
+ create mode 100644 kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11-linux.dts
+ create mode 100755 kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11.dtsi
+ create mode 100644 kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12-linux.dts
+ create mode 100755 kernel-6.1/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+
+diff --git a/arch/arm64/boot/dts/rockchip/Makefile b/arch/arm64/boot/dts/rockchip/Makefile
+index bc5f135..a362d2c 100644
+--- a/arch/arm64/boot/dts/rockchip/Makefile
++++ b/arch/arm64/boot/dts/rockchip/Makefile
+@@ -172,6 +172,9 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566pro-evb2-lp4x-v10.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3567-evb2-lp4x-v10.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3567-evb2-lp4x-v10-dual-channel-lvds.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3567-evb2-lp4x-v10-one-vp-two-single-channel-lvds.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-kickpi-k11c-linux.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-kickpi-k11c-v11-linux.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-kickpi-k11c-v12-linux.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3567-evb2-lp4x-v10-single-channel-lvds.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3567-evb2-lp4x-v10-two-vp-two-separate-single-channel-lvds.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3568-evb-rk628-hdmi2bt1120-ddr4-v10.dtb
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-camera.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-camera.dtsi
+index ecf5bfe..7405ef2 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-camera.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-camera.dtsi
+@@ -20,6 +20,28 @@ vcc_camera: vcc-camera-regulator {
+ 		regulator-boot-on;
+ 	};
+ 
++	vcc_camera_rst: vcc-camera-rst {
++		compatible = "regulator-fixed";
++		gpio = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&camera_rst>;
++		regulator-name = "cam_rst";
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	vcc_camera_mclk: vcc-camera-mclk {
++		compatible = "regulator-fixed";
++		gpio = <&gpio4 RK_PA7 GPIO_ACTIVE_HIGH>;
++		// pinctrl-names = "default";
++		// pinctrl-0 = <&camera_rst>;
++		regulator-name = "cam_mclk";
++		enable-active-high;
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
+ 	ext_cam_clk: external-camera0-clock {
+ 		compatible = "fixed-clock";
+ 		#clock-cells = <0>;
+@@ -51,10 +73,24 @@ camera_pwr: camera-pwr {
+ 				<4 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>;
+ 		};
+ 
++		camera_rst: camera-rst {
++			rockchip,pins =
++				/* camera power en */
++				<4 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
+ 	};
+ 
+ };
+ 
++&i2c2m1_xfer {
++	rockchip,pins =
++		/* i2c2_sclm1 */
++		<4 RK_PB5 1 &pcfg_pull_up_smt>,
++		/* i2c2_sdam1 */
++		<4 RK_PB4 1 &pcfg_pull_up_smt>;
++};
++
+ &i2c2 {
+ 	status = "okay";
+     pinctrl-0 = <&i2c2m1_xfer>;
+@@ -66,7 +102,7 @@ ov5647: ov5647@36 {
+ 		clocks = <&ext_cam_25m_clk>;
+ 		clock-names = "xvclk";
+ 
+-		// pwdn-gpios = <&gpio4 RK_PB0 GPIO_ACTIVE_HIGH>;
++		// pwdn-gpios = <&gpio4 RK_PB1 GPIO_ACTIVE_HIGH>;
+ 		// power-domains = <&power RK3568_PD_VI>;
+ 		avdd-supply = <&vcc_camera>;
+ 
+@@ -81,7 +117,7 @@ ov5647_out: endpoint {
+ 			};
+ 		};
+ 	};
+-	
++
+ 	// 0c / 36
+    	ov13850: ov13850@36 {
+ 		compatible = "ovti,ov13850";
+@@ -117,10 +153,10 @@ imx415_0: imx415@37 {
+ 		reg = <0x37>;
+ 		clocks = <&ext_cam_37m_clk>;
+ 		clock-names = "xvclk";
+-		
++
+ 		power-domains = <&power RK3568_PD_VI>;
+ 		// avdd-supply = <&vcc_camera>;
+-		
++
+ 		rockchip,camera-module-index = <0>;
+ 		rockchip,camera-module-facing = "back";
+ 		rockchip,camera-module-name = "CMK-OT1607-FV1";
+@@ -212,4 +248,4 @@ &rkcif {
+ 
+ &rkcif_mmu {
+ 	status = "okay";
+-};
++};
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11-linux.dts b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11-linux.dts
+new file mode 100644
+index 0000000..3470abd
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11-linux.dts
+@@ -0,0 +1,25 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++#include "rk3566-kickpi-k11c-v11.dtsi"
++#include "rk3568-linux.dtsi"
++
++#include <dt-bindings/display/rockchip_vop.h>
++
++&vp0 {
++	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
++};
++
++&pmu_io_domains {
++	status = "okay";
++	pmuio2-supply = <&vcca1v8_pmu>;
++	vccio1-supply = <&vccio_acodec>;
++	vccio3-supply = <&vccio_sd>;
++	vccio4-supply = <&vcc_1v8>;
++	vccio5-supply = <&vcc_1v8>;
++	vccio6-supply = <&vcc_1v8>;
++	vccio7-supply = <&vcc_3v3>;
++};
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11.dtsi
+new file mode 100755
+index 0000000..0031c0c
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v11.dtsi
+@@ -0,0 +1,283 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/pinctrl/rockchip.h>
++#include <dt-bindings/input/rk-input.h>
++#include <dt-bindings/sensor-dev.h>
++#include <dt-bindings/display/drm_mipi_dsi.h>
++#include <dt-bindings/display/rockchip_vop.h>
++
++#include "rk3566.dtsi"
++#include "rk3566-kickpi-rk809.dtsi"
++#include "rk3566-kickpi-wifibt.dtsi"
++#include "rk3566-kickpi-camera.dtsi"
++#include "rk3566-kickpi-usb.dtsi"
++
++#include "rk3566-kickpi-lcd-hdmi.dtsi"
++
++// #include "rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi"
++// #include "rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi"
++// #include "rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi"
++// #include "rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi"
++// #include "rk3566-kickpi-lcd-edp.dtsi"
++
++#include "rk3566-kickpi-extend-30pin.dtsi"
++// #include "rk3566-kickpi-extend-30pin-pcm1808.dtsi"
++
++/ {
++	model = "Rockchip RK3566 KICKPI K11C Board";
++	compatible = "rockchip,rk3566-kickpi-k11c", "rockchip,rk3566";
++
++	aliases {
++		rtc0 = &hym8563;
++	};
++
++	adc_keys: adc-keys {
++		compatible = "adc-keys";
++		io-channels = <&saradc 0>;
++		io-channel-names = "buttons";
++		keyup-threshold-microvolt = <1800000>;
++		poll-interval = <100>;
++
++		vol-up-key {
++			label = "volume up";
++			linux,code = <KEY_VOLUMEUP>;
++			press-threshold-microvolt = <1750>;
++		};
++
++		vol-down-key {
++			label = "volume down";
++			linux,code = <KEY_VOLUMEDOWN>;
++			press-threshold-microvolt = <297500>;
++		};
++	};
++
++	vcc_sd: vcc-sd {
++		compatible = "regulator-gpio";
++		enable-active-low;
++		enable-gpio = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc_sd_h>;
++		regulator-name = "vcc_sd";
++		states = <3300000 0x0
++			3300000 0x1>;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&vdd_cpu>;
++};
++
++&dfi {
++	status = "okay";
++};
++
++&dmc {
++	center-supply = <&vdd_logic>;
++	status = "okay";
++};
++
++&gpu {
++	mali-supply = <&vdd_gpu>;
++	status = "okay";
++};
++
++&jpegd {
++	status = "okay";
++};
++
++&jpegd_mmu {
++	status = "okay";
++};
++
++&mpp_srv {
++	status = "okay";
++};
++
++&nandc0 {
++	status = "okay";
++};
++
++&pinctrl {
++	vcc_sd {
++		vcc_sd_h: vcc-sd-h {
++			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++};
++
++&rk_rga {
++	status = "okay";
++};
++
++&rkvdec {
++	status = "okay";
++};
++
++&rkvdec_mmu {
++	status = "okay";
++};
++
++&rkvenc {
++	status = "okay";
++};
++
++&rkvenc_mmu {
++	status = "okay";
++};
++
++&saradc {
++	status = "okay";
++	vref-supply = <&vcc_1v8>;
++};
++
++&sdhci {
++	bus-width = <8>;
++	no-sdio;
++	no-sd;
++	non-removable;
++	max-frequency = <200000000>;
++	status = "okay";
++};
++
++&sdmmc0 {
++	max-frequency = <150000000>;
++	no-sdio;
++	no-mmc;
++	bus-width = <4>;
++	cap-mmc-highspeed;
++	cap-sd-highspeed;
++	disable-wp;
++	sd-uhs-sdr104;
++	vmmc-supply = <&vcc_sd>;
++	vqmmc-supply = <&vccio_sd>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdmmc0_bus4 &sdmmc0_clk &sdmmc0_cmd &sdmmc0_det>;
++	status = "okay";
++};
++
++&tsadc {
++	status = "okay";
++};
++
++&vdpu {
++	status = "okay";
++};
++
++&vdpu_mmu {
++	status = "okay";
++};
++
++&vepu {
++	status = "okay";
++};
++
++&vepu_mmu {
++	status = "okay";
++};
++
++&vop {
++	status = "okay";
++	assigned-clocks = <&cru DCLK_VOP0>, <&cru DCLK_VOP1>;
++	assigned-clock-parents = <&pmucru PLL_HPLL>, <&cru PLL_VPLL>;
++};
++
++&vop_mmu {
++	status = "okay";
++};
++
++&i2c4 {
++	status = "okay";
++	pinctrl-names = "default";
++  	pinctrl-0 = <&i2c4m1_xfer>;
++
++	hym8563: hym8563@51 {
++		compatible = "haoyu,hym8563";
++		reg = <0x51>;
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		clock-output-names = "hym8563";
++		// IRQ GPIO IS MODIFYED FOR UPDATE HYM8562 DRIVER 
++		rtc-irq-gpio = <&gpio0 RK_PD3 IRQ_TYPE_EDGE_FALLING>;
++	};
++	
++};
++
++&uart5 {
++	status = "okay";
++	pinctrl-names = "default";
++  	pinctrl-0 = <&uart5m1_xfer>;
++};
++
++&gmac1 {
++	phy-mode = "rgmii";
++	clock_in_out = "output";
++
++	snps,reset-gpio = <&gpio4 RK_PC2 GPIO_ACTIVE_LOW>;
++	snps,reset-active-low;
++	/* Reset time is 20ms, 100ms for rtl8211f */
++	snps,reset-delays-us = <0 20000 100000>;
++
++	assigned-clocks = <&cru SCLK_GMAC1_RX_TX>, <&cru SCLK_GMAC1>;
++	assigned-clock-parents =  <&cru SCLK_GMAC1_RGMII_SPEED>, <&cru CLK_MAC1_2TOP>;
++	assigned-clock-rates = <0>, <125000000>;
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&gmac1m0_miim
++		     &gmac1m0_tx_bus2_level3
++		     &gmac1m0_rx_bus2
++		     &gmac1m0_rgmii_clk_level2
++		     &gmac1m0_rgmii_bus_level3>;
++
++	tx_delay = <0x42>;
++	rx_delay = <0x39>;
++
++	phy-handle = <&rgmii_phy1>;
++	status = "okay";
++};
++
++&mdio1 {
++	rgmii_phy1: phy@0 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0x0>;
++	};
++};
++
++/ {
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		rknpu_reserved: rknpu {
++			compatible = "shared-dma-pool";
++			inactive;
++			reusable;
++			size = <0x0 0x20000000>;
++			alignment = <0x0 0x1000>;
++		};
++	};
++};
++
++&rknpu {
++	memory-region = <&rknpu_reserved>;
++	rknpu-supply = <&vdd_npu>;
++	status = "okay";
++};
++
++&rknpu_mmu {
++	status = "disabled";
++};
++
++&vp0 {
++	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
++};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12-linux.dts b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12-linux.dts
+new file mode 100644
+index 0000000..0b2a801
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12-linux.dts
+@@ -0,0 +1,25 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++#include "rk3566-kickpi-k11c-v12.dtsi"
++#include "rk3568-linux.dtsi"
++
++#include <dt-bindings/display/rockchip_vop.h>
++
++&vp0 {
++	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
++};
++
++&pmu_io_domains {
++	status = "okay";
++	pmuio2-supply = <&vcca1v8_pmu>;
++	vccio1-supply = <&vccio_acodec>;
++	vccio3-supply = <&vccio_sd>;
++	vccio4-supply = <&vcc_1v8>;
++	vccio5-supply = <&vcc_1v8>;
++	vccio6-supply = <&vcc_3v3>;
++	vccio7-supply = <&vcc_3v3>;
++};
+\ No newline at end of file
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+new file mode 100755
+index 0000000..0031c0c
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c-v12.dtsi
+@@ -0,0 +1,283 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/pinctrl/rockchip.h>
++#include <dt-bindings/input/rk-input.h>
++#include <dt-bindings/sensor-dev.h>
++#include <dt-bindings/display/drm_mipi_dsi.h>
++#include <dt-bindings/display/rockchip_vop.h>
++
++#include "rk3566.dtsi"
++#include "rk3566-kickpi-rk809.dtsi"
++#include "rk3566-kickpi-wifibt.dtsi"
++#include "rk3566-kickpi-camera.dtsi"
++#include "rk3566-kickpi-usb.dtsi"
++
++#include "rk3566-kickpi-lcd-hdmi.dtsi"
++
++// #include "rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi"
++// #include "rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi"
++// #include "rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi"
++// #include "rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi"
++// #include "rk3566-kickpi-lcd-edp.dtsi"
++
++#include "rk3566-kickpi-extend-30pin.dtsi"
++// #include "rk3566-kickpi-extend-30pin-pcm1808.dtsi"
++
++/ {
++	model = "Rockchip RK3566 KICKPI K11C Board";
++	compatible = "rockchip,rk3566-kickpi-k11c", "rockchip,rk3566";
++
++	aliases {
++		rtc0 = &hym8563;
++	};
++
++	adc_keys: adc-keys {
++		compatible = "adc-keys";
++		io-channels = <&saradc 0>;
++		io-channel-names = "buttons";
++		keyup-threshold-microvolt = <1800000>;
++		poll-interval = <100>;
++
++		vol-up-key {
++			label = "volume up";
++			linux,code = <KEY_VOLUMEUP>;
++			press-threshold-microvolt = <1750>;
++		};
++
++		vol-down-key {
++			label = "volume down";
++			linux,code = <KEY_VOLUMEDOWN>;
++			press-threshold-microvolt = <297500>;
++		};
++	};
++
++	vcc_sd: vcc-sd {
++		compatible = "regulator-gpio";
++		enable-active-low;
++		enable-gpio = <&gpio0 RK_PA5 GPIO_ACTIVE_LOW>;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc_sd_h>;
++		regulator-name = "vcc_sd";
++		states = <3300000 0x0
++			3300000 0x1>;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&vdd_cpu>;
++};
++
++&dfi {
++	status = "okay";
++};
++
++&dmc {
++	center-supply = <&vdd_logic>;
++	status = "okay";
++};
++
++&gpu {
++	mali-supply = <&vdd_gpu>;
++	status = "okay";
++};
++
++&jpegd {
++	status = "okay";
++};
++
++&jpegd_mmu {
++	status = "okay";
++};
++
++&mpp_srv {
++	status = "okay";
++};
++
++&nandc0 {
++	status = "okay";
++};
++
++&pinctrl {
++	vcc_sd {
++		vcc_sd_h: vcc-sd-h {
++			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++};
++
++&rk_rga {
++	status = "okay";
++};
++
++&rkvdec {
++	status = "okay";
++};
++
++&rkvdec_mmu {
++	status = "okay";
++};
++
++&rkvenc {
++	status = "okay";
++};
++
++&rkvenc_mmu {
++	status = "okay";
++};
++
++&saradc {
++	status = "okay";
++	vref-supply = <&vcc_1v8>;
++};
++
++&sdhci {
++	bus-width = <8>;
++	no-sdio;
++	no-sd;
++	non-removable;
++	max-frequency = <200000000>;
++	status = "okay";
++};
++
++&sdmmc0 {
++	max-frequency = <150000000>;
++	no-sdio;
++	no-mmc;
++	bus-width = <4>;
++	cap-mmc-highspeed;
++	cap-sd-highspeed;
++	disable-wp;
++	sd-uhs-sdr104;
++	vmmc-supply = <&vcc_sd>;
++	vqmmc-supply = <&vccio_sd>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdmmc0_bus4 &sdmmc0_clk &sdmmc0_cmd &sdmmc0_det>;
++	status = "okay";
++};
++
++&tsadc {
++	status = "okay";
++};
++
++&vdpu {
++	status = "okay";
++};
++
++&vdpu_mmu {
++	status = "okay";
++};
++
++&vepu {
++	status = "okay";
++};
++
++&vepu_mmu {
++	status = "okay";
++};
++
++&vop {
++	status = "okay";
++	assigned-clocks = <&cru DCLK_VOP0>, <&cru DCLK_VOP1>;
++	assigned-clock-parents = <&pmucru PLL_HPLL>, <&cru PLL_VPLL>;
++};
++
++&vop_mmu {
++	status = "okay";
++};
++
++&i2c4 {
++	status = "okay";
++	pinctrl-names = "default";
++  	pinctrl-0 = <&i2c4m1_xfer>;
++
++	hym8563: hym8563@51 {
++		compatible = "haoyu,hym8563";
++		reg = <0x51>;
++		#clock-cells = <0>;
++		clock-frequency = <32768>;
++		clock-output-names = "hym8563";
++		// IRQ GPIO IS MODIFYED FOR UPDATE HYM8562 DRIVER 
++		rtc-irq-gpio = <&gpio0 RK_PD3 IRQ_TYPE_EDGE_FALLING>;
++	};
++	
++};
++
++&uart5 {
++	status = "okay";
++	pinctrl-names = "default";
++  	pinctrl-0 = <&uart5m1_xfer>;
++};
++
++&gmac1 {
++	phy-mode = "rgmii";
++	clock_in_out = "output";
++
++	snps,reset-gpio = <&gpio4 RK_PC2 GPIO_ACTIVE_LOW>;
++	snps,reset-active-low;
++	/* Reset time is 20ms, 100ms for rtl8211f */
++	snps,reset-delays-us = <0 20000 100000>;
++
++	assigned-clocks = <&cru SCLK_GMAC1_RX_TX>, <&cru SCLK_GMAC1>;
++	assigned-clock-parents =  <&cru SCLK_GMAC1_RGMII_SPEED>, <&cru CLK_MAC1_2TOP>;
++	assigned-clock-rates = <0>, <125000000>;
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&gmac1m0_miim
++		     &gmac1m0_tx_bus2_level3
++		     &gmac1m0_rx_bus2
++		     &gmac1m0_rgmii_clk_level2
++		     &gmac1m0_rgmii_bus_level3>;
++
++	tx_delay = <0x42>;
++	rx_delay = <0x39>;
++
++	phy-handle = <&rgmii_phy1>;
++	status = "okay";
++};
++
++&mdio1 {
++	rgmii_phy1: phy@0 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0x0>;
++	};
++};
++
++/ {
++	reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		rknpu_reserved: rknpu {
++			compatible = "shared-dma-pool";
++			inactive;
++			reusable;
++			size = <0x0 0x20000000>;
++			alignment = <0x0 0x1000>;
++		};
++	};
++};
++
++&rknpu {
++	memory-region = <&rknpu_reserved>;
++	rknpu-supply = <&vdd_npu>;
++	status = "okay";
++};
++
++&rknpu_mmu {
++	status = "disabled";
++};
++
++&vp0 {
++	cursor-win-id = <ROCKCHIP_VOP2_CLUSTER0>;
++};
+diff --git a/drivers/media/i2c/ov5647.c b/drivers/media/i2c/ov5647.c
+index 8066e4f..240423b 100644
+--- a/drivers/media/i2c/ov5647.c
++++ b/drivers/media/i2c/ov5647.c
+@@ -1448,7 +1448,7 @@ static int ov5647_init_controls(struct ov5647 *sensor, struct device *dev)
+ 
+ 	v4l2_ctrl_new_std_menu(&sensor->ctrls, &ov5647_ctrl_ops,
+ 			       V4L2_CID_EXPOSURE_AUTO, V4L2_EXPOSURE_MANUAL,
+-			       0, V4L2_EXPOSURE_MANUAL);
++			       0, V4L2_EXPOSURE_AUTO);
+ 
+ 	exposure_max = sensor->mode->vts - 4;
+ 	exposure_def = min(exposure_max, OV5647_EXPOSURE_DEFAULT);
+diff --git a/scripts/mkmultidtb.py b/scripts/mkmultidtb.py
+index a1cc7a4..b0a710d 100755
+--- a/scripts/mkmultidtb.py
++++ b/scripts/mkmultidtb.py
+@@ -201,6 +201,35 @@ DTBS['rk3566-kickpi-k11c-linux'] = OrderedDict([
+                 ('rk3566-kickpi-k11c-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
+                 ('rk3566-kickpi-k11c-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
+ 
++DTBS['rk3566-kickpi-k11c-v11-android'] = OrderedDict([
++                ('rk3566-kickpi-k11c-v11-android-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-v11-android-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-v11-android-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-v11-android-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-v11-android-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
++DTBS['rk3566-kickpi-k11c-v12-android'] = OrderedDict([
++                ('rk3566-kickpi-k11c-v12-android-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-v12-android-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-v12-android-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-v12-android-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-v12-android-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
++DTBS['rk3566-kickpi-k11c-v11-linux'] = OrderedDict([
++                ('rk3566-kickpi-k11c-v11-linux-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-v11-linux-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-v11-linux-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-v11-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-v11-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
++DTBS['rk3566-kickpi-k11c-v12-linux'] = OrderedDict([
++                ('rk3566-kickpi-k11c-v12-linux-hdmi', '#_saradc_ch1=1023'),
++                ('rk3566-kickpi-k11c-v12-linux-lvds0-7-1024-600', '#_saradc_ch1=19'),
++                ('rk3566-kickpi-k11c-v12-linux-mipi0-10.1-800-1280-MX101BA1340', '#_saradc_ch1=185'),
++                ('rk3566-kickpi-k11c-v12-linux-mipi0-8-800-1280-MX080B2140', '#_saradc_ch1=269'),
++                ('rk3566-kickpi-k11c-v12-linux-mipi0-5-720-1280-F050008M01', '#_saradc_ch1=360')])
++
++
+ def main():
+     if (len(sys.argv) < 2) or (sys.argv[1] == '-h'):
+         print(__doc__)
+@@ -211,6 +240,7 @@ def main():
+     target_dtb_list = ''
+     default_dtb = True
+ 
++
+     for dtb, value in TARGET_DTBS.items():
+         if default_dtb:
+             ori_file = 'arch/arm64/boot/dts/rockchip/' + dtb + '.dtb'
+-- 
+2.34.1
+

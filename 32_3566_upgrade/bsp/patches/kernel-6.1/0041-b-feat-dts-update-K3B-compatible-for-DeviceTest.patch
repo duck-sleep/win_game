@@ -1,0 +1,28 @@
+From 7915d2235f7451997ec0b62967103dbf3643e014 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 28 May 2026 10:04:34 +0800
+Subject: [PATCH 40/50] feat(dts): update K3B compatible for DeviceTest
+
+Origin: kickpi c25b5d04353c96eac31be81a309bc0617fbce0a7
+---
+ arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b.dtsi
+index 6c73509..606c9ec 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b.dtsi
+@@ -24,8 +24,8 @@
+ 
+ 
+ / {
+-	model = "Rockchip RK3562 TEST1 DDR3 V10 Board";
+-	compatible = "rockchip,rk3562-test1-ddr3-v10", "rockchip,rk3562";
++	model = "Rockchip RK3562 KICKPI K3B Board";
++	compatible = "rockchip,rk3562-kickpi-k3b", "rockchip,rk3562";
+ 
+ 	dc_12v: dc-12v {
+ 		compatible = "regulator-fixed";
+-- 
+2.34.1
+

@@ -1,0 +1,178 @@
+From ef332650aff7c1a502d67696fe371a387a74bcd0 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 6 Jun 2026 11:40:36 +0800
+Subject: [PATCH 44/50] feat(K3B): USB HOST_EN delay 10 seconds to pull up fix
+ no battery boot error
+
+Origin: kickpi bd9471a0d80822103ef023482ac4f309e2c73742
+---
+ .../dts/rockchip/rk3562-kickpi-k3b-usb.dtsi   | 38 +++++++++-------
+ drivers/leds/leds-gpio.c                      | 44 ++++++++++++++++++-
+ 2 files changed, 65 insertions(+), 17 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b-usb.dtsi b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b-usb.dtsi
+index 88e32d3..4024c3d 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b-usb.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3562-kickpi-k3b-usb.dtsi
+@@ -9,19 +9,19 @@ vcc5v0_usb: vcc5v0-usb {
+ 		vin-supply = <&dc_12v>;
+ 	};
+ 
+-	vcc5v0_usb_host: vcc5v0-usb-host {
+-		compatible = "regulator-fixed";
+-		regulator-name = "vcc5v0_usb_host";
+-		regulator-boot-on;
+-		regulator-always-on;
+-		regulator-min-microvolt = <5000000>;
+-		regulator-max-microvolt = <5000000>;
+-		enable-active-high;
+-		gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
+-		vin-supply = <&vcc5v0_usb>;
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&usb_host_pwren>;
+-	};
++	// vcc5v0_usb_host: vcc5v0-usb-host {
++	// 	compatible = "regulator-fixed";
++	// 	regulator-name = "vcc5v0_usb_host";
++	// 	regulator-boot-on;
++	// 	regulator-always-on;
++	// 	regulator-min-microvolt = <5000000>;
++	// 	regulator-max-microvolt = <5000000>;
++	// 	enable-active-high;
++	// 	gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
++	// 	vin-supply = <&vcc5v0_usb>;
++	// 	pinctrl-names = "default";
++	// 	pinctrl-0 = <&usb_host_pwren>;
++	// };
+ 
+         vcc5v0_usb_otg: vcc5v0-usb-otg {
+ 		compatible = "regulator-fixed";
+@@ -33,6 +33,14 @@ vcc5v0_usb_otg: vcc5v0-usb-otg {
+ 	};
+ };
+ 
++&leds {
++	usb_host_led: usb-host-led {
++		label = "usb_host_led";
++		gpios = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
++		default-state = "on";
++		delay-on-ms = <10000>;
++	};
++};
+ 
+ &u2phy {
+         status = "okay";
+@@ -40,7 +48,7 @@ &u2phy {
+ 
+ &u2phy_host {
+         status = "okay";
+-        phy-supply = <&vcc5v0_usb_host>;
++        // phy-supply = <&vcc5v0_usb_host>;
+ };
+ 
+ &u2phy_otg {
+@@ -81,4 +89,4 @@ usb_host_pwren: usb-host-pwren {
+                 // };
+ 
+         };
+-};
++};
+\ No newline at end of file
+diff --git a/drivers/leds/leds-gpio.c b/drivers/leds/leds-gpio.c
+index 092eb59..38269bd 100644
+--- a/drivers/leds/leds-gpio.c
++++ b/drivers/leds/leds-gpio.c
+@@ -16,6 +16,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/property.h>
+ #include <linux/slab.h>
++#include <linux/workqueue.h>
+ #include "leds.h"
+ 
+ struct gpio_led_data {
+@@ -23,6 +24,9 @@ struct gpio_led_data {
+ 	struct gpio_desc *gpiod;
+ 	u8 can_sleep;
+ 	u8 blinking;
++	u8 default_state;
++	unsigned int delay_on_ms;
++	struct delayed_work delay_work;
+ 	gpio_blink_set_t platform_gpio_blink_set;
+ };
+ 
+@@ -72,6 +76,20 @@ static int gpio_blink_set(struct led_classdev *led_cdev,
+ 						delay_on, delay_off);
+ }
+ 
++static void gpio_led_delay_work(struct work_struct *work)
++{
++	struct gpio_led_data *led_dat = container_of(to_delayed_work(work),
++						     struct gpio_led_data, delay_work);
++
++	if (led_dat->default_state == LEDS_GPIO_DEFSTATE_ON) {
++		if (led_dat->can_sleep)
++			gpiod_set_value_cansleep(led_dat->gpiod, 1);
++		else
++			gpiod_set_value(led_dat->gpiod, 1);
++		led_dat->cdev.brightness = LED_FULL;
++	}
++}
++
+ static int create_gpio_led(const struct gpio_led *template,
+ 	struct gpio_led_data *led_dat, struct device *parent,
+ 	struct fwnode_handle *fwnode, gpio_blink_set_t blink_set)
+@@ -90,6 +108,12 @@ static int create_gpio_led(const struct gpio_led *template,
+ 		led_dat->platform_gpio_blink_set = blink_set;
+ 		led_dat->cdev.blink_set = gpio_blink_set;
+ 	}
++
++	led_dat->delay_on_ms = 0;
++	if (fwnode)
++		fwnode_property_read_u32(fwnode, "delay-on-ms",
++					 &led_dat->delay_on_ms);
++
+ 	if (template->default_state == LEDS_GPIO_DEFSTATE_KEEP) {
+ 		state = gpiod_get_value_cansleep(led_dat->gpiod);
+ 		if (state < 0)
+@@ -97,7 +121,14 @@ static int create_gpio_led(const struct gpio_led *template,
+ 	} else {
+ 		state = (template->default_state == LEDS_GPIO_DEFSTATE_ON);
+ 	}
+-	led_dat->cdev.brightness = state;
++	led_dat->default_state = template->default_state;
++
++	if (led_dat->delay_on_ms && state) {
++		led_dat->cdev.brightness = LED_OFF;
++		state = 0;
++	} else {
++		led_dat->cdev.brightness = state;
++	}
+ 	led_dat->cdev.max_brightness = 1;
+ 	if (!template->retain_state_suspended)
+ 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
+@@ -119,6 +150,15 @@ static int create_gpio_led(const struct gpio_led *template,
+ 						     &init_data);
+ 	}
+ 
++	if (ret < 0)
++		return ret;
++
++	if (led_dat->delay_on_ms && led_dat->default_state == LEDS_GPIO_DEFSTATE_ON) {
++		INIT_DELAYED_WORK(&led_dat->delay_work, gpio_led_delay_work);
++		schedule_delayed_work(&led_dat->delay_work,
++				      msecs_to_jiffies(led_dat->delay_on_ms));
++	}
++
+ 	return ret;
+ }
+ 
+@@ -310,4 +350,4 @@ module_platform_driver(gpio_led_driver);
+ MODULE_AUTHOR("Raphael Assenat <raph@8d.com>, Trent Piepho <tpiepho@freescale.com>");
+ MODULE_DESCRIPTION("GPIO LED driver");
+ MODULE_LICENSE("GPL");
+-MODULE_ALIAS("platform:leds-gpio");
++MODULE_ALIAS("platform:leds-gpio");
+\ No newline at end of file
+-- 
+2.34.1
+

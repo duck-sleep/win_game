@@ -1,0 +1,368 @@
+From f1175b83a612f80b4a32078911b88de359cbd86a Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:27:32 -0500
+Subject: [PATCH] external-recovery: external
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/recovery@dde564ddd12376a8674b3974216cdf37166da5ed, path external/recovery
+---
+ recovery.c                  |  2 +-
+ rkupdate.c                  | 10 ++++-
+ roots.c                     | 28 ++++++++++++++
+ update_engine/flash_image.c |  5 ++-
+ update_engine/main.c        | 21 ++++++++---
+ update_engine/rkboot.c      | 75 +++++++++++++++++++++++++++++++++----
+ update_engine/update.c      |  2 +-
+ usbboot.c                   |  3 --
+ 8 files changed, 124 insertions(+), 22 deletions(-)
+ mode change 100755 => 100644 external/recovery/usbboot.c
+
+diff --git a/recovery.c b/recovery.c
+index 28b5668..7d1c967 100644
+--- a/recovery.c
++++ b/recovery.c
+@@ -1242,7 +1242,7 @@ main(int argc, char **argv)
+         }
+     } else if (usbupdate_package && bUdiskUpdate) {
+         if (status == INSTALL_SUCCESS) {
+-            char *udiskDev = strdup(get_mounted_device_from_path(EX_SDCARD_ROOT));
++            char *udiskDev = strdup(get_mounted_device_from_path(EX_UDISK_ROOT));
+             ensure_path_unmounted(EX_UDISK_ROOT);
+             /* Updating is finished here, we must print this message
+              * in console, it shows user a specific message that
+diff --git a/rkupdate.c b/rkupdate.c
+index ca2fadf..100bb09 100644
+--- a/rkupdate.c
++++ b/rkupdate.c
+@@ -34,6 +34,7 @@
+ #define URL_MAX_LENGTH 512
+ #define CMDLINE_LENGTH 2048
+ extern bool bSDBootUpdate;
++extern bool bUdiskUpdate;
+ static int start_main (const char *binary, char *args[], int* pipefd)
+ {
+     pid_t pid = fork();
+@@ -94,6 +95,7 @@ int do_rk_updateEngine(const char *binary, const char *path)
+     LOGI("[%s] start with main.\n", __func__);
+     char *update = "--update";
+     char *update_sdboot = "--update=sdboot";
++    char *update_udisk = "--update=usbboot";
+     int pipefd[2];
+     if (pipe(pipefd) == -1) {
+         LOGE("pipe error");
+@@ -110,7 +112,7 @@ int do_rk_updateEngine(const char *binary, const char *path)
+     args[2] = args_2;
+     sprintf(args[2], "--image_url=%s", path);
+ 
+-    if (bSDBootUpdate) {
++    if (bSDBootUpdate || bUdiskUpdate) {
+         char path_second[64] = {0};
+         char path_second_dir[64] = {0};
+ 
+@@ -124,6 +126,8 @@ int do_rk_updateEngine(const char *binary, const char *path)
+             sprintf(path_second, "%s/update_ota.img", path_second_dir);
+             if (access(path_second, F_OK) == 0) {
+                 sprintf(args[2], "--image_url=%s", path_second);
++            } else {
++                sprintf(args[2], "--image_url=%s", path);
+             }
+         }
+     }
+@@ -131,6 +135,8 @@ int do_rk_updateEngine(const char *binary, const char *path)
+ 
+     if (bSDBootUpdate) {
+         args[3] = (char *)update_sdboot;
++    } else if (bUdiskUpdate) {
++        args[3] = (char *)update_udisk;
+     } else {
+         args[3] = (char *)update;
+     }
+@@ -138,7 +144,7 @@ int do_rk_updateEngine(const char *binary, const char *path)
+     args[4] = args_4;
+     args[5] = NULL;
+ 
+-    if (bSDBootUpdate) {
++    if (bSDBootUpdate || bUdiskUpdate) {
+         // If SD boot, ignore --partition
+         sprintf(args[4], "--partition=0x%s", "FFFF00");
+     } else {
+diff --git a/roots.c b/roots.c
+index d2225bd..4e7b0f1 100644
+--- a/roots.c
++++ b/roots.c
+@@ -252,6 +252,34 @@ int ensure_path_mounted(const char* path)
+             return -1;
+         }
+         return mtd_mount_partition(partition, v->mount_point, v->fs_type, 0);
++    }  else if (strcmp(v->fs_type, "ubi") == 0) {
++        // Mount UBIFS
++        char ubi_dev_path[20];
++        char *partition_name = NULL;
++        const MtdPartition* partition;
++
++        mtd_scan_partitions();
++
++        partition_name = strstr(v->device, "/dev/block/by-name/");
++        if (partition_name)
++            partition_name = partition_name + strlen("/dev/block/by-name/");
++        else
++            partition_name = v->device;
++
++        partition = mtd_find_partition_by_name(partition_name);
++        if (partition == NULL) {
++            LOGE("failed to find \"%s\" partition to mount at \"%s\"\n",
++                 v->device, v->mount_point);
++            return -1;
++        }
++
++        snprintf(ubi_dev_path, sizeof(ubi_dev_path), "/dev/ubi%d_0", partition->device_index);
++        result = mount(ubi_dev_path, v->mount_point, "ubifs", MS_NOATIME | MS_NODEV | MS_NODIRATIME, NULL);
++        if (result == 0)
++            return 0;
++
++        LOGE("failed to mount %s (%s)\n", v->mount_point, strerror(errno));
++        return -1;
+     } else if (strcmp(v->fs_type, "ext4") == 0 ||
+                strcmp(v->fs_type, "vfat") == 0 ||
+                strcmp(v->fs_type, "ext2") == 0) {
+diff --git a/update_engine/flash_image.c b/update_engine/flash_image.c
+index b14f946..9fbd6a3 100644
+--- a/update_engine/flash_image.c
++++ b/update_engine/flash_image.c
+@@ -101,7 +101,7 @@ static int mtd_write(char *src_path, long long offset, long long size, long long
+ 
+         // dd if=/mnt/sdcard/sdupdate.img bs=4 skip=2727533 count=3646464 | nandwrite -p /dev/block/by-name/recovery
+         memset(mtd_write_erase_cmd, 0, sizeof(mtd_write_erase_cmd) / sizeof(mtd_write_erase_cmd[0]));
+-        sprintf(mtd_write_erase_cmd, "nandwrite -p --input-skip=%d --input-size=%d -f %s %s",
++        sprintf(mtd_write_erase_cmd, "nandwrite -p --input-skip=%lld --input-size=%lld %s %s",
+                 offset, size, dest_path, src_path);
+         system_ret = system(mtd_write_erase_cmd);
+     } else {
+@@ -194,13 +194,14 @@ extern int do_patch_rkimg(const char *img, ssize_t offset, ssize_t size,
+                           const char *blk_dev, const char *dst_file);
+ 
+ extern bool is_sdboot;
++extern bool is_usbboot;
+ int flash_normal(char *src_path, void *pupdate_cmd)
+ {
+     LOGI("%s:%d start.\n", __func__, __LINE__);
+     PUPDATE_CMD pcmd = (PUPDATE_CMD)pupdate_cmd;
+     int ret = 0;
+ 
+-    if (is_sdboot || !isMtdDevice()) {
++    if (is_sdboot || is_usbboot || !isMtdDevice()) {
+         //block
+         char dst_file[256];
+         /* record the already upgraded img name,
+diff --git a/update_engine/main.c b/update_engine/main.c
+index 358dcf5..28ed1d9 100644
+--- a/update_engine/main.c
++++ b/update_engine/main.c
+@@ -218,7 +218,16 @@ int main(int argc, char *argv[])
+ 
+     while ((arg = getopt_long(argc, argv, "", engine_options, NULL)) != -1) {
+         switch (arg) {
+-        case 'u': is_update = true; if (optarg != NULL) is_sdboot = true; continue;
++        case 'u':
++            is_update = true;
++            if (optarg != NULL) {
++                if (strstr(optarg, "sdboot") != NULL) {
++                    is_sdboot = true;
++                } else if (strstr(optarg, "usbboot") != NULL) {
++                    is_usbboot = true;
++                }
++            }
++            continue;
+         case 'c': version_url = optarg; continue;
+         case 'm': misc_func = optarg; continue;
+         case 'p': partition = optarg; continue;
+@@ -244,10 +253,12 @@ int main(int argc, char *argv[])
+     }
+ 
+     if (is_update) {
+-        if (optarg && (strstr(optarg, "usb") != NULL || strstr(optarg, "udisk") != NULL)) {
+-            is_usbboot = true;
+-            is_sdboot = false;
+-            LOGI("*** will upgrade firmware from udisk ***");
++        if (is_usbboot) {
++            LOGI("*** will upgrade firmware from udisk ***\n");
++        } else if (is_sdboot) {
++            LOGI("*** will upgrade firmware from sdcard ***\n");
++        } else {
++            LOGI("*** will upgrade firmware from normal system ***\n");
+         }
+ 
+         if (is_sdboot || is_usbboot) {
+diff --git a/update_engine/rkboot.c b/update_engine/rkboot.c
+index 54cbcf9..63f92f9 100644
+--- a/update_engine/rkboot.c
++++ b/update_engine/rkboot.c
+@@ -31,13 +31,16 @@
+ 
+ USHORT m_usFlashDataSec;
+ USHORT m_usFlashBootSec;
+-DWORD  m_dwLoaderSize;
+-DWORD  m_dwLoaderDataSize;
++USHORT m_usFlashHeadSec;
++DWORD m_dwLoaderSize;
++DWORD m_dwLoaderDataSize;
++DWORD m_dwLoaderHeadSize;
+ DWORD uiSecNumPerIDB;
+ size_t uiFlashPageSize;
+ size_t uiFlashBlockSize;
+ USHORT usPhyBlokcPerIDB;
+ bool m_bRc4Disable;
++bool m_NewIDBFlag;
+ DWORD m_idBlockOffset[IDB_BLOCKS];
+ 
+ long long m_FlashSize;
+@@ -274,9 +277,41 @@ static int MakeIDBlockData(PBYTE lpIDBlock, PBYTE loaderCodeBuffer, PBYTE loader
+     return 0;
+ }
+ 
++static int MakeNewIDBlockData(PBYTE lpIDBlock, PBYTE loaderHeadBuffer, PBYTE loaderCodeBuffer, PBYTE loaderDataBuffer)
++{
++    int i;
++    if (lpIDBlock == NULL || loaderHeadBuffer == NULL ||
++        loaderCodeBuffer == NULL || loaderDataBuffer == NULL)
++        return -1;
++
++    if (m_bRc4Disable) {
++        //close rc4 encryption
++        for (i = 0; i < m_dwLoaderHeadSize / SECTOR_SIZE; i++) {
++            P_RC4(loaderHeadBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
++        }
++        for (i = 0; i < m_dwLoaderDataSize / SECTOR_SIZE; i++) {
++            P_RC4(loaderDataBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
++        }
++        for (i = 0; i < m_dwLoaderSize / SECTOR_SIZE; i++) {
++            P_RC4(loaderCodeBuffer + SECTOR_SIZE * i, SECTOR_SIZE);
++        }
++    }
++    memcpy(lpIDBlock, loaderHeadBuffer, m_dwLoaderHeadSize);
++    memcpy(lpIDBlock + SECTOR_SIZE * m_usFlashHeadSec, loaderDataBuffer, m_dwLoaderDataSize);
++    memcpy(lpIDBlock + SECTOR_SIZE * (m_usFlashHeadSec + m_usFlashDataSec), loaderCodeBuffer, m_dwLoaderSize);
++    LOGI("MakeNewIDBlockData out\n");
++
++    return 0;
++}
++
+ static void calcIDBCount()
+ {
+-    uiSecNumPerIDB = 4 + m_usFlashDataSec + m_usFlashBootSec;
++    if (m_NewIDBFlag == false) {
++        uiSecNumPerIDB = 4 + m_usFlashDataSec + m_usFlashBootSec;
++    } else {
++        uiSecNumPerIDB = m_usFlashHeadSec + m_usFlashDataSec + m_usFlashBootSec;
++    }
++
+     usPhyBlokcPerIDB = ((uiSecNumPerIDB > 0) ? ((uiSecNumPerIDB - 1) / 8 + 1) : (uiSecNumPerIDB));
+     LOGI("usPhyBlokcPerIDB = %d.\n", usPhyBlokcPerIDB);
+ }
+@@ -305,7 +340,7 @@ static int reserveIDBlock()
+ 
+ static int WriteIDBlock(PBYTE lpIDBlock, DWORD dwSectorNum, char *dest_path)
+ {
+-    LOGE("WriteIDBlock start %s \n", dest_path);
++    LOGI("WriteIDBlock start %s \n", dest_path);
+     // int fd_dest = open("/tmp/loader2.txt", O_RDWR|O_SYNC, 0);
+     int fd_dest = open(dest_path, O_CREAT | O_RDWR | O_SYNC | O_TRUNC, 0);
+     if (fd_dest < 0) {
+@@ -317,7 +352,7 @@ static int WriteIDBlock(PBYTE lpIDBlock, DWORD dwSectorNum, char *dest_path)
+         //debug for 3308
+         //256 为128k 的起始位置
+         //每256k 备份一份
+-        lseek64(fd_dest, (i * 512)*SECTOR_SIZE, SEEK_SET);
++        lseek64(fd_dest, (i * 1024)*SECTOR_SIZE, SEEK_SET);
+         if (write(fd_dest, lpIDBlock, dwSectorNum * SECTOR_SIZE) != dwSectorNum * SECTOR_SIZE) {
+             close(fd_dest);
+             LOGE("[%s:%d] error (%s).\n", __func__, __LINE__, strerror(errno));
+@@ -346,6 +381,13 @@ bool download_loader(PBYTE data_buf, int size, char *dest_path)
+         return false;
+     }
+ 
++    if (pBootHead->uiTag == 0x2052444C) {
++        m_NewIDBFlag = true;
++        LOGI("this is new IDB flag\n");
++    } else {
++        m_NewIDBFlag = false;
++    }
++
+     if (pBootHead->ucRc4Flag) {
+         m_bRc4Disable = true;
+     } else {
+@@ -364,6 +406,15 @@ bool download_loader(PBYTE data_buf, int size, char *dest_path)
+     m_usFlashBootSec = PAGEALIGN(BYTE2SECTOR(m_dwLoaderSize)) * 4;
+     LOGI("m_usFlashBootSec = %d, m_dwLoaderSize = %d.\n", m_usFlashBootSec, m_dwLoaderSize);
+ 
++    unsigned char *loaderHeadBuffer = NULL;
++    if (m_NewIDBFlag == true) {
++        char loaderHeadName[] = "FlashHead";
++        m_dwLoaderHeadSize = getLoaderSizeAndData(loaderHeadName, data_buf, &loaderHeadBuffer);
++        m_usFlashHeadSec = PAGEALIGN(BYTE2SECTOR(m_dwLoaderHeadSize)) * 4;
++        LOGI("m_usFlashHeadSec = %d, m_dwLoaderSize = %d.\n", m_usFlashHeadSec, m_dwLoaderHeadSize);
++    }
++
++
+     calcIDBCount();
+     reserveIDBlock();
+ 
+@@ -380,9 +431,14 @@ bool download_loader(PBYTE data_buf, int size, char *dest_path)
+     if ( !pIDBData )
+         return false;
+     memset(pIDBData, 0, uiSecNumPerIDB * SECTOR_SIZE);
+-    if (MakeIDBlockData(pIDBData, loaderCodeBuffer, loaderDataBuffer) != 0 ) {
+-        LOGE("[%s:%d] MakeIDBlockData failed.\n", __func__, __LINE__);
+-        return false;
++
++    if (m_NewIDBFlag == true) {
++        MakeNewIDBlockData(pIDBData, loaderHeadBuffer, loaderCodeBuffer, loaderDataBuffer);
++    } else {
++        if (MakeIDBlockData(pIDBData, loaderCodeBuffer, loaderDataBuffer) != 0 ) {
++            LOGE("[%s:%d] MakeIDBlockData failed.\n", __func__, __LINE__);
++            return false;
++        }
+     }
+ 
+     if (WriteIDBlock(pIDBData, uiSecNumPerIDB, dest_path) != 0) {
+@@ -392,6 +448,9 @@ bool download_loader(PBYTE data_buf, int size, char *dest_path)
+     free(pIDBData);
+     free(loaderCodeBuffer);
+     free(loaderDataBuffer);
++    if (m_NewIDBFlag == true) {
++        free(loaderHeadBuffer);
++    }
+ 
+     return true;
+ }
+diff --git a/update_engine/update.c b/update_engine/update.c
+index 1a9dbae..e175afc 100644
+--- a/update_engine/update.c
++++ b/update_engine/update.c
+@@ -234,7 +234,7 @@ bool RK_ota_set_partition(int partition)
+ 
+ }
+ 
+-static int ota_recovery_cmds (long long flash_offset, const char *dest_path)
++static int ota_recovery_cmds(long long flash_offset, const char *dest_path)
+ {
+     char data_buf[256];
+     unsigned int write_count = 0;
+diff --git a/usbboot.c b/usbboot.c
+old mode 100755
+new mode 100644
+index 643dec1..1c83adc
+--- a/usbboot.c
++++ b/usbboot.c
+@@ -80,9 +80,6 @@ void ensure_udisk_mounted(bool *bMounted)
+             }
+         }
+     }
+-
+-    if (bSucc)
+-        *bMounted = false;
+ }
+ 
+ #define MaxLine 1024
+-- 
+2.34.1
+

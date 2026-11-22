@@ -1,0 +1,25 @@
+From 4fce4a096e144bdf3f9b9902f5c8f24a924ad17c Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:12:29 -0500
+Subject: [PATCH 2/2] buildroot: libxcrypt: add host variant
+
+Origin: 32_3566_upgrade/patches/02-libxcrypt-host.patch
+---
+ package/libxcrypt/libxcrypt.mk | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/package/libxcrypt/libxcrypt.mk b/package/libxcrypt/libxcrypt.mk
+index 9ad030fbd..ce805f637 100644
+--- a/package/libxcrypt/libxcrypt.mk
++++ b/package/libxcrypt/libxcrypt.mk
+@@ -18,3 +18,7 @@ LIBXCRYPT_CONF_OPTS = --disable-werror
+ LIBXCRYPT_CONF_OPTS += --disable-obsolete_api
+ 
+ $(eval $(autotools-package))
++
++HOST_LIBXCRYPT_CONF_OPTS = --disable-werror --disable-obsolete_api
++
++$(eval $(host-autotools-package))
+-- 
+2.34.1
+

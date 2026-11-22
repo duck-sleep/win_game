@@ -1,0 +1,25 @@
+From e5c163543c62c46fba697d103dbe06e481e59e54 Mon Sep 17 00:00:00 2001
+From: xie <swxie@kickpi.com>
+Date: Fri, 17 Jul 2026 14:46:23 +0800
+Subject: [PATCH 48/50] fix(K8C): add vpcie3v3-supply for NVMe SSD
+
+Origin: kickpi a2d5539f8795cbedaea6edf30faa20489ddf26e2
+---
+ arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8c-pcie.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8c-pcie.dtsi b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8c-pcie.dtsi
+index 6a4f0a8..4d9dfce 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8c-pcie.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8c-pcie.dtsi
+@@ -78,5 +78,7 @@ &combphy2_psu {
+ 
+ &pcie2x1l0 {
+ 	reset-gpios = <&gpio4 RK_PA5 GPIO_ACTIVE_HIGH>;
++	rockchip,skip-scan-in-resume;
++	vpcie3v3-supply = <&vcc3v3_pcie_m2>;
+ 	status = "okay";
+ };
+-- 
+2.34.1
+

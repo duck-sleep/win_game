@@ -1,0 +1,162 @@
+{
+ "components": {
+  "kernel-6.1": {
+   "patches": {
+    "a": 1,
+    "b": 50,
+    "c": 2
+   },
+   "blobs": 1
+  },
+  "u-boot": {
+   "patches": {
+    "a": 1,
+    "b": 5,
+    "c": 1
+   },
+   "blobs": 1
+  },
+  "buildroot": {
+   "patches": {
+    "a": 19,
+    "b": 2,
+    "c": 2
+   },
+   "blobs": 0
+  },
+  "device-rockchip": {
+   "patches": {
+    "a": 8,
+    "b": 34,
+    "c": 2
+   },
+   "blobs": 8
+  },
+  "sdk-top": {
+   "patches": {
+    "a": 1,
+    "b": 7,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "external-mpp": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 1
+   },
+   "blobs": 1
+  },
+  "external-linux-rga": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "external-gstreamer-rockchip": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "external-rktoolkit": {
+   "patches": {
+    "a": 0,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "external-rkwifibt": {
+   "patches": {
+    "a": 1,
+    "b": 73,
+    "c": 0
+   },
+   "blobs": 17
+  },
+  "external-recovery": {
+   "patches": {
+    "a": 1,
+    "b": 2,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "external-rkupdate": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 0
+  },
+  "rkbin": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 1
+  },
+  "tools": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 2
+  },
+  "prebuilts": {
+   "patches": {
+    "a": 1,
+    "b": 0,
+    "c": 0
+   },
+   "blobs": 1
+  }
+ },
+ "exceptions": [
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit2.h",
+   "diff_bytes": 3016919
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit_8812f.h",
+   "diff_bytes": 1162018
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit_8814b.h",
+   "diff_bytes": 1383278
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit_8821c.h",
+   "diff_bytes": 1023763
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit_8822c.h",
+   "diff_bytes": 1151740
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/halmac/halmac_bit_8822e.h",
+   "diff_bytes": 1164378
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/phydm/halrf/rtl8822c/halhwimg8822c_rf.c",
+   "diff_bytes": 1421597
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.c",
+   "diff_bytes": 3699544
+  },
+  {
+   "path": "external/rkwifibt/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw_10M.c",
+   "diff_bytes": 3567893
+  }
+ ]
+}

@@ -1,0 +1,851 @@
+From 0920b91ceb584a001d16574a200ce0c54e872f03 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 11/19] buildroot:
+ buildroot/package/gstreamer1/gst1-plugins-good
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ ...ip-the-stream-duration-longer-than-3.patch | 30 +++++++++++++++++
+ ...-HACK-flacparse-Handle-metadata-127.patch} | 10 +++---
+ ...eferred-for-autovideosink-autoaudio.patch} | 10 +++---
+ ...0004-v4l2-Support-preferred-formats.patch} | 16 +++++-----
+ ...-flip-Support-rockchip-RGA-2D-accel.patch} | 24 +++++++-------
+ ...2src-Support-setting-default-device.patch} |  8 ++---
+ ...c-Filter-out-unavailable-RK-sources.patch} | 10 +++---
+ ...2src-Support-setting-max-resolution.patch} | 18 +++++------
+ ...rse-Disable-QoS-lace-skipping-by-de.patch} | 14 ++++----
+ ...v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch} |  6 ++--
+ ...l2-Support-setting-v4l2-min-buffers.patch} | 26 +++++++--------
+ ...-Support-configuring-buffer-sharing.patch} | 32 +++++++++----------
+ ...upport-bypassing-buf-cache-cleaning.patch} | 18 +++++------
+ .../gst1-plugins-good/gst1-plugins-good.hash  |  4 +--
+ .../gst1-plugins-good/gst1-plugins-good.mk    |  2 +-
+ 15 files changed, 129 insertions(+), 99 deletions(-)
+ create mode 100644 buildroot/package/gstreamer1/gst1-plugins-good/0001-qtdemux-don-t-skip-the-stream-duration-longer-than-3.patch
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0001-HACK-flacparse-Handle-metadata-127.patch => 0002-HACK-flacparse-Handle-metadata-127.patch} (79%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0002-autodetect-Add-preferred-for-autovideosink-autoaudio.patch => 0003-autodetect-Add-preferred-for-autovideosink-autoaudio.patch} (92%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0003-v4l2-Support-preferred-formats.patch => 0004-v4l2-Support-preferred-formats.patch} (87%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0004-video-flip-Support-rockchip-RGA-2D-accel.patch => 0005-video-flip-Support-rockchip-RGA-2D-accel.patch} (93%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0005-v4l2src-Support-setting-default-device.patch => 0006-v4l2src-Support-setting-default-device.patch} (86%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0006-v4l2src-Filter-out-unavailable-RK-sources.patch => 0007-v4l2src-Filter-out-unavailable-RK-sources.patch} (89%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0007-v4l2src-Support-setting-max-resolution.patch => 0008-v4l2src-Support-setting-max-resolution.patch} (84%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0008-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch => 0009-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch} (89%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0009-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch => 0010-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch} (84%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0010-v4l2-Support-setting-v4l2-min-buffers.patch => 0011-v4l2-Support-setting-v4l2-min-buffers.patch} (82%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0011-v4l2-Support-configuring-buffer-sharing.patch => 0012-v4l2-Support-configuring-buffer-sharing.patch} (82%)
+ rename buildroot/package/gstreamer1/gst1-plugins-good/{0012-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch => 0013-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch} (79%)
+
+diff --git a/package/gstreamer1/gst1-plugins-good/0001-qtdemux-don-t-skip-the-stream-duration-longer-than-3.patch b/package/gstreamer1/gst1-plugins-good/0001-qtdemux-don-t-skip-the-stream-duration-longer-than-3.patch
+new file mode 100644
+index 0000000..48ec8ad
+--- /dev/null
++++ b/package/gstreamer1/gst1-plugins-good/0001-qtdemux-don-t-skip-the-stream-duration-longer-than-3.patch
+@@ -0,0 +1,30 @@
++From 10f82891ae1dd320a1006190a0e5a49c575e64b3 Mon Sep 17 00:00:00 2001
++From: Randy Li <randy.li@rock-chips.com>
++Date: Fri, 21 Jul 2017 10:24:01 +0800
++Subject: [PATCH 01/13] qtdemux: don't skip the stream duration longer than 30s
++
++Some video files have a wrong total duration, I decide to regard
++the stream inside it longer than 30s as a valid stream.
++
++Signed-off-by: Randy Li <randy.li@rock-chips.com>
++---
++ gst/isomp4/qtdemux.c | 3 ++-
++ 1 file changed, 2 insertions(+), 1 deletion(-)
++
++diff --git a/gst/isomp4/qtdemux.c b/gst/isomp4/qtdemux.c
++index 8e7eb89..42ce44e 100644
++--- a/gst/isomp4/qtdemux.c
+++++ b/gst/isomp4/qtdemux.c
++@@ -11962,7 +11962,8 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak, guint32 * mvhd_matrix)
++      * some of those trailers, nowadays, have prologue images that are
++      * themselves video tracks as well. I haven't really found a way to
++      * identify those yet, except for just looking at their duration. */
++-    if (tdur1 != 0 && (tdur2 * 10 / tdur1) < 2) {
+++    if (tdur1 != 0 && (tdur2 * 10 / tdur1) < 2
+++        && (stream->duration / stream->timescale) < 30) {
++       GST_WARNING_OBJECT (qtdemux,
++           "Track shorter than 20%% (%" G_GUINT64_FORMAT "/%" G_GUINT32_FORMAT
++           " vs. %" G_GUINT64_FORMAT "/%" G_GUINT32_FORMAT ") of the stream "
++-- 
++2.20.1
++
+diff --git a/package/gstreamer1/gst1-plugins-good/0001-HACK-flacparse-Handle-metadata-127.patch b/package/gstreamer1/gst1-plugins-good/0002-HACK-flacparse-Handle-metadata-127.patch
+similarity index 79%
+rename from package/gstreamer1/gst1-plugins-good/0001-HACK-flacparse-Handle-metadata-127.patch
+rename to package/gstreamer1/gst1-plugins-good/0002-HACK-flacparse-Handle-metadata-127.patch
+index 5aaa55a..7bd3e6a 100644
+--- a/package/gstreamer1/gst1-plugins-good/0001-HACK-flacparse-Handle-metadata-127.patch
++++ b/package/gstreamer1/gst1-plugins-good/0002-HACK-flacparse-Handle-metadata-127.patch
+@@ -1,7 +1,7 @@
+-From 61d49f432ab13d428817817ceed5fb4571884431 Mon Sep 17 00:00:00 2001
++From 86baddb18f491a0e16bbfb8da20a175ef3e35d9c Mon Sep 17 00:00:00 2001
+ From: "james.lin" <james.lin@rock-chips.com>
+ Date: Tue, 23 Jan 2018 19:19:36 +0800
+-Subject: [PATCH 01/12] HACK: flacparse: Handle metadata 127
++Subject: [PATCH 02/13] HACK: flacparse: Handle metadata 127
+ 
+ Signed-off-by: james.lin <james.lin@rock-chips.com>
+ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+@@ -10,10 +10,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 3 insertions(+)
+ 
+ diff --git a/gst/audioparsers/gstflacparse.c b/gst/audioparsers/gstflacparse.c
+-index ae31cd5..05598d5 100644
++index 89af1d7..91f719b 100644
+ --- a/gst/audioparsers/gstflacparse.c
+ +++ b/gst/audioparsers/gstflacparse.c
+-@@ -1650,11 +1650,14 @@ gst_flac_parse_parse_frame (GstBaseParse * parse, GstBaseParseFrame * frame,
++@@ -1568,11 +1568,14 @@ gst_flac_parse_parse_frame (GstBaseParse * parse, GstBaseParseFrame * frame,
+      gboolean is_last = map.data[0] >> 7;
+      guint type = (map.data[0] & 0x7F);
+  
+@@ -29,5 +29,5 @@ index ae31cd5..05598d5 100644
+      GST_DEBUG_OBJECT (flacparse, "Handling metadata block of type %u", type);
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0002-autodetect-Add-preferred-for-autovideosink-autoaudio.patch b/package/gstreamer1/gst1-plugins-good/0003-autodetect-Add-preferred-for-autovideosink-autoaudio.patch
+similarity index 92%
+rename from package/gstreamer1/gst1-plugins-good/0002-autodetect-Add-preferred-for-autovideosink-autoaudio.patch
+rename to package/gstreamer1/gst1-plugins-good/0003-autodetect-Add-preferred-for-autovideosink-autoaudio.patch
+index 065d226..f9bdbd2 100644
+--- a/package/gstreamer1/gst1-plugins-good/0002-autodetect-Add-preferred-for-autovideosink-autoaudio.patch
++++ b/package/gstreamer1/gst1-plugins-good/0003-autodetect-Add-preferred-for-autovideosink-autoaudio.patch
+@@ -1,7 +1,7 @@
+-From bf17bc1da1a018b0af55043db3819f4119775791 Mon Sep 17 00:00:00 2001
++From ed08ba8bd238a98a5720dcd4f043c488e89d7dc0 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 11 Jun 2019 10:19:22 +0800
+-Subject: [PATCH 02/12] autodetect: Add preferred for
++Subject: [PATCH 03/13] autodetect: Add preferred for
+  autovideosink/autoaudiosink
+ 
+ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+@@ -34,10 +34,10 @@ index 5c18972..088c83e 100644
+    sink->ts_offset = DEFAULT_TS_OFFSET;
+  }
+ diff --git a/gst/autodetect/gstautodetect.c b/gst/autodetect/gstautodetect.c
+-index 635aee5..fa85324 100644
++index 864d465..56ce69d 100644
+ --- a/gst/autodetect/gstautodetect.c
+ +++ b/gst/autodetect/gstautodetect.c
+-@@ -272,6 +272,20 @@ gst_auto_detect_find_best (GstAutoDetect * self)
++@@ -273,6 +273,20 @@ gst_auto_detect_find_best (GstAutoDetect * self)
+    GST_LOG_OBJECT (self, "Trying to find usable %s elements ...",
+        self->media_klass_lc);
+  
+@@ -92,5 +92,5 @@ index b3eaf1f..545e21c 100644
+    sink->ts_offset = DEFAULT_TS_OFFSET;
+  }
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0003-v4l2-Support-preferred-formats.patch b/package/gstreamer1/gst1-plugins-good/0004-v4l2-Support-preferred-formats.patch
+similarity index 87%
+rename from package/gstreamer1/gst1-plugins-good/0003-v4l2-Support-preferred-formats.patch
+rename to package/gstreamer1/gst1-plugins-good/0004-v4l2-Support-preferred-formats.patch
+index 8fad1c4..a100c29 100644
+--- a/package/gstreamer1/gst1-plugins-good/0003-v4l2-Support-preferred-formats.patch
++++ b/package/gstreamer1/gst1-plugins-good/0004-v4l2-Support-preferred-formats.patch
+@@ -1,7 +1,7 @@
+-From 707007bc2eacd78c0da5bf8722fb405220200ee7 Mon Sep 17 00:00:00 2001
++From 3bce308f1d285c657172e5449f4b2af9a4258fcf Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 6 Nov 2019 15:07:44 +0800
+-Subject: [PATCH 03/12] v4l2: Support preferred formats
++Subject: [PATCH 04/13] v4l2: Support preferred formats
+ 
+ Set env "GST_V4L2_PREFERRED_FOURCC" to specify preferred formats, for
+ example:
+@@ -14,7 +14,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  2 files changed, 54 insertions(+)
+ 
+ diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+-index 939743f..9011ee1 100644
++index 5032da3..5976c20 100644
+ --- a/sys/v4l2/gstv4l2object.c
+ +++ b/sys/v4l2/gstv4l2object.c
+ @@ -25,6 +25,7 @@
+@@ -25,7 +25,7 @@ index 939743f..9011ee1 100644
+  #include <string.h>
+  #include <sys/mman.h>
+  #include <sys/ioctl.h>
+-@@ -1297,6 +1298,22 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
++@@ -1214,6 +1215,22 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
+        break;
+    }
+  
+@@ -49,10 +49,10 @@ index 939743f..9011ee1 100644
+     * will a) make all non-emulated formats larger
+     * than emulated and b) will not overflow
+ diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+-index cc1bbbf..aefba22 100644
++index 3272480..ebfd81f 100644
+ --- a/sys/v4l2/gstv4l2src.c
+ +++ b/sys/v4l2/gstv4l2src.c
+-@@ -439,6 +439,38 @@ gst_v4l2_src_parse_fixed_struct (GstStructure * s,
++@@ -438,6 +438,38 @@ gst_v4l2_src_parse_fixed_struct (GstStructure * s,
+      gst_structure_get_fraction (s, "framerate", fps_n, fps_d);
+  }
+  
+@@ -91,7 +91,7 @@ index cc1bbbf..aefba22 100644
+  static gint
+  gst_v4l2src_fixed_caps_compare (GstCaps * caps_a, GstCaps * caps_b,
+      struct PreferredCapsInfo *pref)
+-@@ -470,6 +502,11 @@ gst_v4l2src_fixed_caps_compare (GstCaps * caps_a, GstCaps * caps_b,
++@@ -469,6 +501,11 @@ gst_v4l2src_fixed_caps_compare (GstCaps * caps_a, GstCaps * caps_b,
+    a_distance = ABS (aw * ah - pref->width * pref->height);
+    b_distance = ABS (bw * bh - pref->width * pref->height);
+  
+@@ -104,5 +104,5 @@ index cc1bbbf..aefba22 100644
+    if (a_distance == b_distance)
+      ret = 1;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0004-video-flip-Support-rockchip-RGA-2D-accel.patch b/package/gstreamer1/gst1-plugins-good/0005-video-flip-Support-rockchip-RGA-2D-accel.patch
+similarity index 93%
+rename from package/gstreamer1/gst1-plugins-good/0004-video-flip-Support-rockchip-RGA-2D-accel.patch
+rename to package/gstreamer1/gst1-plugins-good/0005-video-flip-Support-rockchip-RGA-2D-accel.patch
+index fb8ff78..a2e11cc 100644
+--- a/package/gstreamer1/gst1-plugins-good/0004-video-flip-Support-rockchip-RGA-2D-accel.patch
++++ b/package/gstreamer1/gst1-plugins-good/0005-video-flip-Support-rockchip-RGA-2D-accel.patch
+@@ -1,7 +1,7 @@
+-From 6822c2726da4c870cf940e3b0bf37cf200c65bfc Mon Sep 17 00:00:00 2001
++From 28e0fd50fbe369804516527add087a17adf2f172 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 8 Nov 2019 17:36:20 +0800
+-Subject: [PATCH 04/12] video-flip: Support rockchip RGA 2D accel
++Subject: [PATCH 05/13] video-flip: Support rockchip RGA 2D accel
+ 
+ Disabled by default, set env GST_VIDEO_FLIP_USE_RGA=1 to enable.
+ 
+@@ -13,7 +13,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  3 files changed, 223 insertions(+), 3 deletions(-)
+ 
+ diff --git a/gst/videofilter/gstvideoflip.c b/gst/videofilter/gstvideoflip.c
+-index 52a01c0..42b8b67 100644
++index 7995135..aa36931 100644
+ --- a/gst/videofilter/gstvideoflip.c
+ +++ b/gst/videofilter/gstvideoflip.c
+ @@ -48,6 +48,11 @@
+@@ -35,7 +35,7 @@ index 52a01c0..42b8b67 100644
+ -            "RGB, BGR, I420, YV12, IYUV, YUY2, UYVY, YVYU, NV12, NV21,"
+ +            "RGB, BGR, I420, YV12, IYUV, YUY2, UYVY, YVYU, NV12, NV21, NV12_10LE40, "
+              "GRAY8, GRAY16_BE, GRAY16_LE, I420_10LE, I420_10BE, I420_12LE, I420_12BE, "
+-             "I422_10LE, I422_10BE, I422_12LE, I422_12BE, Y444_10LE, Y444_10BE, Y444_12LE, Y444_12BE, Y444_16LE, Y444_16BE }"))
++             "I422_10LE, I422_10BE, I422_12LE, I422_12BE, Y444_10LE, Y444_10BE, Y444_12LE, Y444_12BE }"))
+      );
+ @@ -79,7 +84,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
+      GST_PAD_ALWAYS,
+@@ -44,7 +44,7 @@ index 52a01c0..42b8b67 100644
+ -            "RGB, BGR, I420, YV12, IYUV, YUY2, UYVY, YVYU, NV12, NV21,"
+ +            "RGB, BGR, I420, YV12, IYUV, YUY2, UYVY, YVYU, NV12, NV21, NV12_10LE40, "
+              "GRAY8, GRAY16_BE, GRAY16_LE, I420_10LE, I420_10BE, I420_12LE, I420_12BE, "
+-             "I422_10LE, I422_10BE, I422_12LE, I422_12BE, Y444_10LE, Y444_10BE, Y444_12LE, Y444_12BE, Y444_16LE, Y444_16BE }"))
++             "I422_10LE, I422_10BE, I422_12LE, I422_12BE, Y444_10LE, Y444_10BE, Y444_12LE, Y444_12BE }"))
+      );
+ @@ -1454,6 +1459,198 @@ gst_video_flip_y422 (GstVideoFlip * videoflip, GstVideoFrame * dest,
+    }
+@@ -245,7 +245,7 @@ index 52a01c0..42b8b67 100644
+  static void
+  gst_video_flip_configure_process (GstVideoFlip * vf)
+  {
+-@@ -1506,6 +1703,12 @@ gst_video_flip_configure_process (GstVideoFlip * vf)
++@@ -1504,6 +1701,12 @@ gst_video_flip_configure_process (GstVideoFlip * vf)
+      case GST_VIDEO_FORMAT_NV21:
+        vf->process = gst_video_flip_semi_planar_yuv;
+        break;
+@@ -258,7 +258,7 @@ index 52a01c0..42b8b67 100644
+      default:
+        break;
+    }
+-@@ -1686,6 +1889,20 @@ gst_video_flip_transform_frame (GstVideoFilter * vfilter,
++@@ -1684,6 +1887,20 @@ gst_video_flip_transform_frame (GstVideoFilter * vfilter,
+        GST_VIDEO_FRAME_WIDTH (out_frame), GST_VIDEO_FRAME_HEIGHT (out_frame));
+    g_type_class_unref (enum_class);
+  
+@@ -280,10 +280,10 @@ index 52a01c0..42b8b67 100644
+  
+    proposed = videoflip->proposed_method;
+ diff --git a/gst/videofilter/meson.build b/gst/videofilter/meson.build
+-index 7ec7375..a6c44ee 100644
++index d7b6788..1a594c6 100644
+ --- a/gst/videofilter/meson.build
+ +++ b/gst/videofilter/meson.build
+-@@ -30,7 +30,7 @@ gstvideofilter = library('gstvideofilter',
++@@ -10,7 +10,7 @@ gstvideofilter = library('gstvideofilter',
+    vfilter_sources,
+    c_args : gst_plugins_good_args,
+    include_directories : [configinc],
+@@ -293,10 +293,10 @@ index 7ec7375..a6c44ee 100644
+    install_dir : plugins_install_dir,
+  )
+ diff --git a/meson.build b/meson.build
+-index 92859b2..ece03d5 100644
++index 40837aa..b0908c7 100644
+ --- a/meson.build
+ +++ b/meson.build
+-@@ -416,6 +416,9 @@ gst_plugins_good_args = ['-DHAVE_CONFIG_H']
++@@ -389,6 +389,9 @@ gst_plugins_good_args = ['-DHAVE_CONFIG_H']
+  configinc = include_directories('.')
+  libsinc = include_directories('gst-libs')
+  
+@@ -307,5 +307,5 @@ index 92859b2..ece03d5 100644
+  orcc_args = []
+  orc_targets = []
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0005-v4l2src-Support-setting-default-device.patch b/package/gstreamer1/gst1-plugins-good/0006-v4l2src-Support-setting-default-device.patch
+similarity index 86%
+rename from package/gstreamer1/gst1-plugins-good/0005-v4l2src-Support-setting-default-device.patch
+rename to package/gstreamer1/gst1-plugins-good/0006-v4l2src-Support-setting-default-device.patch
+index a2e3d24..6ba7a52 100644
+--- a/package/gstreamer1/gst1-plugins-good/0005-v4l2src-Support-setting-default-device.patch
++++ b/package/gstreamer1/gst1-plugins-good/0006-v4l2src-Support-setting-default-device.patch
+@@ -1,7 +1,7 @@
+-From 2ae7131897ccf6e29c4640e72268c7eb3af8e871 Mon Sep 17 00:00:00 2001
++From f30ccdd669fcf8d5222973c5e381b60de07bb7f0 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 11 May 2022 15:21:44 +0800
+-Subject: [PATCH 05/12] v4l2src: Support setting default device
++Subject: [PATCH 06/13] v4l2src: Support setting default device
+ 
+ Use env "GST_V4L2SRC_DEFAULT_DEVICE" to specify default device.
+ 
+@@ -11,7 +11,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 5 insertions(+), 1 deletion(-)
+ 
+ diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+-index aefba22..711f682 100644
++index ebfd81f..506b004 100644
+ --- a/sys/v4l2/gstv4l2src.c
+ +++ b/sys/v4l2/gstv4l2src.c
+ @@ -66,7 +66,7 @@
+@@ -35,5 +35,5 @@ index aefba22..711f682 100644
+    element_class = GST_ELEMENT_CLASS (klass);
+    basesrc_class = GST_BASE_SRC_CLASS (klass);
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0006-v4l2src-Filter-out-unavailable-RK-sources.patch b/package/gstreamer1/gst1-plugins-good/0007-v4l2src-Filter-out-unavailable-RK-sources.patch
+similarity index 89%
+rename from package/gstreamer1/gst1-plugins-good/0006-v4l2src-Filter-out-unavailable-RK-sources.patch
+rename to package/gstreamer1/gst1-plugins-good/0007-v4l2src-Filter-out-unavailable-RK-sources.patch
+index a486a8d..88f88e1 100644
+--- a/package/gstreamer1/gst1-plugins-good/0006-v4l2src-Filter-out-unavailable-RK-sources.patch
++++ b/package/gstreamer1/gst1-plugins-good/0007-v4l2src-Filter-out-unavailable-RK-sources.patch
+@@ -1,7 +1,7 @@
+-From 0a35c68f158b0ad366da64e3d11846e3e73d276f Mon Sep 17 00:00:00 2001
++From ceeffdac0ea860bb67a16b301995a192516d2c26 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 11 May 2022 17:06:25 +0800
+-Subject: [PATCH 06/12] v4l2src: Filter out unavailable RK sources
++Subject: [PATCH 07/13] v4l2src: Filter out unavailable RK sources
+ 
+ Use env "GST_V4L2SRC_RK_DEVICES" to specify available RK sources.
+ 
+@@ -13,7 +13,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 39 insertions(+)
+ 
+ diff --git a/sys/v4l2/gstv4l2deviceprovider.c b/sys/v4l2/gstv4l2deviceprovider.c
+-index ab64728..e5be253 100644
++index 5eeec7d..5be6da9 100644
+ --- a/sys/v4l2/gstv4l2deviceprovider.c
+ +++ b/sys/v4l2/gstv4l2deviceprovider.c
+ @@ -25,6 +25,7 @@
+@@ -24,7 +24,7 @@ index ab64728..e5be253 100644
+  #include <string.h>
+  #include <sys/stat.h>
+  
+-@@ -147,6 +148,44 @@ gst_v4l2_device_provider_probe_device (GstV4l2DeviceProvider * provider,
++@@ -146,6 +147,44 @@ gst_v4l2_device_provider_probe_device (GstV4l2DeviceProvider * provider,
+  
+      type = GST_V4L2_DEVICE_TYPE_SOURCE;
+      v4l2obj->skip_try_fmt_probes = TRUE;
+@@ -70,5 +70,5 @@ index ab64728..e5be253 100644
+  
+    if (v4l2obj->device_caps &
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0007-v4l2src-Support-setting-max-resolution.patch b/package/gstreamer1/gst1-plugins-good/0008-v4l2src-Support-setting-max-resolution.patch
+similarity index 84%
+rename from package/gstreamer1/gst1-plugins-good/0007-v4l2src-Support-setting-max-resolution.patch
+rename to package/gstreamer1/gst1-plugins-good/0008-v4l2src-Support-setting-max-resolution.patch
+index 38ce1f4..3224e55 100644
+--- a/package/gstreamer1/gst1-plugins-good/0007-v4l2src-Support-setting-max-resolution.patch
++++ b/package/gstreamer1/gst1-plugins-good/0008-v4l2src-Support-setting-max-resolution.patch
+@@ -1,7 +1,7 @@
+-From 7de75b7da02f6940b029b36135da5049a5856d81 Mon Sep 17 00:00:00 2001
++From 354392b77e66ac6e8a782dbeda735fa57effaf08 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 11 May 2022 17:24:49 +0800
+-Subject: [PATCH 07/12] v4l2src: Support setting max resolution
++Subject: [PATCH 08/13] v4l2src: Support setting max resolution
+ 
+ Set env "GST_V4L2SRC_MAX_RESOLUTION" to limit resolution, for example:
+ export GST_V4L2SRC_MAX_RESOLUTION=1920x1080
+@@ -12,7 +12,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 14 insertions(+), 6 deletions(-)
+ 
+ diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+-index 9011ee1..8045b10 100644
++index 5976c20..5ca25f5 100644
+ --- a/sys/v4l2/gstv4l2object.c
+ +++ b/sys/v4l2/gstv4l2object.c
+ @@ -25,6 +25,7 @@
+@@ -23,7 +23,7 @@ index 9011ee1..8045b10 100644
+  #include <stdlib.h>
+  #include <string.h>
+  #include <sys/mman.h>
+-@@ -3101,6 +3102,7 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
++@@ -2835,6 +2836,7 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+    gint fd = v4l2object->video_fd;
+    struct v4l2_frmsizeenum size;
+    GList *results = NULL;
+@@ -31,7 +31,7 @@ index 9011ee1..8045b10 100644
+    guint32 w, h;
+  
+    if (pixelformat == GST_MAKE_FOURCC ('M', 'P', 'E', 'G')) {
+-@@ -3108,6 +3110,12 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
++@@ -2842,6 +2844,12 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+      return ret;
+    }
+  
+@@ -44,7 +44,7 @@ index 9011ee1..8045b10 100644
+    memset (&size, 0, sizeof (struct v4l2_frmsizeenum));
+    size.index = 0;
+    size.pixel_format = pixelformat;
+-@@ -3128,8 +3136,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
++@@ -2860,8 +2868,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+        GST_LOG_OBJECT (v4l2object->dbg_obj, "got discrete frame size %dx%d",
+            size.discrete.width, size.discrete.height);
+  
+@@ -55,7 +55,7 @@ index 9011ee1..8045b10 100644
+  
+        if (w && h) {
+          tmp =
+-@@ -3173,8 +3181,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
++@@ -2905,8 +2913,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+      step_h = MAX (size.stepwise.step_height, 1);
+      w = MAX (size.stepwise.min_width, step_w);
+      h = MAX (size.stepwise.min_height, step_h);
+@@ -66,7 +66,7 @@ index 9011ee1..8045b10 100644
+  
+      /* ensure maxes are multiples of the steps */
+      maxw -= maxw % step_w;
+-@@ -3220,8 +3228,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
++@@ -2950,8 +2958,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
+  
+      w = MAX (size.stepwise.min_width, 1);
+      h = MAX (size.stepwise.min_height, 1);
+@@ -78,5 +78,5 @@ index 9011ee1..8045b10 100644
+      tmp =
+          gst_v4l2_object_probe_caps_for_format_and_size (v4l2object, pixelformat,
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0008-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch b/package/gstreamer1/gst1-plugins-good/0009-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch
+similarity index 89%
+rename from package/gstreamer1/gst1-plugins-good/0008-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch
+rename to package/gstreamer1/gst1-plugins-good/0009-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch
+index 1883a9c..acfbc11 100644
+--- a/package/gstreamer1/gst1-plugins-good/0008-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch
++++ b/package/gstreamer1/gst1-plugins-good/0009-matroska-demux-parse-Disable-QoS-lace-skipping-by-de.patch
+@@ -1,7 +1,7 @@
+-From 175498e30243974ddfab70708ed878afdff9a3be Mon Sep 17 00:00:00 2001
++From 32a2c715b49193b71aca70746c6b61d336f47649 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 24 May 2022 12:40:03 +0800
+-Subject: [PATCH 08/12] matroska-{demux,parse}: Disable QoS lace skipping by
++Subject: [PATCH 09/13] matroska-{demux,parse}: Disable QoS lace skipping by
+  default
+ 
+ The QoS's timestamp would not reset in some cases, using it to skip late
+@@ -19,10 +19,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  4 files changed, 6 insertions(+)
+ 
+ diff --git a/gst/matroska/matroska-demux.c b/gst/matroska/matroska-demux.c
+-index f415f3b..20ad171 100644
++index e8f0908..2f1278a 100644
+ --- a/gst/matroska/matroska-demux.c
+ +++ b/gst/matroska/matroska-demux.c
+-@@ -5015,6 +5015,7 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
++@@ -4974,6 +4974,7 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
+           index entries point to keyframes, but if that is not true we
+           will instead skip until the next keyframe. */
+        if (GST_CLOCK_TIME_IS_VALID (lace_time) &&
+@@ -31,10 +31,10 @@ index f415f3b..20ad171 100644
+            stream->index_table && demux->common.segment.rate > 0.0) {
+          GstMatroskaTrackVideoContext *videocontext =
+ diff --git a/gst/matroska/matroska-parse.c b/gst/matroska/matroska-parse.c
+-index d5925c3..e8487ce 100644
++index 06805d1..4655f68 100644
+ --- a/gst/matroska/matroska-parse.c
+ +++ b/gst/matroska/matroska-parse.c
+-@@ -1870,6 +1870,7 @@ gst_matroska_parse_parse_blockgroup_or_simpleblock (GstMatroskaParse * parse,
++@@ -1875,6 +1875,7 @@ gst_matroska_parse_parse_blockgroup_or_simpleblock (GstMatroskaParse * parse,
+           index entries point to keyframes, but if that is not true we
+           will instead skip until the next keyframe. */
+        if (GST_CLOCK_TIME_IS_VALID (lace_time) &&
+@@ -69,5 +69,5 @@ index 98cfc24..40ea641 100644
+  
+  GstFlowReturn gst_matroska_decode_content_encodings (GArray * encodings);
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0009-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch b/package/gstreamer1/gst1-plugins-good/0010-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch
+similarity index 84%
+rename from package/gstreamer1/gst1-plugins-good/0009-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch
+rename to package/gstreamer1/gst1-plugins-good/0010-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch
+index 8ef256e..4bb9266 100644
+--- a/package/gstreamer1/gst1-plugins-good/0009-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch
++++ b/package/gstreamer1/gst1-plugins-good/0010-v4l2-Increase-VIDEO_MAX_FRAME-to-64.patch
+@@ -1,7 +1,7 @@
+-From 0892652662045e8cf19aac4b7343b26059521ee3 Mon Sep 17 00:00:00 2001
++From 758bcf3193727ea3cf7319f6ad04d654fba0db5a Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 23 Jun 2022 16:01:56 +0800
+-Subject: [PATCH 09/12] v4l2: Increase VIDEO_MAX_FRAME to 64
++Subject: [PATCH 10/13] v4l2: Increase VIDEO_MAX_FRAME to 64
+ 
+ This is done in the kernel side for android:
+ e81694723af1 ANDROID: media: increase video max frame number
+@@ -25,5 +25,5 @@ index 2ceb1ca..0e71787 100644
+  
+  /*
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0010-v4l2-Support-setting-v4l2-min-buffers.patch b/package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-setting-v4l2-min-buffers.patch
+similarity index 82%
+rename from package/gstreamer1/gst1-plugins-good/0010-v4l2-Support-setting-v4l2-min-buffers.patch
+rename to package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-setting-v4l2-min-buffers.patch
+index 8a611e5..d364163 100644
+--- a/package/gstreamer1/gst1-plugins-good/0010-v4l2-Support-setting-v4l2-min-buffers.patch
++++ b/package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-setting-v4l2-min-buffers.patch
+@@ -1,7 +1,7 @@
+-From 7663f32b96cd97727bb7369f80c2569885bd6879 Mon Sep 17 00:00:00 2001
++From 57fe2353cdccaf3755c6b0a7e172d050f6e1bc3f Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 23 Jun 2022 16:04:18 +0800
+-Subject: [PATCH 10/12] v4l2: Support setting v4l2 min buffers
++Subject: [PATCH 11/13] v4l2: Support setting v4l2 min buffers
+ 
+ Tested with:
+ gst-launch-1.0 v4l2src min-buffers=32 ! waylandsink ts-offset=1000000000
+@@ -13,10 +13,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  2 files changed, 26 insertions(+), 1 deletion(-)
+ 
+ diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+-index 8045b10..7b9c3bd 100644
++index 5ca25f5..9429d18 100644
+ --- a/sys/v4l2/gstv4l2object.c
+ +++ b/sys/v4l2/gstv4l2object.c
+-@@ -60,6 +60,8 @@ GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
++@@ -59,6 +59,8 @@ GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
+  #define GST_V4L2_DEFAULT_WIDTH          320
+  #define GST_V4L2_DEFAULT_HEIGHT         240
+  
+@@ -25,7 +25,7 @@ index 8045b10..7b9c3bd 100644
+  enum
+  {
+    PROP_0,
+-@@ -399,6 +401,11 @@ void
++@@ -338,6 +340,11 @@ void
+  gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+      const char *default_device)
+  {
+@@ -37,7 +37,7 @@ index 8045b10..7b9c3bd 100644
+    g_object_class_install_property (gobject_class, PROP_DEVICE,
+        g_param_spec_string ("device", "Device", "Device location",
+            default_device, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+-@@ -518,6 +525,12 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
++@@ -457,6 +464,12 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+            "When enabled, the pixel aspect ratio will be enforced", TRUE,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  
+@@ -50,7 +50,7 @@ index 8045b10..7b9c3bd 100644
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_DEVICE_FLAGS, 0);
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_TV_NORM, 0);
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_IO_MODE, 0);
+-@@ -659,6 +672,8 @@ gst_v4l2_object_new (GstElement * element,
++@@ -577,6 +590,8 @@ gst_v4l2_object_new (GstElement * element,
+      v4l2object->munmap = munmap;
+    }
+  
+@@ -59,7 +59,7 @@ index 8045b10..7b9c3bd 100644
+    return v4l2object;
+  }
+  
+-@@ -831,6 +846,9 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
++@@ -749,6 +764,9 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+      case PROP_FORCE_ASPECT_RATIO:
+        v4l2object->keep_aspect = g_value_get_boolean (value);
+        break;
+@@ -69,7 +69,7 @@ index 8045b10..7b9c3bd 100644
+      default:
+        return FALSE;
+        break;
+-@@ -928,6 +946,9 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
++@@ -846,6 +864,9 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
+      case PROP_FORCE_ASPECT_RATIO:
+        g_value_set_boolean (value, v4l2object->keep_aspect);
+        break;
+@@ -79,7 +79,7 @@ index 8045b10..7b9c3bd 100644
+      default:
+        return FALSE;
+        break;
+-@@ -940,6 +961,9 @@ gst_v4l2_get_driver_min_buffers (GstV4l2Object * v4l2object)
++@@ -858,6 +879,9 @@ gst_v4l2_get_driver_min_buffers (GstV4l2Object * v4l2object)
+  {
+    struct v4l2_control control = { 0, };
+  
+@@ -90,10 +90,10 @@ index 8045b10..7b9c3bd 100644
+  
+    if (V4L2_TYPE_IS_OUTPUT (v4l2object->type))
+ diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+-index 4b14b7e..f9c0926 100644
++index 2e8d926..1bb7224 100644
+ --- a/sys/v4l2/gstv4l2object.h
+ +++ b/sys/v4l2/gstv4l2object.h
+-@@ -259,7 +259,8 @@ GType gst_v4l2_object_get_type (void);
++@@ -256,7 +256,8 @@ GType gst_v4l2_object_get_type (void);
+      PROP_CAPTURE_IO_MODE,     \
+      PROP_EXTRA_CONTROLS,      \
+      PROP_PIXEL_ASPECT_RATIO,  \
+@@ -104,5 +104,5 @@ index 4b14b7e..f9c0926 100644
+  /* create/destroy */
+  GstV4l2Object*  gst_v4l2_object_new       (GstElement * element,
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-configuring-buffer-sharing.patch b/package/gstreamer1/gst1-plugins-good/0012-v4l2-Support-configuring-buffer-sharing.patch
+similarity index 82%
+rename from package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-configuring-buffer-sharing.patch
+rename to package/gstreamer1/gst1-plugins-good/0012-v4l2-Support-configuring-buffer-sharing.patch
+index 32c389f..64655f0 100644
+--- a/package/gstreamer1/gst1-plugins-good/0011-v4l2-Support-configuring-buffer-sharing.patch
++++ b/package/gstreamer1/gst1-plugins-good/0012-v4l2-Support-configuring-buffer-sharing.patch
+@@ -1,7 +1,7 @@
+-From 2334c7ee7f1d2d10e97df84f6e960ad612e80820 Mon Sep 17 00:00:00 2001
++From 29cd7e3485f92dc090c3a6d717ac6a97df001401 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 27 Jun 2022 17:48:30 +0800
+-Subject: [PATCH 11/12] v4l2: Support configuring buffer sharing
++Subject: [PATCH 12/13] v4l2: Support configuring buffer sharing
+ 
+ Tested with:
+ export GST_DEBUG=v4l2bufferpool:5
+@@ -15,10 +15,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  2 files changed, 41 insertions(+), 1 deletion(-)
+ 
+ diff --git a/sys/v4l2/gstv4l2object.c b/sys/v4l2/gstv4l2object.c
+-index 7b9c3bd..acf0e74 100644
++index 9429d18..4352cae 100644
+ --- a/sys/v4l2/gstv4l2object.c
+ +++ b/sys/v4l2/gstv4l2object.c
+-@@ -61,6 +61,7 @@ GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
++@@ -60,6 +60,7 @@ GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
+  #define GST_V4L2_DEFAULT_HEIGHT         240
+  
+  static guint DEFAULT_PROP_MIN_BUFFERS = 0;
+@@ -26,7 +26,7 @@ index 7b9c3bd..acf0e74 100644
+  
+  enum
+  {
+-@@ -406,6 +407,9 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
++@@ -345,6 +346,9 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+    if (buf)
+      DEFAULT_PROP_MIN_BUFFERS = atoi (buf);
+  
+@@ -36,7 +36,7 @@ index 7b9c3bd..acf0e74 100644
+    g_object_class_install_property (gobject_class, PROP_DEVICE,
+        g_param_spec_string ("device", "Device", "Device location",
+            default_device, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+-@@ -531,6 +535,12 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
++@@ -470,6 +474,12 @@ gst_v4l2_object_install_properties_helper (GObjectClass * gobject_class,
+            0, VIDEO_MAX_FRAME, DEFAULT_PROP_MIN_BUFFERS,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  
+@@ -49,7 +49,7 @@ index 7b9c3bd..acf0e74 100644
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_DEVICE_FLAGS, 0);
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_TV_NORM, 0);
+    gst_type_mark_as_plugin_api (GST_TYPE_V4L2_IO_MODE, 0);
+-@@ -673,6 +683,7 @@ gst_v4l2_object_new (GstElement * element,
++@@ -591,6 +601,7 @@ gst_v4l2_object_new (GstElement * element,
+    }
+  
+    v4l2object->min_buffers = DEFAULT_PROP_MIN_BUFFERS;
+@@ -57,7 +57,7 @@ index 7b9c3bd..acf0e74 100644
+  
+    return v4l2object;
+  }
+-@@ -849,6 +860,9 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
++@@ -767,6 +778,9 @@ gst_v4l2_object_set_property_helper (GstV4l2Object * v4l2object,
+      case PROP_MIN_BUFFERS:
+        v4l2object->min_buffers = g_value_get_uint (value);
+        break;
+@@ -67,7 +67,7 @@ index 7b9c3bd..acf0e74 100644
+      default:
+        return FALSE;
+        break;
+-@@ -949,6 +963,9 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
++@@ -867,6 +881,9 @@ gst_v4l2_object_get_property_helper (GstV4l2Object * v4l2object,
+      case PROP_MIN_BUFFERS:
+        g_value_set_uint (value, v4l2object->min_buffers);
+        break;
+@@ -77,7 +77,7 @@ index 7b9c3bd..acf0e74 100644
+      default:
+        return FALSE;
+        break;
+-@@ -1339,6 +1356,22 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
++@@ -1256,6 +1273,22 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
+      }
+    }
+  
+@@ -100,7 +100,7 @@ index 7b9c3bd..acf0e74 100644
+    /* All ranks are below 1<<15 so a shift by 15
+     * will a) make all non-emulated formats larger
+     * than emulated and b) will not overflow
+-@@ -5892,7 +5925,11 @@ gst_v4l2_object_decide_allocation (GstV4l2Object * obj, GstQuery * query)
++@@ -5342,7 +5375,11 @@ gst_v4l2_object_decide_allocation (GstV4l2Object * obj, GstQuery * query)
+        gst_v4l2_object_match_buffer_layout_from_struct (obj, params, caps, size);
+    }
+  
+@@ -113,11 +113,11 @@ index 7b9c3bd..acf0e74 100644
+    gst_v4l2_get_driver_min_buffers (obj);
+    /* We can't share our own pool, if it exceed V4L2 capacity */
+ diff --git a/sys/v4l2/gstv4l2object.h b/sys/v4l2/gstv4l2object.h
+-index f9c0926..2b3c537 100644
++index 1bb7224..fce67ed 100644
+ --- a/sys/v4l2/gstv4l2object.h
+ +++ b/sys/v4l2/gstv4l2object.h
+-@@ -235,6 +235,8 @@ struct _GstV4l2Object {
+- 
++@@ -232,6 +232,8 @@ struct _GstV4l2Object {
++   
+    guint max_width;
+    guint max_height;
+ +
+@@ -125,7 +125,7 @@ index f9c0926..2b3c537 100644
+  };
+  
+  struct _GstV4l2ObjectClassHelper {
+-@@ -260,7 +262,8 @@ GType gst_v4l2_object_get_type (void);
++@@ -257,7 +259,8 @@ GType gst_v4l2_object_get_type (void);
+      PROP_EXTRA_CONTROLS,      \
+      PROP_PIXEL_ASPECT_RATIO,  \
+      PROP_FORCE_ASPECT_RATIO,  \
+@@ -136,5 +136,5 @@ index f9c0926..2b3c537 100644
+  /* create/destroy */
+  GstV4l2Object*  gst_v4l2_object_new       (GstElement * element,
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/0012-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch b/package/gstreamer1/gst1-plugins-good/0013-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch
+similarity index 79%
+rename from package/gstreamer1/gst1-plugins-good/0012-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch
+rename to package/gstreamer1/gst1-plugins-good/0013-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch
+index 0651baa..6879095 100644
+--- a/package/gstreamer1/gst1-plugins-good/0012-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch
++++ b/package/gstreamer1/gst1-plugins-good/0013-HACK-v4l2src-Support-bypassing-buf-cache-cleaning.patch
+@@ -1,7 +1,7 @@
+-From fa6c34dd118d83b9d024968504a88bc34b9ca0d2 Mon Sep 17 00:00:00 2001
++From 354748c00cac0b299fe4079ac3e42bad34b095c4 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 3 Jul 2024 17:18:59 +0800
+-Subject: [PATCH 12/12] HACK: v4l2src: Support bypassing buf cache cleaning
++Subject: [PATCH 13/13] HACK: v4l2src: Support bypassing buf cache cleaning
+ 
+ Set env GST_V4L2SRC_NO_CACHE_CLEAN=1.
+ 
+@@ -13,10 +13,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  3 files changed, 8 insertions(+)
+ 
+ diff --git a/sys/v4l2/gstv4l2bufferpool.c b/sys/v4l2/gstv4l2bufferpool.c
+-index 4e59743..f797879 100644
++index 05c9422..8b51e51 100644
+ --- a/sys/v4l2/gstv4l2bufferpool.c
+ +++ b/sys/v4l2/gstv4l2bufferpool.c
+-@@ -1205,6 +1205,8 @@ gst_v4l2_buffer_pool_qbuf (GstV4l2BufferPool * pool, GstBuffer * buf,
++@@ -1187,6 +1187,8 @@ gst_v4l2_buffer_pool_qbuf (GstV4l2BufferPool * pool, GstBuffer * buf,
+      group->buffer.field = field;
+    }
+  
+@@ -26,10 +26,10 @@ index 4e59743..f797879 100644
+      group->buffer.timestamp.tv_sec = *frame_number;
+      group->buffer.timestamp.tv_usec = 0;
+ diff --git a/sys/v4l2/gstv4l2bufferpool.h b/sys/v4l2/gstv4l2bufferpool.h
+-index fe4d3a7..79ed7b0 100644
++index db8c554..c63c9ed 100644
+ --- a/sys/v4l2/gstv4l2bufferpool.h
+ +++ b/sys/v4l2/gstv4l2bufferpool.h
+-@@ -98,6 +98,8 @@ struct _GstV4l2BufferPool
++@@ -97,6 +97,8 @@ struct _GstV4l2BufferPool
+  
+    /* Control to warn only once on buggy feild driver bug */
+    gboolean has_warned_on_buggy_field;
+@@ -39,10 +39,10 @@ index fe4d3a7..79ed7b0 100644
+  
+  struct _GstV4l2BufferPoolClass
+ diff --git a/sys/v4l2/gstv4l2src.c b/sys/v4l2/gstv4l2src.c
+-index 711f682..b1a712e 100644
++index 506b004..564bb12 100644
+ --- a/sys/v4l2/gstv4l2src.c
+ +++ b/sys/v4l2/gstv4l2src.c
+-@@ -1218,6 +1218,10 @@ gst_v4l2src_create (GstPushSrc * src, GstBuffer ** buf)
++@@ -1217,6 +1217,10 @@ gst_v4l2src_create (GstPushSrc * src, GstBuffer ** buf)
+      {
+        GstV4l2BufferPool *obj_pool =
+            GST_V4L2_BUFFER_POOL_CAST (gst_v4l2_object_get_buffer_pool (obj));
+@@ -54,5 +54,5 @@ index 711f682..b1a712e 100644
+        if (obj_pool)
+          gst_object_unref (obj_pool);
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.hash b/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.hash
+index a13e82b..a8b17f3 100644
+--- a/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.hash
++++ b/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.hash
+@@ -1,3 +1,3 @@
+-# Locally calculated
+-sha256  7beacb5daba3c6751ebc1c85017d9b1d6de64e24798125932c73c8b1dbeb3bc9  gst-plugins-good-1.26.10.tar.xz
++# From https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.24.13.tar.xz.sha256sum
++sha256  574ac6f9fd84b32eb04e80572391d6762df6f9802a47bc0386cd6cc48c14d08b  gst-plugins-good-1.24.13.tar.xz
+ sha256  6095e9ffa777dd22839f7801aa845b31c9ed07f3d6bf8a26dc5d2dec8ccc0ef3  COPYING
+diff --git a/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.mk b/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.mk
+index 0557585..f5ee095 100644
+--- a/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.mk
++++ b/package/gstreamer1/gst1-plugins-good/gst1-plugins-good.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-GST1_PLUGINS_GOOD_VERSION = 1.26.10
++GST1_PLUGINS_GOOD_VERSION = 1.24.13
+ GST1_PLUGINS_GOOD_SOURCE = gst-plugins-good-$(GST1_PLUGINS_GOOD_VERSION).tar.xz
+ GST1_PLUGINS_GOOD_SITE = https://gstreamer.freedesktop.org/src/gst-plugins-good
+ GST1_PLUGINS_GOOD_LICENSE_FILES = COPYING
+-- 
+2.34.1
+

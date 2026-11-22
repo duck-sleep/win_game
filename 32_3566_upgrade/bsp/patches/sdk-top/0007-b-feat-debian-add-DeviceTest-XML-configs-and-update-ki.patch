@@ -1,0 +1,34 @@
+From 3e647fb8b877059a3de2393a095063a7851da764 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Mon, 25 May 2026 23:06:51 +0800
+Subject: [PATCH 6/7] feat(debian): add DeviceTest XML configs and update
+ kickpi-hardware
+
+- Add DeviceTestConfig XML files for all supported boards (k3/k3b/k11c/k1/k1Mini/k1b/k8/k8d)
+- Add generic DeviceTestConfig.xml as default config
+- Remove deprecated INI configs (k11c, k1mini)
+- Update kickpi-hardware to copy board-specific or default DeviceTestConfig.xml
+- Update DeviceTest binary with XML parsing support and English UI matching
+- Fix board detection order in kickpi-hardware (k8d/k8/k10b before k3)
+- Add explicit XML comment skipping in DeviceTest parser
+
+Origin: kickpi 18cfd8cdb3be5a5e00629117abfd06068f5fcd52
+---
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/.gitignore b/.gitignore
+index cf909ef..34ddd04 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,6 +2,7 @@ device/rockchip/.chip
+ device/rockchip/rk3562
+ device/rockchip/rk3566_rk3568
+ device/rockchip/rk3588
++device/rockchip/.BoardConfig.mk
+ debian/binary/
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
+-- 
+2.34.1
+

@@ -1,0 +1,26 @@
+From 754f972ccecd2bd5bdd64615666378afce6d3bcc Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 10 Apr 2026 10:42:18 +0800
+Subject: [PATCH 21/34] feat(build): update build img date
+
+Origin: kickpi 1858908fbd3b2f0af53b06820182279426da93ee
+---
+ common/scripts/mk-updateimg.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/common/scripts/mk-updateimg.sh b/common/scripts/mk-updateimg.sh
+index 893d934..0b232dd 100755
+--- a/common/scripts/mk-updateimg.sh
++++ b/common/scripts/mk-updateimg.sh
+@@ -134,7 +134,7 @@ do_build_updateimg()
+ 
+     #DTS_DIR="kernel-6.1/arch/arm64/boot/dts/rockchip/${RK_KERNEL_DTS_NAME}.dtsi"
+     #LCD_NAME=`grep '^#include.*kickpi.*lcd-[^g][^p]' $DTS_DIR | grep -Ev "hdmi|typec" |  sed 's/^#include.*-lcd-//g' | sed 's/.dts.*//g'`
+-    DATE=`date +%Y%m%d-%H%M%S`
++    DATE=`date +%Y%m%d%H`
+     rm -rf "${RK_FIRMWARE_DIR}"/update-*.img
+ 
+ 	if [ "$RK_ROOTFS_SYSTEM" = "debian" ] && [ "$RK_DEBIAN_VERSION" = "bookworm" ]; then
+-- 
+2.34.1
+

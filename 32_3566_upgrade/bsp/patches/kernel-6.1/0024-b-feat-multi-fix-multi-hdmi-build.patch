@@ -1,0 +1,51 @@
+From c39416730fc91644e46fd79f97adeddaf15ea93a Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 10 Apr 2026 14:39:27 +0800
+Subject: [PATCH 23/50] feat(multi): fix multi hdmi build
+
+Origin: kickpi be5b14497a85dc27bdb08c0aa819ad599f0050cf
+---
+ scripts/build_multi_dtb.sh | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/build_multi_dtb.sh b/scripts/build_multi_dtb.sh
+index d6b2637..b3cb796 100755
+--- a/scripts/build_multi_dtb.sh
++++ b/scripts/build_multi_dtb.sh
+@@ -19,6 +19,7 @@ KICKPI_DTSI_NAME=`echo $KICKPI_DTS_NAME | rev | cut -d '-' -f 2- | rev`
+ KICKPI_DTSI=$KICKPI_DTS_DIR/$KICKPI_DTSI_NAME.dtsi
+ 
+ RUN_RET=0
++LCD_DTSI_HDMI='#define MULTI_NAME "hdmi"'
+ 
+ function null_line {
+ 	echo "Find Null Line In DTSI"
+@@ -44,8 +45,14 @@ function get_lcd_dtsi {
+ 		# Raw Data,Such As: #include "rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi"
+ 		echo $line
+ 
+-        if [[ $line =~ "hdmi" || $line =~ "multi" ]]; then
+-            echo "jump this LCD !"
++        if [[ $line =~ "hdmi" ]]; then
++            echo "jump this LCD $line !"
++            LCD_DTSI_HDMI=$line
++            continue
++        fi
++
++        if [[ $line =~ "multi" ]]; then
++            echo "jump this LCD $line !"
+             continue
+         fi
+ 
+@@ -64,7 +71,7 @@ function get_lcd_dtsi {
+ }
+ 
+ function build_multi_dtb {
+-    echo '#define MULTI_NAME "hdmi"' > $MULTI_DTS_PATH
++    echo $LCD_DTSI_HDMI > $MULTI_DTS_PATH
+     cpp -nostdinc -I $CUR_PWD/include -undef -x assembler-with-cpp ${KICKPI_DTS} > ${KICKPI_DTS_DIR}/.temp.dts
+     /usr/bin/dtc -I dts -O dtb -o ${KICKPI_DTS_DIR}/${KICKPI_DTS_NAME}-hdmi.dtb ${KICKPI_DTS_DIR}/.temp.dts
+ 
+-- 
+2.34.1
+

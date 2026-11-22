@@ -1,0 +1,1472 @@
+From 482e40b664e8ef4d2345214be26c5d6420a6620f Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 10/19] buildroot:
+ buildroot/package/gstreamer1/gst1-plugins-base
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ ...-only-emit-drained-signal-when-top-c.patch | 10 +--
+ ...2-send-one-about-to-finish-per-group.patch | 16 ++---
+ ...03-playbin-do-not-drain-on-first-EOS.patch | 30 ++++----
+ ...dlock-when-hooking-about-to-finish-s.patch | 20 +++---
+ ...videoplayer-cannot-change-video-stat.patch | 32 ++++-----
+ ...ybin2-Add-preferred-audio-video-sink.patch | 18 ++---
+ ...agesink-Support-dma-buffer-rendering.patch | 16 ++---
+ ...verter-Support-rockchip-RGA-2D-accel.patch | 22 +++---
+ ...w-direct-dmabuf-import-when-unable-t.patch | 16 ++---
+ ...prefer-DirectDmabufExternal-uploader.patch | 10 +--
+ ...deoconvert-Support-preferred-formats.patch | 10 +--
+ ...-NV12_10LE40-and-NV12-NV12_10LE40-NV.patch | 48 +++++++------
+ ...r-prepare-window-when-getting-zero-w.patch | 12 ++--
+ ...f-Fix-bps-caculation-error-for-ADPCM.patch | 41 +++++++++++
+ ...agesink-Allow-disabling-decorations.patch} | 16 ++---
+ ...nk-Apply-toplevel-window-s-position.patch} |  8 +--
+ ...e-expose-redraw-when-video-not-read.patch} | 10 +--
+ ...ender-rectangle-for-toplevel-window.patch} |  6 +-
+ ...render-rectangle-for-toplevel-windo.patch} |  6 +-
+ ...bling-decorations-for-toplevel-wind.patch} |  6 +-
+ ...> 0021-gst-libs-Support-NV16_10LE40.patch} | 68 +++++++++----------
+ ...oder-Allow-disabling-QoS-by-default.patch} |  8 +--
+ .../gst1-plugins-base/gst1-plugins-base.hash  |  4 +-
+ .../gst1-plugins-base/gst1-plugins-base.mk    |  2 +-
+ 24 files changed, 242 insertions(+), 193 deletions(-)
+ create mode 100644 buildroot/package/gstreamer1/gst1-plugins-base/0014-riff-Fix-bps-caculation-error-for-ADPCM.patch
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0014-xvimagesink-Allow-disabling-decorations.patch => 0015-xvimagesink-Allow-disabling-decorations.patch} (91%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0015-xvimagesink-Apply-toplevel-window-s-position.patch => 0016-xvimagesink-Apply-toplevel-window-s-position.patch} (98%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0016-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch => 0017-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch} (75%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0017-gl-x11-Honor-render-rectangle-for-toplevel-window.patch => 0018-gl-x11-Honor-render-rectangle-for-toplevel-window.patch} (92%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0018-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch => 0019-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch} (88%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0019-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch => 0020-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch} (93%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0020-gst-libs-Support-NV16_10LE40.patch => 0021-gst-libs-Support-NV16_10LE40.patch} (79%)
+ rename buildroot/package/gstreamer1/gst1-plugins-base/{0021-videodecoder-Allow-disabling-QoS-by-default.patch => 0022-videodecoder-Allow-disabling-QoS-by-default.patch} (90%)
+
+diff --git a/package/gstreamer1/gst1-plugins-base/0001-Revert-decodebin-only-emit-drained-signal-when-top-c.patch b/package/gstreamer1/gst1-plugins-base/0001-Revert-decodebin-only-emit-drained-signal-when-top-c.patch
+index 1a39a6a..c98db12 100644
+--- a/package/gstreamer1/gst1-plugins-base/0001-Revert-decodebin-only-emit-drained-signal-when-top-c.patch
++++ b/package/gstreamer1/gst1-plugins-base/0001-Revert-decodebin-only-emit-drained-signal-when-top-c.patch
+@@ -1,7 +1,7 @@
+-From bd0935f2c3f96e15300e4b4100b2559213a5638d Mon Sep 17 00:00:00 2001
++From 23a955b25d1694b927cdab20c49756aa89dc9bd5 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 28 Apr 2022 17:31:28 +0800
+-Subject: [PATCH 01/21] Revert "decodebin: only emit 'drained' signal when top
++Subject: [PATCH 01/22] Revert "decodebin: only emit 'drained' signal when top
+  chain is drained"
+ 
+ This reverts commit e945b3706c86aa13d05d195a1170e6277a247548.
+@@ -15,10 +15,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 1 insertion(+), 1 deletion(-)
+ 
+ diff --git a/gst/playback/gstdecodebin2.c b/gst/playback/gstdecodebin2.c
+-index d201a91..f25a7d5 100644
++index 9247625..dbeaf9e 100644
+ --- a/gst/playback/gstdecodebin2.c
+ +++ b/gst/playback/gstdecodebin2.c
+-@@ -4261,7 +4261,7 @@ beach:
++@@ -4273,7 +4273,7 @@ beach:
+  
+    *drained = chain->drained;
+  
+@@ -28,5 +28,5 @@ index d201a91..f25a7d5 100644
+  
+    return handled;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0002-playbin2-send-one-about-to-finish-per-group.patch b/package/gstreamer1/gst1-plugins-base/0002-playbin2-send-one-about-to-finish-per-group.patch
+index 4c33742..bd03fb2 100644
+--- a/package/gstreamer1/gst1-plugins-base/0002-playbin2-send-one-about-to-finish-per-group.patch
++++ b/package/gstreamer1/gst1-plugins-base/0002-playbin2-send-one-about-to-finish-per-group.patch
+@@ -1,7 +1,7 @@
+-From d92cefb37e8bc5d35072e7474fabab1a1974cac3 Mon Sep 17 00:00:00 2001
++From d56a4f593290f5ebe76e1fd90bf60fadd2130ebe Mon Sep 17 00:00:00 2001
+ From: =?UTF-8?q?St=C3=A9phane=20Cerveau?= <scerveau@collabora.com>
+ Date: Mon, 9 Aug 2021 15:38:08 +0200
+-Subject: [PATCH 02/21] playbin2: send one about-to-finish per group
++Subject: [PATCH 02/22] playbin2: send one about-to-finish per group
+ 
+ To avoid multiple about-to-finish signal,
+ driving the app to drop uris, a group should
+@@ -14,10 +14,10 @@ Fixes #930
+  1 file changed, 11 insertions(+)
+ 
+ diff --git a/gst/playback/gstplaybin2.c b/gst/playback/gstplaybin2.c
+-index 88ee4a9..aff7e32 100644
++index 7f843bd..35b6e9c 100644
+ --- a/gst/playback/gstplaybin2.c
+ +++ b/gst/playback/gstplaybin2.c
+-@@ -314,6 +314,9 @@ struct _GstSourceGroup
++@@ -319,6 +319,9 @@ struct _GstSourceGroup
+    GstElement *video_sink;
+    GstElement *text_sink;
+  
+@@ -27,7 +27,7 @@ index 88ee4a9..aff7e32 100644
+    /* uridecodebins for uri and subtitle uri */
+    GstElement *uridecodebin;
+    GstElement *suburidecodebin;
+-@@ -3934,6 +3937,12 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
++@@ -3939,6 +3942,12 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
+  
+    GST_DEBUG_OBJECT (playbin, "about to finish in group %p", group);
+  
+@@ -40,7 +40,7 @@ index 88ee4a9..aff7e32 100644
+    /* after this call, we should have a next group to activate or we EOS */
+    g_signal_emit (G_OBJECT (playbin),
+        gst_play_bin_signals[SIGNAL_ABOUT_TO_FINISH], 0, NULL);
+-@@ -3941,6 +3950,7 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
++@@ -3946,6 +3955,7 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
+    /* now activate the next group. If the app did not set a uri, this will
+     * fail and we can do EOS */
+    setup_next_source (playbin, GST_STATE_PAUSED);
+@@ -48,7 +48,7 @@ index 88ee4a9..aff7e32 100644
+  }
+  
+  /* Like gst_element_factory_can_sink_any_caps() but doesn't
+-@@ -5516,6 +5526,7 @@ activate_group (GstPlayBin * playbin, GstSourceGroup * group, GstState target)
++@@ -5521,6 +5531,7 @@ activate_group (GstPlayBin * playbin, GstSourceGroup * group, GstState target)
+    /* allow state changes of the playbin affect the group elements now */
+    group_set_locked_state_unlocked (playbin, group, FALSE);
+    group->active = TRUE;
+@@ -57,5 +57,5 @@ index 88ee4a9..aff7e32 100644
+  
+    return state_ret;
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0003-playbin-do-not-drain-on-first-EOS.patch b/package/gstreamer1/gst1-plugins-base/0003-playbin-do-not-drain-on-first-EOS.patch
+index 4a8b892..ddd0110 100644
+--- a/package/gstreamer1/gst1-plugins-base/0003-playbin-do-not-drain-on-first-EOS.patch
++++ b/package/gstreamer1/gst1-plugins-base/0003-playbin-do-not-drain-on-first-EOS.patch
+@@ -1,7 +1,7 @@
+-From 5b3c4a7f0a594267d58d93da292a205cd5967f0d Mon Sep 17 00:00:00 2001
++From 08ac1410063b575f71d5db406d970e9554b68b2f Mon Sep 17 00:00:00 2001
+ From: =?UTF-8?q?St=C3=A9phane=20Cerveau?= <scerveau@collabora.com>
+ Date: Mon, 9 Aug 2021 18:02:57 +0200
+-Subject: [PATCH 03/21] playbin: do not drain on first EOS
++Subject: [PATCH 03/22] playbin: do not drain on first EOS
+ 
+ In a case of audio/video media, the decodebin
+ should wait for each branch to be on EOS before
+@@ -22,7 +22,7 @@ of EOS is equal to active pads (active combiners).
+  3 files changed, 100 insertions(+)
+ 
+ diff --git a/gst/playback/gstdecodebin2.c b/gst/playback/gstdecodebin2.c
+-index f25a7d5..f6099aa 100644
++index dbeaf9e..7b29e02 100644
+ --- a/gst/playback/gstdecodebin2.c
+ +++ b/gst/playback/gstdecodebin2.c
+ @@ -163,6 +163,9 @@ struct _GstDecodeBin
+@@ -52,7 +52,7 @@ index f25a7d5..f6099aa 100644
+    LAST_SIGNAL
+  };
+  
+-@@ -858,6 +864,20 @@ gst_decode_bin_class_init (GstDecodeBinClass * klass)
++@@ -870,6 +876,20 @@ gst_decode_bin_class_init (GstDecodeBinClass * klass)
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (GstDecodeBinClass, drained),
+        NULL, NULL, NULL, G_TYPE_NONE, 0, G_TYPE_NONE);
+  
+@@ -73,7 +73,7 @@ index f25a7d5..f6099aa 100644
+    g_object_class_install_property (gobject_klass, PROP_CAPS,
+        g_param_spec_boxed ("caps", "Caps", "The caps on which to stop decoding.",
+            GST_TYPE_CAPS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+-@@ -1099,6 +1119,7 @@ gst_decode_bin_init (GstDecodeBin * decode_bin)
++@@ -1111,6 +1131,7 @@ gst_decode_bin_init (GstDecodeBin * decode_bin)
+      gst_object_unref (pad);
+    }
+  
+@@ -81,7 +81,7 @@ index f25a7d5..f6099aa 100644
+    g_mutex_init (&decode_bin->expose_lock);
+    decode_bin->decode_chain = NULL;
+  
+-@@ -1165,6 +1186,7 @@ gst_decode_bin_finalize (GObject * object)
++@@ -1177,6 +1198,7 @@ gst_decode_bin_finalize (GObject * object)
+  
+    decode_bin = GST_DECODE_BIN (object);
+  
+@@ -89,7 +89,7 @@ index f25a7d5..f6099aa 100644
+    g_mutex_clear (&decode_bin->expose_lock);
+    g_mutex_clear (&decode_bin->dyn_lock);
+    g_mutex_clear (&decode_bin->subtitle_lock);
+-@@ -4304,6 +4326,17 @@ gst_decode_pad_handle_eos (GstDecodePad * pad)
++@@ -4316,6 +4338,17 @@ gst_decode_pad_handle_eos (GstDecodePad * pad)
+    }
+  
+    EXPOSE_LOCK (dbin);
+@@ -107,7 +107,7 @@ index f25a7d5..f6099aa 100644
+    if (dbin->decode_chain) {
+      drain_and_switch_chains (dbin->decode_chain, pad, &last_group, &drained,
+          &switched);
+-@@ -5342,6 +5375,10 @@ unblock_pads (GstDecodeBin * dbin)
++@@ -5358,6 +5391,10 @@ unblock_pads (GstDecodeBin * dbin)
+      GST_DEBUG_OBJECT (dpad, "unblocked");
+      gst_object_unref (dpad);
+    }
+@@ -119,10 +119,10 @@ index f25a7d5..f6099aa 100644
+  
+  static void
+ diff --git a/gst/playback/gstplaybin2.c b/gst/playback/gstplaybin2.c
+-index aff7e32..1722b4c 100644
++index 35b6e9c..18e3131 100644
+ --- a/gst/playback/gstplaybin2.c
+ +++ b/gst/playback/gstplaybin2.c
+-@@ -332,6 +332,7 @@ struct _GstSourceGroup
++@@ -337,6 +337,7 @@ struct _GstSourceGroup
+    gulong notify_source_id;
+    gulong source_setup_id;
+    gulong drained_id;
+@@ -130,7 +130,7 @@ index aff7e32..1722b4c 100644
+    gulong autoplug_factories_id;
+    gulong autoplug_select_id;
+    gulong autoplug_continue_id;
+-@@ -3953,6 +3954,30 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
++@@ -3958,6 +3959,30 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
+    group->pending_about_to_finish = TRUE;
+  }
+  
+@@ -161,7 +161,7 @@ index aff7e32..1722b4c 100644
+  /* Like gst_element_factory_can_sink_any_caps() but doesn't
+   * allow ANY caps on the sinkpad template */
+  static gboolean
+-@@ -5422,6 +5447,10 @@ activate_group (GstPlayBin * playbin, GstSourceGroup * group, GstState target)
++@@ -5427,6 +5452,10 @@ activate_group (GstPlayBin * playbin, GstSourceGroup * group, GstState target)
+    group->drained_id =
+        g_signal_connect (uridecodebin, "drained", G_CALLBACK (drained_cb),
+        group);
+@@ -172,7 +172,7 @@ index aff7e32..1722b4c 100644
+  
+    /* will be called when a new media type is found. We return a list of decoders
+     * including sinks for decodebin to try */
+-@@ -5595,6 +5624,7 @@ error_cleanup:
++@@ -5600,6 +5629,7 @@ error_cleanup:
+        REMOVE_SIGNAL (group->uridecodebin, group->notify_source_id);
+        REMOVE_SIGNAL (group->uridecodebin, group->source_setup_id);
+        REMOVE_SIGNAL (group->uridecodebin, group->drained_id);
+@@ -180,7 +180,7 @@ index aff7e32..1722b4c 100644
+        REMOVE_SIGNAL (group->uridecodebin, group->autoplug_factories_id);
+        REMOVE_SIGNAL (group->uridecodebin, group->autoplug_select_id);
+        REMOVE_SIGNAL (group->uridecodebin, group->autoplug_continue_id);
+-@@ -5684,6 +5714,7 @@ deactivate_group (GstPlayBin * playbin, GstSourceGroup * group)
++@@ -5689,6 +5719,7 @@ deactivate_group (GstPlayBin * playbin, GstSourceGroup * group)
+      REMOVE_SIGNAL (group->uridecodebin, group->notify_source_id);
+      REMOVE_SIGNAL (group->uridecodebin, group->source_setup_id);
+      REMOVE_SIGNAL (group->uridecodebin, group->drained_id);
+@@ -260,5 +260,5 @@ index 86e20a9..c3884a6 100644
+      /* set up callbacks to create the links between decoded data
+       * and video/audio/subtitle rendering/output. */
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0004-playbin2-Fix-deadlock-when-hooking-about-to-finish-s.patch b/package/gstreamer1/gst1-plugins-base/0004-playbin2-Fix-deadlock-when-hooking-about-to-finish-s.patch
+index 0afedbe..aa6abfd 100644
+--- a/package/gstreamer1/gst1-plugins-base/0004-playbin2-Fix-deadlock-when-hooking-about-to-finish-s.patch
++++ b/package/gstreamer1/gst1-plugins-base/0004-playbin2-Fix-deadlock-when-hooking-about-to-finish-s.patch
+@@ -1,7 +1,7 @@
+-From 4350c6112f26188b6e6f5c460edc6c9a854b0587 Mon Sep 17 00:00:00 2001
++From 72ff5d2a0a6d2cdbf53901c2505205771413f075 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 26 Nov 2021 17:41:47 +0800
+-Subject: [PATCH 04/21] playbin2: Fix deadlock when hooking about-to-finish
++Subject: [PATCH 04/22] playbin2: Fix deadlock when hooking about-to-finish
+  signal
+ 
+ The playbin2 will deactivate old group in drain_cb() for that, which
+@@ -14,10 +14,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 21 insertions(+)
+ 
+ diff --git a/gst/playback/gstplaybin2.c b/gst/playback/gstplaybin2.c
+-index 1722b4c..5392ddf 100644
++index 18e3131..8c1e518 100644
+ --- a/gst/playback/gstplaybin2.c
+ +++ b/gst/playback/gstplaybin2.c
+-@@ -384,6 +384,11 @@ G_STMT_START {                                          \
++@@ -389,6 +389,11 @@ G_STMT_START {                                          \
+  #define GST_PLAY_BIN_SHUTDOWN_UNLOCK(bin)         \
+    GST_PLAY_BIN_DYN_UNLOCK (bin);                  \
+  
+@@ -29,7 +29,7 @@ index 1722b4c..5392ddf 100644
+  /**
+   * GstPlayBin:
+   *
+-@@ -426,6 +431,9 @@ struct _GstPlayBin
++@@ -431,6 +436,9 @@ struct _GstPlayBin
+    gint shutdown;
+    gboolean async_pending;       /* async-start has been emitted */
+  
+@@ -39,7 +39,7 @@ index 1722b4c..5392ddf 100644
+    GMutex elements_lock;
+    guint32 elements_cookie;
+    GList *elements;              /* factories we can use for selecting elements */
+-@@ -1538,6 +1546,7 @@ gst_play_bin_init (GstPlayBin * playbin)
++@@ -1543,6 +1551,7 @@ gst_play_bin_init (GstPlayBin * playbin)
+  {
+    g_rec_mutex_init (&playbin->lock);
+    g_mutex_init (&playbin->dyn_lock);
+@@ -47,7 +47,7 @@ index 1722b4c..5392ddf 100644
+  
+    /* assume we can create an input-selector */
+    playbin->have_selector = TRUE;
+-@@ -1634,6 +1643,7 @@ gst_play_bin_finalize (GObject * object)
++@@ -1639,6 +1648,7 @@ gst_play_bin_finalize (GObject * object)
+    g_list_free_full (playbin->contexts, (GDestroyNotify) gst_context_unref);
+  
+    g_rec_mutex_clear (&playbin->lock);
+@@ -55,7 +55,7 @@ index 1722b4c..5392ddf 100644
+    g_mutex_clear (&playbin->dyn_lock);
+    g_mutex_clear (&playbin->elements_lock);
+  
+-@@ -3133,7 +3143,14 @@ combiner_active_pad_changed (GObject * combiner, GParamSpec * pspec,
++@@ -3138,7 +3148,14 @@ combiner_active_pad_changed (GObject * combiner, GParamSpec * pspec,
+    GstSourceCombine *combine = NULL;
+    int i;
+  
+@@ -70,7 +70,7 @@ index 1722b4c..5392ddf 100644
+    group = get_group (playbin);
+  
+    for (i = 0; i < PLAYBIN_STREAM_LAST; i++) {
+-@@ -3950,7 +3967,11 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
++@@ -3955,7 +3972,11 @@ drained_cb (GstElement * decodebin, GstSourceGroup * group)
+  
+    /* now activate the next group. If the app did not set a uri, this will
+     * fail and we can do EOS */
+@@ -83,5 +83,5 @@ index 1722b4c..5392ddf 100644
+  }
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0005-playbin3-Fix-Qt-videoplayer-cannot-change-video-stat.patch b/package/gstreamer1/gst1-plugins-base/0005-playbin3-Fix-Qt-videoplayer-cannot-change-video-stat.patch
+index 86df1fa..da66085 100644
+--- a/package/gstreamer1/gst1-plugins-base/0005-playbin3-Fix-Qt-videoplayer-cannot-change-video-stat.patch
++++ b/package/gstreamer1/gst1-plugins-base/0005-playbin3-Fix-Qt-videoplayer-cannot-change-video-stat.patch
+@@ -1,7 +1,7 @@
+-From b8999e964421cebcdc2d29cd7c609f74819703a1 Mon Sep 17 00:00:00 2001
++From 323323e55d50b17a6a6bffbedc47f46987f16308 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 20 Nov 2018 14:51:36 +0800
+-Subject: [PATCH 05/21] playbin3: Fix Qt videoplayer cannot change video state
++Subject: [PATCH 05/22] playbin3: Fix Qt videoplayer cannot change video state
+ 
+ Change-Id: I765bbe0caebe333855bd16fdd0843e0257491246
+ Signed-off-by: shine.liu <shine.liu@rock-chips.com>
+@@ -11,10 +11,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 252 insertions(+)
+ 
+ diff --git a/gst/playback/gstplaybin3.c b/gst/playback/gstplaybin3.c
+-index b035628..ccb8a22 100644
++index ac37658..d950a16 100644
+ --- a/gst/playback/gstplaybin3.c
+ +++ b/gst/playback/gstplaybin3.c
+-@@ -386,6 +386,16 @@ struct _GstPlayBin3Class
++@@ -391,6 +391,16 @@ struct _GstPlayBin3Class
+  
+    /* get the last video sample and convert it to the given caps */
+    GstSample *(*convert_sample) (GstPlayBin3 * playbin, GstCaps * caps);
+@@ -31,7 +31,7 @@ index b035628..ccb8a22 100644
+  };
+  
+  /* props */
+-@@ -419,6 +429,12 @@ enum
++@@ -424,6 +434,12 @@ enum
+    PROP_SUBURI,
+    PROP_CURRENT_SUBURI,
+    PROP_FLAGS,
+@@ -44,7 +44,7 @@ index b035628..ccb8a22 100644
+    PROP_SUBTITLE_ENCODING,
+    PROP_AUDIO_SINK,
+    PROP_VIDEO_SINK,
+-@@ -452,6 +468,12 @@ enum
++@@ -457,6 +473,12 @@ enum
+    SIGNAL_CONVERT_SAMPLE,
+    SIGNAL_SOURCE_SETUP,
+    SIGNAL_ELEMENT_SETUP,
+@@ -57,7 +57,7 @@ index b035628..ccb8a22 100644
+    LAST_SIGNAL
+  };
+  
+-@@ -471,6 +493,13 @@ static void gst_play_bin3_deep_element_added (GstBin * playbin,
++@@ -476,6 +498,13 @@ static void gst_play_bin3_deep_element_added (GstBin * playbin,
+  static gboolean gst_play_bin3_send_event (GstElement * element,
+      GstEvent * event);
+  
+@@ -71,7 +71,7 @@ index b035628..ccb8a22 100644
+  static GstSample *gst_play_bin3_convert_sample (GstPlayBin3 * playbin,
+      GstCaps * caps);
+  
+-@@ -608,6 +637,36 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
++@@ -613,6 +642,36 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
+            GST_TYPE_PLAY_FLAGS, DEFAULT_FLAGS,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  
+@@ -108,7 +108,7 @@ index b035628..ccb8a22 100644
+    g_object_class_install_property (gobject_klass, PROP_SUBTITLE_ENCODING,
+        g_param_spec_string ("subtitle-encoding", "subtitle encoding",
+            "Encoding to assume if input subtitles are not in UTF-8 encoding. "
+-@@ -891,6 +950,41 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
++@@ -896,6 +955,41 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
+        g_signal_new ("element-setup", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, GST_TYPE_ELEMENT);
+  
+@@ -150,7 +150,7 @@ index b035628..ccb8a22 100644
+    /**
+     * GstPlayBin3::convert-sample
+     * @playbin: a #GstPlayBin3
+-@@ -912,6 +1006,10 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
++@@ -917,6 +1011,10 @@ gst_play_bin3_class_init (GstPlayBin3Class * klass)
+        G_STRUCT_OFFSET (GstPlayBin3Class, convert_sample), NULL, NULL,
+        NULL, GST_TYPE_SAMPLE, 1, GST_TYPE_CAPS);
+  
+@@ -161,7 +161,7 @@ index b035628..ccb8a22 100644
+    klass->convert_sample = gst_play_bin3_convert_sample;
+  
+    gst_element_class_set_static_metadata (gstelement_klass,
+-@@ -1235,6 +1333,73 @@ gst_play_bin3_set_flags (GstPlayBin3 * playbin, GstPlayFlags flags)
++@@ -1240,6 +1338,73 @@ gst_play_bin3_set_flags (GstPlayBin3 * playbin, GstPlayFlags flags)
+        "use-buffering", ((flags & GST_PLAY_FLAG_BUFFERING) != 0), NULL);
+  }
+  
+@@ -235,7 +235,7 @@ index b035628..ccb8a22 100644
+  static GstSample *
+  gst_play_bin3_convert_sample (GstPlayBin3 * playbin, GstCaps * caps)
+  {
+-@@ -1438,6 +1603,15 @@ gst_play_bin3_set_property (GObject * object, guint prop_id,
++@@ -1443,6 +1608,15 @@ gst_play_bin3_set_property (GObject * object, guint prop_id,
+      case PROP_FLAGS:
+        gst_play_bin3_set_flags (playbin, g_value_get_flags (value));
+        break;
+@@ -251,7 +251,7 @@ index b035628..ccb8a22 100644
+      case PROP_SUBTITLE_ENCODING:
+        gst_play_bin3_set_encoding (playbin, g_value_get_string (value));
+        break;
+-@@ -1598,6 +1772,57 @@ gst_play_bin3_get_property (GObject * object, guint prop_id, GValue * value,
++@@ -1603,6 +1777,57 @@ gst_play_bin3_get_property (GObject * object, guint prop_id, GValue * value,
+      case PROP_FLAGS:
+        g_value_set_flags (value, gst_play_sink_get_flags (playbin->playsink));
+        break;
+@@ -309,7 +309,7 @@ index b035628..ccb8a22 100644
+      case PROP_SUBTITLE_ENCODING:
+        GST_PLAY_BIN3_LOCK (playbin);
+        g_value_take_string (value,
+-@@ -2438,6 +2663,7 @@ pad_added_cb (GstElement * uridecodebin, GstPad * pad, GstPlayBin3 * playbin)
++@@ -2441,6 +2666,7 @@ pad_added_cb (GstElement * uridecodebin, GstPad * pad, GstPlayBin3 * playbin)
+    gchar *pad_name;
+    GstPad *combine_pad;
+    GstStreamType selected, active, cur;
+@@ -317,7 +317,7 @@ index b035628..ccb8a22 100644
+  
+    pad_name = gst_object_get_name (GST_OBJECT (pad));
+  
+-@@ -2485,10 +2711,36 @@ pad_added_cb (GstElement * uridecodebin, GstPad * pad, GstPlayBin3 * playbin)
++@@ -2488,10 +2714,36 @@ pad_added_cb (GstElement * uridecodebin, GstPad * pad, GstPlayBin3 * playbin)
+    }
+  
+    combine_pad = combiner_control_pad (playbin, combine, pad);
+@@ -355,5 +355,5 @@ index b035628..ccb8a22 100644
+  
+    /* ERRORS */
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0006-playbin2-Add-preferred-audio-video-sink.patch b/package/gstreamer1/gst1-plugins-base/0006-playbin2-Add-preferred-audio-video-sink.patch
+index b82bf38..ebd6302 100644
+--- a/package/gstreamer1/gst1-plugins-base/0006-playbin2-Add-preferred-audio-video-sink.patch
++++ b/package/gstreamer1/gst1-plugins-base/0006-playbin2-Add-preferred-audio-video-sink.patch
+@@ -1,7 +1,7 @@
+-From bbecf72cda8a01391da46681d06a625e020288ab Mon Sep 17 00:00:00 2001
++From 73bc3bf972e27fa0449d9b3da3f86bf6a9428571 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 14 Jun 2019 12:02:05 +0800
+-Subject: [PATCH 06/21] playbin2: Add preferred audio/video sink
++Subject: [PATCH 06/22] playbin2: Add preferred audio/video sink
+ 
+ Using env "PLAYBIN2_PREFERRED_VIDEOSINK" and
+ "PLAYBIN2_PREFERRED_AUDIOSINK".
+@@ -12,10 +12,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 31 insertions(+)
+ 
+ diff --git a/gst/playback/gstplaybin2.c b/gst/playback/gstplaybin2.c
+-index 5392ddf..a29f3b5 100644
++index 8c1e518..4570be4 100644
+ --- a/gst/playback/gstplaybin2.c
+ +++ b/gst/playback/gstplaybin2.c
+-@@ -199,6 +199,7 @@
++@@ -204,6 +204,7 @@
+  #include "config.h"
+  #endif
+  
+@@ -23,7 +23,7 @@ index 5392ddf..a29f3b5 100644
+  #include <string.h>
+  #include <gst/gst.h>
+  
+-@@ -475,6 +476,9 @@ struct _GstPlayBin
++@@ -480,6 +481,9 @@ struct _GstPlayBin
+    GList *contexts;
+  
+    gboolean is_live;
+@@ -33,7 +33,7 @@ index 5392ddf..a29f3b5 100644
+  };
+  
+  struct _GstPlayBinClass
+-@@ -1586,6 +1590,9 @@ gst_play_bin_init (GstPlayBin * playbin)
++@@ -1591,6 +1595,9 @@ gst_play_bin_init (GstPlayBin * playbin)
+  
+    playbin->multiview_mode = GST_VIDEO_MULTIVIEW_FRAME_PACKING_NONE;
+    playbin->multiview_flags = GST_VIDEO_MULTIVIEW_FLAGS_NONE;
+@@ -43,7 +43,7 @@ index 5392ddf..a29f3b5 100644
+  }
+  
+  static void
+-@@ -4723,6 +4730,7 @@ autoplug_select_cb (GstElement * decodebin, GstPad * pad,
++@@ -4728,6 +4735,7 @@ autoplug_select_cb (GstElement * decodebin, GstPad * pad,
+    GSequence *ave_seq = NULL;
+    GSequenceIter *seq_iter;
+    gboolean created_sink = FALSE;
+@@ -51,7 +51,7 @@ index 5392ddf..a29f3b5 100644
+  
+    playbin = group->playbin;
+  
+-@@ -4785,6 +4793,29 @@ autoplug_select_cb (GstElement * decodebin, GstPad * pad,
++@@ -4790,6 +4798,29 @@ autoplug_select_cb (GstElement * decodebin, GstPad * pad,
+        ave_list = g_list_prepend (ave_list, NULL);
+      }
+  
+@@ -82,5 +82,5 @@ index 5392ddf..a29f3b5 100644
+       * the matching audio/video sink from GstAVElements list */
+      for (l = ave_list; l; l = l->next) {
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0007-HACK-xvimagesink-Support-dma-buffer-rendering.patch b/package/gstreamer1/gst1-plugins-base/0007-HACK-xvimagesink-Support-dma-buffer-rendering.patch
+index fe56032..79f047e 100644
+--- a/package/gstreamer1/gst1-plugins-base/0007-HACK-xvimagesink-Support-dma-buffer-rendering.patch
++++ b/package/gstreamer1/gst1-plugins-base/0007-HACK-xvimagesink-Support-dma-buffer-rendering.patch
+@@ -1,7 +1,7 @@
+-From 6ce0d85a52ef9d03f0def3b80550ba46237a8f4b Mon Sep 17 00:00:00 2001
++From ab23217eff4b6c319f20f34c75d2273e0b1beee9 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 3 Jul 2019 19:54:36 +0800
+-Subject: [PATCH 07/21] HACK: xvimagesink: Support dma buffer rendering
++Subject: [PATCH 07/22] HACK: xvimagesink: Support dma buffer rendering
+ 
+ Send dma buffer to xv port when it supports dma port attributes.
+ 
+@@ -16,10 +16,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  5 files changed, 361 insertions(+), 14 deletions(-)
+ 
+ diff --git a/sys/xvimage/meson.build b/sys/xvimage/meson.build
+-index 881020f..9eae999 100644
++index ce84ed0..2873c9b 100644
+ --- a/sys/xvimage/meson.build
+ +++ b/sys/xvimage/meson.build
+-@@ -28,6 +28,8 @@ if cc.has_argument ('-Wno-deprecated-declarations')
++@@ -12,6 +12,8 @@ if cc.has_argument ('-Wno-deprecated-declarations')
+    no_warn_args += '-Wno-deprecated-declarations'
+  endif
+  
+@@ -27,8 +27,8 @@ index 881020f..9eae999 100644
+ +
+  xvideo_dep = dependency('xv', required : get_option('xvideo'))
+  
+- if xvideo_dep.found() and x11_dep.found()
+-@@ -35,7 +37,7 @@ if xvideo_dep.found() and x11_dep.found()
++ if xvideo_dep.found()
++@@ -19,7 +21,7 @@ if xvideo_dep.found()
+      xvimage_sources,
+      c_args : gst_plugins_base_args + no_warn_args,
+      include_directories: [configinc, libsinc],
+@@ -209,7 +209,7 @@ index ea5424d..e515fcc 100644
+    GList *formats_list;
+  
+ diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+-index cde7393..9d5c4d6 100644
++index e9fcb6c..44c98a9 100644
+ --- a/sys/xvimage/xvimagesink.c
+ +++ b/sys/xvimage/xvimagesink.c
+ @@ -121,6 +121,7 @@
+@@ -576,5 +576,5 @@ index 6f5ffa1..35a3081 100644
+  #define GST_TYPE_XV_IMAGE_SINK \
+    (gst_xv_image_sink_get_type())
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0008-video-converter-Support-rockchip-RGA-2D-accel.patch b/package/gstreamer1/gst1-plugins-base/0008-video-converter-Support-rockchip-RGA-2D-accel.patch
+index 530058f..c7563a5 100644
+--- a/package/gstreamer1/gst1-plugins-base/0008-video-converter-Support-rockchip-RGA-2D-accel.patch
++++ b/package/gstreamer1/gst1-plugins-base/0008-video-converter-Support-rockchip-RGA-2D-accel.patch
+@@ -1,7 +1,7 @@
+-From c11655f8c91d6c49180626ef2f6bd2b1d3b83b00 Mon Sep 17 00:00:00 2001
++From ca7efc7dd8237bac42a5e24663269d9cae56de8b Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 31 Oct 2019 18:45:19 +0800
+-Subject: [PATCH 08/21] video-converter: Support rockchip RGA 2D accel
++Subject: [PATCH 08/22] video-converter: Support rockchip RGA 2D accel
+ 
+ Disabled by default, set env GST_VIDEO_CONVERT_USE_RGA=1 to enable.
+ 
+@@ -13,10 +13,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  3 files changed, 184 insertions(+), 1 deletion(-)
+ 
+ diff --git a/gst-libs/gst/video/meson.build b/gst-libs/gst/video/meson.build
+-index 4c36541..0173bf2 100644
++index 1b492fd..1bdc14d 100644
+ --- a/gst-libs/gst/video/meson.build
+ +++ b/gst-libs/gst/video/meson.build
+-@@ -124,7 +124,7 @@ gstvideo_h = video_enums[1]
++@@ -115,7 +115,7 @@ gstvideo_h = video_enums[1]
+  video_gen_sources = [gstvideo_h]
+  
+  orcsrc = 'video-orc'
+@@ -26,7 +26,7 @@ index 4c36541..0173bf2 100644
+    gstvideo_deps += [orc_dep]
+    orc_h = custom_target(orcsrc + '.h',
+ diff --git a/gst-libs/gst/video/video-converter.c b/gst-libs/gst/video/video-converter.c
+-index 1e82c8c..a81cfb3 100644
++index 435c7a2..6c1a0da 100644
+ --- a/gst-libs/gst/video/video-converter.c
+ +++ b/gst-libs/gst/video/video-converter.c
+ @@ -38,6 +38,11 @@
+@@ -41,7 +41,7 @@ index 1e82c8c..a81cfb3 100644
+  /**
+   * SECTION:videoconverter
+   * @title: GstVideoConverter
+-@@ -2749,6 +2754,169 @@ gst_video_converter_get_config (GstVideoConverter * convert)
++@@ -2738,6 +2743,169 @@ gst_video_converter_get_config (GstVideoConverter * convert)
+    return convert->config;
+  }
+  
+@@ -211,7 +211,7 @@ index 1e82c8c..a81cfb3 100644
+  /**
+   * gst_video_converter_frame:
+   * @convert: a #GstVideoConverter
+-@@ -2796,6 +2964,12 @@ gst_video_converter_frame (GstVideoConverter * convert,
++@@ -2785,6 +2953,12 @@ gst_video_converter_frame (GstVideoConverter * convert,
+            convert->out_width == 0 || convert->out_height == 0))
+      return;
+  
+@@ -224,7 +224,7 @@ index 1e82c8c..a81cfb3 100644
+    convert->convert (convert, src, dest);
+  }
+  
+-@@ -7781,6 +7955,12 @@ convert_scale_planes (GstVideoConverter * convert,
++@@ -7214,6 +7388,12 @@ convert_scale_planes (GstVideoConverter * convert,
+  {
+    int i, n_planes;
+  
+@@ -238,10 +238,10 @@ index 1e82c8c..a81cfb3 100644
+    for (i = 0; i < n_planes; i++) {
+      if (convert->fconvert[i])
+ diff --git a/meson.build b/meson.build
+-index 1162348..1499182 100644
++index 268b95b..207c4d3 100644
+ --- a/meson.build
+ +++ b/meson.build
+-@@ -321,6 +321,9 @@ libdrm_dep = dependency('libdrm', version : '>= 2.4.98',
++@@ -314,6 +314,9 @@ libdrm_dep = dependency('libdrm', version : '>= 2.4.98',
+  
+  core_conf.set('HAVE_LIBDRM', libdrm_dep.found())
+  
+@@ -252,5 +252,5 @@ index 1162348..1499182 100644
+  x11_dep = dependency('x11', required : get_option('x11'))
+  # GIO is used by the GIO plugin, and by the TCP, SDP, and RTSP plugins
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0009-HACK-gl-egl-allow-direct-dmabuf-import-when-unable-t.patch b/package/gstreamer1/gst1-plugins-base/0009-HACK-gl-egl-allow-direct-dmabuf-import-when-unable-t.patch
+index 4bbf2df..ca99f01 100644
+--- a/package/gstreamer1/gst1-plugins-base/0009-HACK-gl-egl-allow-direct-dmabuf-import-when-unable-t.patch
++++ b/package/gstreamer1/gst1-plugins-base/0009-HACK-gl-egl-allow-direct-dmabuf-import-when-unable-t.patch
+@@ -1,7 +1,7 @@
+-From cc734c392b128dcbc11f4904a1cdd46fa64f0641 Mon Sep 17 00:00:00 2001
++From 3bae0afcd93cfb0488c3e9c996b0a4cbd0d6ee14 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 18 Mar 2020 10:09:49 +0800
+-Subject: [PATCH 09/21] HACK: gl/egl: allow direct dmabuf import when unable to
++Subject: [PATCH 09/22] HACK: gl/egl: allow direct dmabuf import when unable to
+  query formats
+ 
+ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+@@ -10,10 +10,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 6 insertions(+)
+ 
+ diff --git a/gst-libs/gst/gl/egl/gstglcontext_egl.c b/gst-libs/gst/gl/egl/gstglcontext_egl.c
+-index 79ed925..bc3a702 100644
++index e7f767e..2f5be18 100644
+ --- a/gst-libs/gst/gl/egl/gstglcontext_egl.c
+ +++ b/gst-libs/gst/gl/egl/gstglcontext_egl.c
+-@@ -1668,11 +1668,13 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
++@@ -1651,11 +1651,13 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
+  
+    gst_eglQueryDmaBufModifiersEXT =
+        gst_gl_context_get_proc_address (context, "eglQueryDmaBufModifiersEXT");
+@@ -27,7 +27,7 @@ index 79ed925..bc3a702 100644
+  
+    gl_dpy_egl = gst_gl_display_egl_from_gl_display (context->display);
+    if (!gl_dpy_egl) {
+-@@ -1721,6 +1723,9 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
++@@ -1704,6 +1706,9 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
+      dma_frmt.fourcc = formats[i];
+      dma_frmt.modifiers = NULL;
+  
+@@ -37,14 +37,14 @@ index 79ed925..bc3a702 100644
+      ret = gst_eglQueryDmaBufModifiersEXT (egl_dpy, formats[i], 0,
+          NULL, NULL, &num_mods);
+      if (!ret) {
+-@@ -1765,6 +1770,7 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
++@@ -1747,6 +1752,7 @@ gst_gl_context_egl_fetch_dma_formats (GstGLContext * context)
+      g_array_append_val (dma_formats, dma_frmt);
+    }
+  
+ +no_dmabuf_mod:
+    g_array_sort (dma_formats, _compare_dma_formats);
+  
+-   GST_OBJECT_LOCK (context);
++   _print_all_dma_formats (context, dma_formats);
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0010-glupload-dmabuf-prefer-DirectDmabufExternal-uploader.patch b/package/gstreamer1/gst1-plugins-base/0010-glupload-dmabuf-prefer-DirectDmabufExternal-uploader.patch
+index 3c1c0bb..20b8c53 100644
+--- a/package/gstreamer1/gst1-plugins-base/0010-glupload-dmabuf-prefer-DirectDmabufExternal-uploader.patch
++++ b/package/gstreamer1/gst1-plugins-base/0010-glupload-dmabuf-prefer-DirectDmabufExternal-uploader.patch
+@@ -1,7 +1,7 @@
+-From 82f4e8ebefde2ff5cf8d10df268dcba99c2ed613 Mon Sep 17 00:00:00 2001
++From bee80584d8996d977becc06cfcd7d679d08eda5b Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Wed, 18 Mar 2020 10:12:31 +0800
+-Subject: [PATCH 10/21] glupload: dmabuf: prefer DirectDmabufExternal uploader
++Subject: [PATCH 10/22] glupload: dmabuf: prefer DirectDmabufExternal uploader
+ 
+ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+ ---
+@@ -9,10 +9,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 1 insertion(+), 1 deletion(-)
+ 
+ diff --git a/gst-libs/gst/gl/gstglupload.c b/gst-libs/gst/gl/gstglupload.c
+-index ce57a7e..f13c0fa 100644
++index 1aba688..49caeaa 100644
+ --- a/gst-libs/gst/gl/gstglupload.c
+ +++ b/gst-libs/gst/gl/gstglupload.c
+-@@ -2952,8 +2952,8 @@ static const UploadMethod *upload_methods[] = {
++@@ -3207,8 +3207,8 @@ static const UploadMethod *upload_methods[] = {
+    &_passthrough_upload,
+    &_gl_memory_upload,
+  #if GST_GL_HAVE_DMABUF
+@@ -23,5 +23,5 @@ index ce57a7e..f13c0fa 100644
+  #endif
+  #if GST_GL_HAVE_VIV_DIRECTVIV
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0011-videoconvert-Support-preferred-formats.patch b/package/gstreamer1/gst1-plugins-base/0011-videoconvert-Support-preferred-formats.patch
+index 1dfbce5..16ae314 100644
+--- a/package/gstreamer1/gst1-plugins-base/0011-videoconvert-Support-preferred-formats.patch
++++ b/package/gstreamer1/gst1-plugins-base/0011-videoconvert-Support-preferred-formats.patch
+@@ -1,7 +1,7 @@
+-From a92eb03f8718e24b27b962c52d9ed6b271e6f4ee Mon Sep 17 00:00:00 2001
++From 15f0f6d5228c0eba4b58a0dda5517140a0029b2b Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 17 Sep 2021 13:20:24 +0800
+-Subject: [PATCH 11/21] videoconvert: Support preferred formats
++Subject: [PATCH 11/22] videoconvert: Support preferred formats
+ 
+ Set env "GST_VIDEO_CONVERT_PREFERRED_FORMAT" to specify preferred
+ formats, for example:
+@@ -13,10 +13,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 22 insertions(+)
+ 
+ diff --git a/gst/videoconvertscale/gstvideoconvertscale.c b/gst/videoconvertscale/gstvideoconvertscale.c
+-index b078463..78c66f0 100644
++index abc7436..7d70867 100644
+ --- a/gst/videoconvertscale/gstvideoconvertscale.c
+ +++ b/gst/videoconvertscale/gstvideoconvertscale.c
+-@@ -1093,6 +1093,28 @@ score_value (GstBaseTransform * base, const GstVideoFormatInfo * in_info,
++@@ -1091,6 +1091,28 @@ score_value (GstBaseTransform * base, const GstVideoFormatInfo * in_info,
+        loss += SCORE_DEPTH_LOSS;
+    }
+  
+@@ -46,5 +46,5 @@ index b078463..78c66f0 100644
+        GST_VIDEO_FORMAT_INFO_NAME (in_info),
+        GST_VIDEO_FORMAT_INFO_NAME (t_info), loss);
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0012-glupload-Support-NV12_10LE40-and-NV12-NV12_10LE40-NV.patch b/package/gstreamer1/gst1-plugins-base/0012-glupload-Support-NV12_10LE40-and-NV12-NV12_10LE40-NV.patch
+index 6140c2c..187be53 100644
+--- a/package/gstreamer1/gst1-plugins-base/0012-glupload-Support-NV12_10LE40-and-NV12-NV12_10LE40-NV.patch
++++ b/package/gstreamer1/gst1-plugins-base/0012-glupload-Support-NV12_10LE40-and-NV12-NV12_10LE40-NV.patch
+@@ -1,7 +1,7 @@
+-From 77c67792ac1fc3e2dabbbd6e80eabba164cc4fbe Mon Sep 17 00:00:00 2001
++From 13ffdb65dfb25117ef372dbb0b680901a1d3a8ad Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Tue, 24 May 2022 16:16:33 +0800
+-Subject: [PATCH 12/21] glupload: Support NV12_10LE40 and NV12|NV12_10LE40|NV16
++Subject: [PATCH 12/22] glupload: Support NV12_10LE40 and NV12|NV12_10LE40|NV16
+  (AFBC)
+ 
+ Tested on RK356x with:
+@@ -15,12 +15,12 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  gst-libs/gst/gl/gstglmemory.h       |  2 +-
+  gst-libs/gst/gl/gstglupload.c       | 15 ++++++++++-
+  gst-libs/gst/gl/meson.build         |  4 ++-
+- gst-libs/gst/video/video-info-dma.c | 13 +++++++++
++ gst-libs/gst/video/video-info-dma.c | 14 ++++++++++
+  gst-libs/gst/video/video-info-dma.h | 42 +++++++++++++++++++++++++++++
+- 7 files changed, 95 insertions(+), 5 deletions(-)
++ 7 files changed, 96 insertions(+), 5 deletions(-)
+ 
+ diff --git a/gst-libs/gst/gl/egl/gsteglimage.c b/gst-libs/gst/gl/egl/gsteglimage.c
+-index cb8d43f..d9a8c8f 100644
++index c3ee82a..0b6b601 100644
+ --- a/gst-libs/gst/gl/egl/gsteglimage.c
+ +++ b/gst-libs/gst/gl/egl/gsteglimage.c
+ @@ -856,8 +856,9 @@ gst_egl_image_from_dmabuf_direct_target_with_dma_drm (GstGLContext * context,
+@@ -75,7 +75,7 @@ index cb8d43f..d9a8c8f 100644
+        attribs[atti++] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
+        attribs[atti++] = modifier & 0xffffffff;
+ diff --git a/gst-libs/gst/gl/egl/gsteglimage.h b/gst-libs/gst/gl/egl/gsteglimage.h
+-index c69d65a..dfd5a6d 100644
++index b34607d..8ad6e6d 100644
+ --- a/gst-libs/gst/gl/egl/gsteglimage.h
+ +++ b/gst-libs/gst/gl/egl/gsteglimage.h
+ @@ -26,6 +26,8 @@
+@@ -88,23 +88,23 @@ index c69d65a..dfd5a6d 100644
+  
+  GST_GL_API GType gst_egl_image_get_type (void);
+ diff --git a/gst-libs/gst/gl/gstglmemory.h b/gst-libs/gst/gl/gstglmemory.h
+-index 99c727b..511222d 100644
++index bf2d752..9fd17d1 100644
+ --- a/gst-libs/gst/gl/gstglmemory.h
+ +++ b/gst-libs/gst/gl/gstglmemory.h
+ @@ -68,7 +68,7 @@ GType gst_gl_memory_allocator_get_type(void);
+  #define GST_GL_MEMORY_VIDEO_FORMATS_STR \
+      "{ RGBA, BGRA, RGBx, BGRx, ARGB, ABGR, xRGB, xBGR, GBRA, GBR, RGBP, BGRP, RGB, BGR, RGB16, BGR16, " \
+      "AYUV, VUYA, A444, A422, Y410, I420, YV12, NV12, NV21, NV16, NV61, YUY2, UYVY, Y210, Y41B, " \
+--    "Y42B, Y444, GRAY8, GRAY16_LE, GRAY16_BE, ARGB64, A420, AV12, NV12_16L32S, NV12_4L4, RBGA, v210" \
+-+    "Y42B, Y444, GRAY8, GRAY16_LE, GRAY16_BE, ARGB64, A420, AV12, NV12_10LE40, NV12_16L32S, NV12_4L4, RBGA, v210" \
++-    "Y42B, Y444, GRAY8, GRAY16_LE, GRAY16_BE, ARGB64, A420, AV12, NV12_16L32S, NV12_4L4, RBGA" \
+++    "Y42B, Y444, GRAY8, GRAY16_LE, GRAY16_BE, ARGB64, A420, AV12, NV12_10LE40, NV12_16L32S, NV12_4L4, RBGA" \
+      GST_GL_MEMORY_VIDEO_EXT_FORMATS "}"
+  
+  /**
+ diff --git a/gst-libs/gst/gl/gstglupload.c b/gst-libs/gst/gl/gstglupload.c
+-index f13c0fa..63ec3c9 100644
++index 49caeaa..bf5ed98 100644
+ --- a/gst-libs/gst/gl/gstglupload.c
+ +++ b/gst-libs/gst/gl/gstglupload.c
+-@@ -704,7 +704,8 @@ _gl_memory_upload_free (gpointer impl)
++@@ -697,7 +697,8 @@ _gl_memory_upload_free (gpointer impl)
+  
+  static GstStaticCaps _gl_memory_upload_caps =
+  GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE_WITH_FEATURES
+@@ -114,7 +114,7 @@ index f13c0fa..63ec3c9 100644
+  
+  static const UploadMethod _gl_memory_upload = {
+    "GLMemory",
+-@@ -3149,6 +3150,9 @@ static gboolean
++@@ -3399,6 +3400,9 @@ static gboolean
+  _gst_gl_upload_set_caps_unlocked (GstGLUpload * upload, GstCaps * in_caps,
+      GstCaps * out_caps)
+  {
+@@ -124,7 +124,7 @@ index f13c0fa..63ec3c9 100644
+    g_return_val_if_fail (upload != NULL, FALSE);
+    g_return_val_if_fail (gst_caps_is_fixed (in_caps), FALSE);
+  
+-@@ -3170,6 +3174,15 @@ _gst_gl_upload_set_caps_unlocked (GstGLUpload * upload, GstCaps * in_caps,
++@@ -3420,6 +3424,15 @@ _gst_gl_upload_set_caps_unlocked (GstGLUpload * upload, GstCaps * in_caps,
+    }
+    gst_video_info_from_caps (&upload->priv->out_info, out_caps);
+  
+@@ -141,10 +141,10 @@ index f13c0fa..63ec3c9 100644
+    upload->priv->method_impl = NULL;
+    upload->priv->method_i = 0;
+ diff --git a/gst-libs/gst/gl/meson.build b/gst-libs/gst/gl/meson.build
+-index db437df..df52170 100644
++index 4e4087f..990725e 100644
+ --- a/gst-libs/gst/gl/meson.build
+ +++ b/gst-libs/gst/gl/meson.build
+-@@ -1116,6 +1116,8 @@ if build_gstgl
++@@ -1093,6 +1093,8 @@ if build_gstgl
+    # case-insensitive FS would include gst-libs/gl/egl/egl.h as EGL/egl.h.
+    common_args += '-I@0@'.format(meson.current_build_dir())
+  
+@@ -153,7 +153,7 @@ index db437df..df52170 100644
+    gstgl = library('gstgl-' + api_version,
+      gl_sources, gl_egl_sources, gl_x11_sources, gl_wayland_sources, gl_viv_fb_sources, gl_priv_sources, gl_enumtypes_c, gl_enumtypes_h,
+      c_args : common_args,
+-@@ -1127,7 +1129,7 @@ if build_gstgl
++@@ -1104,7 +1106,7 @@ if build_gstgl
+      darwin_versions : osxversion,
+      install : true,
+      dependencies : [gst_base_dep, video_dep, gmodule_dep, gl_lib_deps,
+@@ -163,10 +163,10 @@ index db437df..df52170 100644
+      implicit_include_directories : false)
+  
+ diff --git a/gst-libs/gst/video/video-info-dma.c b/gst-libs/gst/video/video-info-dma.c
+-index 7e8b9b8..804962e 100644
++index c2d7d48..499e310 100644
+ --- a/gst-libs/gst/video/video-info-dma.c
+ +++ b/gst-libs/gst/video/video-info-dma.c
+-@@ -347,6 +347,19 @@ gst_video_info_dma_drm_from_video_info (GstVideoInfoDmaDrm * drm_info,
++@@ -465,6 +465,19 @@ gst_video_info_dma_drm_from_video_info (GstVideoInfoDmaDrm * drm_info,
+    if (fourcc == DRM_FORMAT_INVALID)
+      return FALSE;
+  
+@@ -186,8 +186,16 @@ index 7e8b9b8..804962e 100644
+    drm_info->vinfo = *info;
+    drm_info->drm_fourcc = fourcc;
+    drm_info->drm_modifier = modifier;
++@@ -668,6 +681,7 @@ static const struct FormatMap
++   {GST_VIDEO_FORMAT_P010_10LE, DRM_FORMAT_P010},
++   {GST_VIDEO_FORMAT_P012_LE, DRM_FORMAT_P012},
++   {GST_VIDEO_FORMAT_BGR10A2_LE, DRM_FORMAT_ARGB2101010},
+++  {GST_VIDEO_FORMAT_NV12_10LE40, DRM_FORMAT_NV15},
++ };
++ /* *INDENT-ON* */
++ 
+ diff --git a/gst-libs/gst/video/video-info-dma.h b/gst-libs/gst/video/video-info-dma.h
+-index e83e363..bb0ab3a 100644
++index a0f9246..8510ab2 100644
+ --- a/gst-libs/gst/video/video-info-dma.h
+ +++ b/gst-libs/gst/video/video-info-dma.h
+ @@ -25,6 +25,48 @@
+@@ -240,5 +248,5 @@ index e83e363..bb0ab3a 100644
+   * GST_VIDEO_DMA_DRM_CAPS_MAKE:
+   *
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0013-xvimagesink-Defer-prepare-window-when-getting-zero-w.patch b/package/gstreamer1/gst1-plugins-base/0013-xvimagesink-Defer-prepare-window-when-getting-zero-w.patch
+index 93d329f..9db62de 100644
+--- a/package/gstreamer1/gst1-plugins-base/0013-xvimagesink-Defer-prepare-window-when-getting-zero-w.patch
++++ b/package/gstreamer1/gst1-plugins-base/0013-xvimagesink-Defer-prepare-window-when-getting-zero-w.patch
+@@ -1,7 +1,7 @@
+-From 6c46d16d64d658a90ba65f0d5c7fbb312bb2a54a Mon Sep 17 00:00:00 2001
++From 3ed57fb8e270e3ff2c8076bcb6d984a9fbc94e11 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 9 Jun 2022 12:01:28 +0800
+-Subject: [PATCH 13/21] xvimagesink: Defer prepare window when getting zero
++Subject: [PATCH 13/22] xvimagesink: Defer prepare window when getting zero
+  window handle
+ 
+ The window might not ready when we requesting it.
+@@ -13,7 +13,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  2 files changed, 19 insertions(+), 13 deletions(-)
+ 
+ diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+-index 9d5c4d6..04350a5 100644
++index 44c98a9..fea70a5 100644
+ --- a/sys/xvimage/xvimagesink.c
+ +++ b/sys/xvimage/xvimagesink.c
+ @@ -424,6 +424,10 @@ gst_xv_image_sink_xvimage_put (GstXvImageSink * xvimagesink,
+@@ -51,7 +51,7 @@ index 9d5c4d6..04350a5 100644
+      /* No Window available to put our image into */
+      GST_WARNING_OBJECT (xvimagesink, "could not output image - no window");
+      res = GST_FLOW_ERROR;
+-@@ -1649,18 +1661,7 @@ gst_xv_image_sink_set_window_handle (GstVideoOverlay * overlay, guintptr id)
++@@ -1646,18 +1658,7 @@ gst_xv_image_sink_set_window_handle (GstVideoOverlay * overlay, guintptr id)
+      xvimagesink->xwindow = NULL;
+    }
+  
+@@ -71,7 +71,7 @@ index 9d5c4d6..04350a5 100644
+      xwindow = gst_xvcontext_create_xwindow_from_xid (context, xwindow_id);
+      gst_xwindow_set_event_handling (xwindow, xvimagesink->handle_events);
+    }
+-@@ -2309,6 +2310,9 @@ gst_xv_image_sink_init (GstXvImageSink * xvimagesink)
++@@ -2306,6 +2307,9 @@ gst_xv_image_sink_init (GstXvImageSink * xvimagesink)
+    xvimagesink->handle_expose = TRUE;
+  
+    xvimagesink->draw_borders = TRUE;
+@@ -95,5 +95,5 @@ index 35a3081..c84eeea 100644
+  
+  struct _GstXvImageSinkClass
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0014-riff-Fix-bps-caculation-error-for-ADPCM.patch b/package/gstreamer1/gst1-plugins-base/0014-riff-Fix-bps-caculation-error-for-ADPCM.patch
+new file mode 100644
+index 0000000..fd45b39
+--- /dev/null
++++ b/package/gstreamer1/gst1-plugins-base/0014-riff-Fix-bps-caculation-error-for-ADPCM.patch
+@@ -0,0 +1,41 @@
++From 65f26177a695a30211c033b076da5e35b86cd5c7 Mon Sep 17 00:00:00 2001
++From: Jiajian Wu <jair.wu@rock-chips.com>
++Date: Tue, 11 Oct 2022 09:21:10 +0800
++Subject: [PATCH 14/22] riff: Fix bps caculation error for ADPCM
++
++The bps shall be caculated according to:
++ADPCM: rate * blockalign / ((blockalign - ch * 7) / ch * 2)
++DVI ADPCM: rate * blockalign / ((blockalign - ch * 4) / ch * 2)
++cus the sample size is 4bit in ADPCM witch is half
++of raw pcm.
++
++Signed-off-by: Jiajian Wu <jair.wu@rock-chips.com>
++---
++ gst-libs/gst/riff/riff-media.c | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++diff --git a/gst-libs/gst/riff/riff-media.c b/gst-libs/gst/riff/riff-media.c
++index bfe1fe5..e123c6f 100644
++--- a/gst-libs/gst/riff/riff-media.c
+++++ b/gst-libs/gst/riff/riff-media.c
++@@ -1324,7 +1324,7 @@ gst_riff_create_audio_caps (guint16 codec_id,
++          * would probably confuse timing */
++         strf->av_bps = 0;
++         if (strf->channels != 0 && strf->rate != 0 && strf->blockalign != 0) {
++-          int spb = ((strf->blockalign - strf->channels * 7) / 2) * 2;
+++          int spb = ((strf->blockalign - strf->channels * 7) / strf->channels) * 2;
++           strf->av_bps =
++               gst_util_uint64_scale_int (strf->rate, strf->blockalign, spb);
++           GST_DEBUG ("fixing av_bps to calculated value %d of MS ADPCM",
++@@ -1446,7 +1446,7 @@ gst_riff_create_audio_caps (guint16 codec_id,
++          * as this would probably confuse timing */
++         strf->av_bps = 0;
++         if (strf->channels != 0 && strf->rate != 0 && strf->blockalign != 0) {
++-          int spb = ((strf->blockalign - strf->channels * 4) / 2) * 2;
+++          int spb = ((strf->blockalign - strf->channels * 4) / strf->channels) * 2;
++           strf->av_bps =
++               gst_util_uint64_scale_int (strf->rate, strf->blockalign, spb);
++           GST_DEBUG ("fixing av_bps to calculated value %d of IMA DVI ADPCM",
++-- 
++2.20.1
++
+diff --git a/package/gstreamer1/gst1-plugins-base/0014-xvimagesink-Allow-disabling-decorations.patch b/package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Allow-disabling-decorations.patch
+similarity index 91%
+rename from package/gstreamer1/gst1-plugins-base/0014-xvimagesink-Allow-disabling-decorations.patch
+rename to package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Allow-disabling-decorations.patch
+index 68b2d57..4200d98 100644
+--- a/package/gstreamer1/gst1-plugins-base/0014-xvimagesink-Allow-disabling-decorations.patch
++++ b/package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Allow-disabling-decorations.patch
+@@ -1,7 +1,7 @@
+-From c95ea072a79f6e6afd7b265e31c6d891680dbfc1 Mon Sep 17 00:00:00 2001
++From 716a162193f12ec00ecaa42c55193290368893a9 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 28 Apr 2023 17:09:54 +0800
+-Subject: [PATCH 14/21] xvimagesink: Allow disabling decorations
++Subject: [PATCH 15/22] xvimagesink: Allow disabling decorations
+ 
+ Tested on RK3588 EVB with:
+ gst-launch-1.0 videotestsrc ! xvimagesink decorations=0
+@@ -52,7 +52,7 @@ index e515fcc..1fb7614 100644
+  
+  void           gst_xwindow_destroy              (GstXWindow * window);
+ diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+-index 04350a5..225e669 100644
++index fea70a5..a0fa468 100644
+ --- a/sys/xvimage/xvimagesink.c
+ +++ b/sys/xvimage/xvimagesink.c
+ @@ -200,6 +200,7 @@ enum
+@@ -73,7 +73,7 @@ index 04350a5..225e669 100644
+  
+    /* set application name as a title */
+    gst_xv_image_sink_xwindow_set_title (xvimagesink, xwindow, NULL);
+-@@ -2060,6 +2062,9 @@ gst_xv_image_sink_set_property (GObject * object, guint prop_id,
++@@ -2057,6 +2059,9 @@ gst_xv_image_sink_set_property (GObject * object, guint prop_id,
+      case PROP_DRAW_BORDERS:
+        xvimagesink->draw_borders = g_value_get_boolean (value);
+        break;
+@@ -83,7 +83,7 @@ index 04350a5..225e669 100644
+      default:
+        if (!gst_video_overlay_set_property (object, PROP_LAST, prop_id, value))
+          G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+-@@ -2150,6 +2155,9 @@ gst_xv_image_sink_get_property (GObject * object, guint prop_id,
++@@ -2147,6 +2152,9 @@ gst_xv_image_sink_get_property (GObject * object, guint prop_id,
+        else
+          g_value_set_uint64 (value, 0);
+        break;
+@@ -93,7 +93,7 @@ index 04350a5..225e669 100644
+      default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+        break;
+-@@ -2313,6 +2321,8 @@ gst_xv_image_sink_init (GstXvImageSink * xvimagesink)
++@@ -2310,6 +2318,8 @@ gst_xv_image_sink_init (GstXvImageSink * xvimagesink)
+  
+    /* HACK: Use a non-zero initial ID to detect overlay mode */
+    xvimagesink->xwindow_id = -1;
+@@ -102,7 +102,7 @@ index 04350a5..225e669 100644
+  }
+  
+  static void
+-@@ -2449,6 +2459,11 @@ gst_xv_image_sink_class_init (GstXvImageSinkClass * klass)
++@@ -2446,6 +2456,11 @@ gst_xv_image_sink_class_init (GstXvImageSinkClass * klass)
+            "Height of the window", 0, G_MAXUINT64, 0,
+            G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  
+@@ -128,5 +128,5 @@ index c84eeea..2e7182c 100644
+  
+  struct _GstXvImageSinkClass
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Apply-toplevel-window-s-position.patch b/package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Apply-toplevel-window-s-position.patch
+similarity index 98%
+rename from package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Apply-toplevel-window-s-position.patch
+rename to package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Apply-toplevel-window-s-position.patch
+index 6d2b060..c4cee4a 100644
+--- a/package/gstreamer1/gst1-plugins-base/0015-xvimagesink-Apply-toplevel-window-s-position.patch
++++ b/package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Apply-toplevel-window-s-position.patch
+@@ -1,7 +1,7 @@
+-From af9a1b0f9e58aeb634a83c29ea99b239c81feae9 Mon Sep 17 00:00:00 2001
++From 0faf569fb23c6895e79cb3ec79116ac7d1cf8441 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Fri, 28 Apr 2023 18:34:49 +0800
+-Subject: [PATCH 15/21] xvimagesink: Apply toplevel window's position
++Subject: [PATCH 16/22] xvimagesink: Apply toplevel window's position
+ 
+ Tested on RK3588 evb with:
+ gst-launch-1.0 videotestsrc ! xvimagesink render-rectangle='<100,200,300,400>'
+@@ -188,7 +188,7 @@ index 2107d30..f139079 100644
+    if (context->use_xshm) {
+      GST_LOG ("XvShmPutImage with image %dx%d and window %dx%d, from xvimage %p",
+ diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+-index 225e669..deedb3c 100644
++index a0fa468..6c50112 100644
+ --- a/sys/xvimage/xvimagesink.c
+ +++ b/sys/xvimage/xvimagesink.c
+ @@ -548,7 +548,7 @@ gst_xv_image_sink_xwindow_set_title (GstXvImageSink * xvimagesink,
+@@ -236,5 +236,5 @@ index 225e669..deedb3c 100644
+  
+    if (xvimagesink->pending_render_rect) {
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch b/package/gstreamer1/gst1-plugins-base/0017-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch
+similarity index 75%
+rename from package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch
+rename to package/gstreamer1/gst1-plugins-base/0017-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch
+index 6e3db86..5dca002 100644
+--- a/package/gstreamer1/gst1-plugins-base/0016-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch
++++ b/package/gstreamer1/gst1-plugins-base/0017-xvimagesink-Ignore-expose-redraw-when-video-not-read.patch
+@@ -1,7 +1,7 @@
+-From 062e2bc5d412347e9e9a687673dfa8a8916c7afe Mon Sep 17 00:00:00 2001
++From 097c156a2ed73c7d3bface90fcdb866776761b40 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 4 May 2023 09:12:49 +0800
+-Subject: [PATCH 16/21] xvimagesink: Ignore expose-redraw when video not ready
++Subject: [PATCH 17/22] xvimagesink: Ignore expose-redraw when video not ready
+ 
+ See:
+ https://github.com/JeffyCN/rockchip_mirrors/issues/26
+@@ -12,10 +12,10 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 5 insertions(+)
+ 
+ diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+-index deedb3c..cc50d7f 100644
++index 6c50112..88a6554 100644
+ --- a/sys/xvimage/xvimagesink.c
+ +++ b/sys/xvimage/xvimagesink.c
+-@@ -1693,6 +1693,11 @@ gst_xv_image_sink_expose (GstVideoOverlay * overlay)
++@@ -1690,6 +1690,11 @@ gst_xv_image_sink_expose (GstVideoOverlay * overlay)
+  
+    GST_DEBUG ("doing expose");
+    gst_xv_image_sink_xwindow_update_geometry (xvimagesink);
+@@ -28,5 +28,5 @@ index deedb3c..cc50d7f 100644
+  }
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0017-gl-x11-Honor-render-rectangle-for-toplevel-window.patch b/package/gstreamer1/gst1-plugins-base/0018-gl-x11-Honor-render-rectangle-for-toplevel-window.patch
+similarity index 92%
+rename from package/gstreamer1/gst1-plugins-base/0017-gl-x11-Honor-render-rectangle-for-toplevel-window.patch
+rename to package/gstreamer1/gst1-plugins-base/0018-gl-x11-Honor-render-rectangle-for-toplevel-window.patch
+index b466879..d0190e8 100644
+--- a/package/gstreamer1/gst1-plugins-base/0017-gl-x11-Honor-render-rectangle-for-toplevel-window.patch
++++ b/package/gstreamer1/gst1-plugins-base/0018-gl-x11-Honor-render-rectangle-for-toplevel-window.patch
+@@ -1,7 +1,7 @@
+-From b4a7c0df6f62aa0579b444d27296ea538878b195 Mon Sep 17 00:00:00 2001
++From dd753062816d389f4ab55c86a01ea0d765633994 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 4 May 2023 17:52:33 +0800
+-Subject: [PATCH 17/21] gl: x11: Honor render-rectangle for toplevel window
++Subject: [PATCH 18/22] gl: x11: Honor render-rectangle for toplevel window
+ 
+ Tested on RK3588 evb with:
+ gst-launch-1.0 videotestsrc ! glimagesink render-rectangle='<100,200,300,400>'
+@@ -43,5 +43,5 @@ index f047b67..e7fd1aa 100644
+      if (!window_x11->parent_win) {
+        XResizeWindow (window_x11->device, window_x11->internal_win_id,
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0018-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch b/package/gstreamer1/gst1-plugins-base/0019-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch
+similarity index 88%
+rename from package/gstreamer1/gst1-plugins-base/0018-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch
+rename to package/gstreamer1/gst1-plugins-base/0019-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch
+index f5935e5..fb74fc0 100644
+--- a/package/gstreamer1/gst1-plugins-base/0018-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch
++++ b/package/gstreamer1/gst1-plugins-base/0019-gl-wayland-Honor-render-rectangle-for-toplevel-windo.patch
+@@ -1,7 +1,7 @@
+-From 962802dd6b00589b6ff5e8338053394df275232c Mon Sep 17 00:00:00 2001
++From 6a1f7685368201d21d321839131bea155cc20baa Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 4 May 2023 17:52:33 +0800
+-Subject: [PATCH 18/21] gl: wayland: Honor render-rectangle for toplevel window
++Subject: [PATCH 19/22] gl: wayland: Honor render-rectangle for toplevel window
+ 
+ Tested on RK3588 evb with:
+ gst-launch-1.0 videotestsrc ! glimagesink render-rectangle='<100,200,300,400>'
+@@ -28,5 +28,5 @@ index 9883c2f..762877b 100644
+  }
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0019-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch b/package/gstreamer1/gst1-plugins-base/0020-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch
+similarity index 93%
+rename from package/gstreamer1/gst1-plugins-base/0019-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch
+rename to package/gstreamer1/gst1-plugins-base/0020-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch
+index 3289676..83062dc 100644
+--- a/package/gstreamer1/gst1-plugins-base/0019-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch
++++ b/package/gstreamer1/gst1-plugins-base/0020-gl-x11-Allow-disabling-decorations-for-toplevel-wind.patch
+@@ -1,7 +1,7 @@
+-From ff1fa8c6bcf68917a2264b722740178613f8e278 Mon Sep 17 00:00:00 2001
++From a30d6ef108261f6ff5a76bf67aa6fde7be3bcf4c Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Thu, 4 May 2023 18:09:19 +0800
+-Subject: [PATCH 19/21] gl: x11: Allow disabling decorations for toplevel
++Subject: [PATCH 20/22] gl: x11: Allow disabling decorations for toplevel
+  window
+ 
+ Tested on RK3588 evb with:
+@@ -59,5 +59,5 @@ index e7fd1aa..563748c 100644
+        window_x11->priv->handle_events);
+  
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0020-gst-libs-Support-NV16_10LE40.patch b/package/gstreamer1/gst1-plugins-base/0021-gst-libs-Support-NV16_10LE40.patch
+similarity index 79%
+rename from package/gstreamer1/gst1-plugins-base/0020-gst-libs-Support-NV16_10LE40.patch
+rename to package/gstreamer1/gst1-plugins-base/0021-gst-libs-Support-NV16_10LE40.patch
+index f6a8351..1874038 100644
+--- a/package/gstreamer1/gst1-plugins-base/0020-gst-libs-Support-NV16_10LE40.patch
++++ b/package/gstreamer1/gst1-plugins-base/0021-gst-libs-Support-NV16_10LE40.patch
+@@ -1,7 +1,7 @@
+-From 1b1d299b328d870a07f54ce8349023bb793ebd63 Mon Sep 17 00:00:00 2001
++From 7d562063c70f74eda1c116e0dd49b693dc2733a2 Mon Sep 17 00:00:00 2001
+ From: Jiajian Wu <jair.wu@rock-chips.com>
+ Date: Mon, 12 Jun 2023 17:07:55 +0800
+-Subject: [PATCH 20/21] gst-libs: Support NV16_10LE40
++Subject: [PATCH 21/22] gst-libs: Support NV16_10LE40
+ 
+ Signed-off-by: Jiajian Wu <jair.wu@rock-chips.com>
+ ---
+@@ -13,10 +13,10 @@ Signed-off-by: Jiajian Wu <jair.wu@rock-chips.com>
+  5 files changed, 176 insertions(+), 2 deletions(-)
+ 
+ diff --git a/gst-libs/gst/video/video-converter.c b/gst-libs/gst/video/video-converter.c
+-index a81cfb3..0b98cbb 100644
++index 6c1a0da..2cc4d5d 100644
+ --- a/gst-libs/gst/video/video-converter.c
+ +++ b/gst-libs/gst/video/video-converter.c
+-@@ -2788,6 +2788,8 @@ get_rga_format (GstVideoFormat format)
++@@ -2777,6 +2777,8 @@ get_rga_format (GstVideoFormat format)
+        return RK_FORMAT_YCbCr_422_P;
+      case GST_VIDEO_FORMAT_NV12_10LE40:
+        return RK_FORMAT_YCbCr_420_SP_10B;
+@@ -25,7 +25,7 @@ index a81cfb3..0b98cbb 100644
+      default:
+        return RK_FORMAT_UNKNOWN;
+    }
+-@@ -8105,6 +8107,7 @@ get_scale_format (GstVideoFormat format, gint plane)
++@@ -7537,6 +7539,7 @@ get_scale_format (GstVideoFormat format, gint plane)
+      case GST_VIDEO_FORMAT_NV12_10LE32:
+      case GST_VIDEO_FORMAT_NV16_10LE32:
+      case GST_VIDEO_FORMAT_NV12_10LE40:
+@@ -34,10 +34,10 @@ index a81cfb3..0b98cbb 100644
+      case GST_VIDEO_FORMAT_RGB10A2_LE:
+      case GST_VIDEO_FORMAT_Y444_16BE:
+ diff --git a/gst-libs/gst/video/video-format.c b/gst-libs/gst/video/video-format.c
+-index 9bd9c69..14ee921 100644
++index ddbc17c..3511953 100644
+ --- a/gst-libs/gst/video/video-format.c
+ +++ b/gst-libs/gst/video/video-format.c
+-@@ -5798,6 +5798,162 @@ pack_NV12_10LE40 (const GstVideoFormatInfo * info, GstVideoPackFlags flags,
++@@ -5760,6 +5760,162 @@ pack_NV12_10LE40 (const GstVideoFormatInfo * info, GstVideoPackFlags flags,
+    }
+  }
+  
+@@ -200,7 +200,7 @@ index 9bd9c69..14ee921 100644
+  #define PACK_VUYA GST_VIDEO_FORMAT_AYUV, unpack_VUYA, 1, pack_VUYA
+  static void
+  unpack_VUYA (const GstVideoFormatInfo * info, GstVideoPackFlags flags,
+-@@ -7985,6 +8141,9 @@ static const VideoFormat formats[] = {
++@@ -7677,6 +7833,9 @@ static const VideoFormat formats[] = {
+    MAKE_YUV_C_LE_FORMAT (NV12_10LE40, "raw video",
+        GST_MAKE_FOURCC ('R', 'K', '2', '0'), DPTH10_10_10, PSTR0, PLANE011,
+        OFFS0, SUB420, PACK_NV12_10LE40),
+@@ -210,7 +210,7 @@ index 9bd9c69..14ee921 100644
+    MAKE_YUV_FORMAT (Y210, "raw video", GST_MAKE_FOURCC ('Y', '2', '1', '0'),
+        DPTH10_10_10, PSTR488, PLANE0, OFFS0, SUB422, PACK_Y210),
+    MAKE_YUV_FORMAT (Y410, "raw video", GST_MAKE_FOURCC ('Y', '4', '1', '0'),
+-@@ -8362,6 +8521,8 @@ gst_video_format_from_fourcc (guint32 fourcc)
++@@ -8044,6 +8203,8 @@ gst_video_format_from_fourcc (guint32 fourcc)
+        return GST_VIDEO_FORMAT_NV16_10LE32;
+      case GST_MAKE_FOURCC ('R', 'K', '2', '0'):
+        return GST_VIDEO_FORMAT_NV12_10LE40;
+@@ -220,7 +220,7 @@ index 9bd9c69..14ee921 100644
+        return GST_VIDEO_FORMAT_Y410;
+      case GST_MAKE_FOURCC ('V', 'U', 'Y', 'A'):
+ diff --git a/gst-libs/gst/video/video-format.h b/gst-libs/gst/video/video-format.h
+-index b59ec38..d852845 100644
++index b853485..d407d4e 100644
+ --- a/gst-libs/gst/video/video-format.h
+ +++ b/gst-libs/gst/video/video-format.h
+ @@ -89,6 +89,7 @@ G_BEGIN_DECLS
+@@ -231,7 +231,7 @@ index b59ec38..d852845 100644
+   * @GST_VIDEO_FORMAT_NV24: planar 4:4:4 YUV with interleaved UV plane (Since: 1.2)
+   * @GST_VIDEO_FORMAT_NV12_64Z32: NV12 with 64x32 tiling in zigzag pattern (Since: 1.4)
+   * @GST_VIDEO_FORMAT_A420_10BE: planar 4:4:2:0 YUV, 10 bits per channel (Since: 1.6)
+-@@ -263,6 +264,7 @@ typedef enum {
++@@ -258,6 +259,7 @@ typedef enum {
+    GST_VIDEO_FORMAT_NV12_10LE32,
+    GST_VIDEO_FORMAT_NV16_10LE32,
+    GST_VIDEO_FORMAT_NV12_10LE40,
+@@ -239,29 +239,29 @@ index b59ec38..d852845 100644
+    GST_VIDEO_FORMAT_Y210,
+    GST_VIDEO_FORMAT_Y410,
+    GST_VIDEO_FORMAT_VUYA,
+-@@ -1159,7 +1161,7 @@ gconstpointer  gst_video_format_get_palette          (GstVideoFormat format, gsi
+-     "Y216_BE, v216, Y216_LE, P016_BE, P016_LE, Y444_12BE, GBR_12BE, Y444_12LE, " \
+-     "GBR_12LE, I422_12BE, I422_12LE, Y212_BE, Y212_LE, I420_12BE, I420_12LE, " \
+-     "P012_BE, P012_LE, Y444_10BE, GBR_10BE, Y444_10LE, GBR_10LE, r210, " \
+--    "I422_10BE, I422_10LE, NV16_10LE32, Y210, UYVP, v210, I420_10BE, " \
+-+    "I422_10BE, I422_10LE, NV16_10LE32, NV16_10LE40, Y210, UYVP, v210, I420_10BE, " \
+-     "I420_10LE, P010_10BE, MT2110R, MT2110T, NV12_10BE_8L128, NV12_10LE40_4L4, " \
+-     "P010_10LE, NV12_10LE40, NV12_10LE32, Y444, BGRP, GBR, RGBP, NV24, v308, " \
+-     "IYU2, RGBx, xRGB, BGRx, xBGR, RGB, BGR, Y42B, NV16, NV61, YUY2, YVYU, " \
+-@@ -1178,7 +1180,7 @@ gconstpointer  gst_video_format_get_palette          (GstVideoFormat format, gsi
+-     "Y216_LE, Y216_BE, v216, P016_LE, P016_BE, Y444_12LE, GBR_12LE, Y444_12BE, " \
+-     "GBR_12BE, I422_12LE, I422_12BE, Y212_LE, Y212_BE, I420_12LE, I420_12BE, " \
+-     "P012_LE, P012_BE, Y444_10LE, GBR_10LE, Y444_10BE, GBR_10BE, r210, " \
+--    "I422_10LE, I422_10BE, NV16_10LE32, Y210, UYVP, v210, I420_10LE, " \
+-+    "I422_10LE, I422_10BE, NV16_10LE32, NV16_10LE40, Y210, UYVP, v210, I420_10LE, " \
+-     "I420_10BE, P010_10LE, NV12_10LE40, NV12_10LE32, P010_10BE, MT2110R, " \
+-     "MT2110T, NV12_10BE_8L128, NV12_10LE40_4L4, Y444, BGRP, GBR, RGBP, NV24, " \
+-     "v308, IYU2, RGBx, xRGB, BGRx, xBGR, RGB, BGR, Y42B, NV16, NV61, YUY2, " \
++@@ -1097,7 +1099,7 @@ gconstpointer  gst_video_format_get_palette          (GstVideoFormat format, gsi
++     "A420, AV12, Y444_16BE, GBR_16BE, Y444_16LE, GBR_16LE, v216, P016_BE, " \
++     "P016_LE, Y444_12BE, GBR_12BE, Y444_12LE, GBR_12LE, I422_12BE, I422_12LE, " \
++     "Y212_BE, Y212_LE, I420_12BE, I420_12LE, P012_BE, P012_LE, Y444_10BE, " \
++-    "GBR_10BE, Y444_10LE, GBR_10LE, r210, I422_10BE, I422_10LE, NV16_10LE32, " \
+++    "GBR_10BE, Y444_10LE, GBR_10LE, r210, I422_10BE, I422_10LE, NV16_10LE32, NV16_10LE40, " \
++     "Y210, UYVP, v210, I420_10BE, I420_10LE, P010_10BE, MT2110R, MT2110T, " \
++     "NV12_10BE_8L128, NV12_10LE40_4L4, P010_10LE, NV12_10LE40, NV12_10LE32, " \
++     "Y444, BGRP, GBR, RGBP, NV24, v308, IYU2, RGBx, xRGB, BGRx, xBGR, RGB, " \
++@@ -1116,7 +1118,7 @@ gconstpointer  gst_video_format_get_palette          (GstVideoFormat format, gsi
++     "Y444_16LE, GBR_16LE, Y444_16BE, GBR_16BE, v216, P016_LE, P016_BE, " \
++     "Y444_12LE, GBR_12LE, Y444_12BE, GBR_12BE, I422_12LE, I422_12BE, Y212_LE, " \
++     "Y212_BE, I420_12LE, I420_12BE, P012_LE, P012_BE, Y444_10LE, GBR_10LE, " \
++-    "Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, Y210, UYVP, " \
+++    "Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, NV16_10LE40, Y210, UYVP, " \
++     "v210, I420_10LE, I420_10BE, P010_10LE, NV12_10LE40, NV12_10LE32, " \
++     "P010_10BE, MT2110R, MT2110T, NV12_10BE_8L128, NV12_10LE40_4L4, Y444, " \
++     "BGRP, GBR, RGBP, NV24, v308, IYU2, RGBx, xRGB, BGRx, xBGR, RGB, BGR, " \
+ diff --git a/gst-libs/gst/video/video-info.c b/gst-libs/gst/video/video-info.c
+-index 04d52b0..71ffa6c 100644
++index 35fa2a2..a295010 100644
+ --- a/gst-libs/gst/video/video-info.c
+ +++ b/gst-libs/gst/video/video-info.c
+-@@ -1328,6 +1328,13 @@ fill_planes (GstVideoInfo * info, gsize plane_size[GST_VIDEO_MAX_PLANES])
++@@ -1265,6 +1265,13 @@ fill_planes (GstVideoInfo * info, gsize plane_size[GST_VIDEO_MAX_PLANES])
+          cr_h = GST_ROUND_UP_2 (cr_h);
+        info->size = info->offset[1] + info->stride[0] * cr_h;
+        break;
+@@ -276,10 +276,10 @@ index 04d52b0..71ffa6c 100644
+      {
+        gint tile_size = GST_VIDEO_FORMAT_INFO_TILE_SIZE (info->finfo, 0);
+ diff --git a/tests/check/libs/video.c b/tests/check/libs/video.c
+-index 78a1786..065d6ea 100644
++index 7509e83..1b4040c 100644
+ --- a/tests/check/libs/video.c
+ +++ b/tests/check/libs/video.c
+-@@ -3261,6 +3261,7 @@ GST_START_TEST (test_video_formats_pstrides)
++@@ -3229,6 +3229,7 @@ GST_START_TEST (test_video_formats_pstrides)
+          || fmt == GST_VIDEO_FORMAT_NV12_10LE32
+          || fmt == GST_VIDEO_FORMAT_NV16_10LE32
+          || fmt == GST_VIDEO_FORMAT_NV12_10LE40
+@@ -288,5 +288,5 @@ index 78a1786..065d6ea 100644
+          || fmt == GST_VIDEO_FORMAT_NV12_8L128
+          || fmt == GST_VIDEO_FORMAT_NV12_10BE_8L128
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/0021-videodecoder-Allow-disabling-QoS-by-default.patch b/package/gstreamer1/gst1-plugins-base/0022-videodecoder-Allow-disabling-QoS-by-default.patch
+similarity index 90%
+rename from package/gstreamer1/gst1-plugins-base/0021-videodecoder-Allow-disabling-QoS-by-default.patch
+rename to package/gstreamer1/gst1-plugins-base/0022-videodecoder-Allow-disabling-QoS-by-default.patch
+index 07f1cda..50491a7 100644
+--- a/package/gstreamer1/gst1-plugins-base/0021-videodecoder-Allow-disabling-QoS-by-default.patch
++++ b/package/gstreamer1/gst1-plugins-base/0022-videodecoder-Allow-disabling-QoS-by-default.patch
+@@ -1,7 +1,7 @@
+-From 3f2a20359d282d225a0e50f6a98dbf41139e0256 Mon Sep 17 00:00:00 2001
++From 2069a18ef5c7f8866566667ad6d600d12d6b0ab3 Mon Sep 17 00:00:00 2001
+ From: Jeffy Chen <jeffy.chen@rock-chips.com>
+ Date: Mon, 21 Aug 2023 17:38:36 +0800
+-Subject: [PATCH 21/21] videodecoder: Allow disabling QoS by default
++Subject: [PATCH 22/22] videodecoder: Allow disabling QoS by default
+ 
+ Set env "GST_VIDEO_DECODER_QOS" to 0 to disable QoS by default.
+ 
+@@ -11,7 +11,7 @@ Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+  1 file changed, 5 insertions(+), 1 deletion(-)
+ 
+ diff --git a/gst-libs/gst/video/gstvideodecoder.c b/gst-libs/gst/video/gstvideodecoder.c
+-index 8d193b4..6283e2b 100644
++index a78b5fd..f21410b 100644
+ --- a/gst-libs/gst/video/gstvideodecoder.c
+ +++ b/gst-libs/gst/video/gstvideodecoder.c
+ @@ -303,7 +303,7 @@ GST_DEBUG_CATEGORY (videodecoder_debug);
+@@ -42,5 +42,5 @@ index 8d193b4..6283e2b 100644
+        g_param_spec_boolean ("qos", "Quality of Service",
+            "Handle Quality-of-Service events from downstream",
+ -- 
+-2.39.5
++2.20.1
+ 
+diff --git a/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.hash b/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.hash
+index 56f4692..cbe3a00 100644
+--- a/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.hash
++++ b/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.hash
+@@ -1,3 +1,3 @@
+-# Locally calculated
+-sha256  1c1531dd8f2d480c89c57b08a930545a3375077391789762e40e490cdbbf03fd  gst-plugins-base-1.26.10.tar.xz
++# From https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.24.13.tar.xz.sha256sum
++sha256  31a4a34e02df0471274fd0e8016495475b670320d20a3349faf0634340166c42  gst-plugins-base-1.24.13.tar.xz
+ sha256  ad2eec519ebd4b5df86ea84dff24ae3bfa2edea846a703b58902dd221ae375db  COPYING
+diff --git a/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.mk b/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.mk
+index ca4ef89..8ace858 100644
+--- a/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.mk
++++ b/package/gstreamer1/gst1-plugins-base/gst1-plugins-base.mk
+@@ -4,7 +4,7 @@
+ #
+ ################################################################################
+ 
+-GST1_PLUGINS_BASE_VERSION = 1.26.10
++GST1_PLUGINS_BASE_VERSION = 1.24.13
+ GST1_PLUGINS_BASE_SOURCE = gst-plugins-base-$(GST1_PLUGINS_BASE_VERSION).tar.xz
+ GST1_PLUGINS_BASE_SITE = https://gstreamer.freedesktop.org/src/gst-plugins-base
+ GST1_PLUGINS_BASE_INSTALL_STAGING = YES
+-- 
+2.34.1
+

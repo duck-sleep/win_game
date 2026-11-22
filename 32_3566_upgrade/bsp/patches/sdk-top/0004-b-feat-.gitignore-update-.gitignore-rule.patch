@@ -1,0 +1,38 @@
+From 8efd9a19549a78ac4cd6881ccc7706dfa6a3c06d Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 3 Apr 2026 17:52:59 +0800
+Subject: [PATCH 3/7] feat(.gitignore): update .gitignore rule
+
+Origin: kickpi f9842a15f8ff8eca36c33a49bb6245315e7f456b
+---
+ .gitignore | 4 ++++
+ common     | 1 +
+ 2 files changed, 5 insertions(+)
+ create mode 120000 common
+
+diff --git a/.gitignore b/.gitignore
+index a6d9110..d62f526 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -3,6 +3,10 @@ device/rockchip/rk3566_rk3568
+ debian/binary/
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
++ubuntu/binary/
++ubuntu/ubuntu-noble-*.tar.gz
++ubuntu/history.txt
++ubuntu/history_noble.txt
+ README.md
+ output/
+ rockdev
+diff --git a/common b/common
+new file mode 120000
+index 0000000..0cc1d35
+--- /dev/null
++++ b/common
+@@ -0,0 +1 @@
++device/rockchip/common
+\ No newline at end of file
+-- 
+2.34.1
+

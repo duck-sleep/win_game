@@ -1,0 +1,52 @@
+From a2a09278f7c4d74f6fe0e4a8ec394f5a69d5efe6 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:40 -0500
+Subject: [PATCH 04/19] buildroot: buildroot/package/busybox
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ ...errno-in-convert_to_struct-to-preven.patch | 32 -------------------
+ 1 file changed, 32 deletions(-)
+ delete mode 100644 buildroot/package/busybox/0016-libpwdgrp-Clear-errno-in-convert_to_struct-to-preven.patch
+
+diff --git a/package/busybox/0016-libpwdgrp-Clear-errno-in-convert_to_struct-to-preven.patch b/package/busybox/0016-libpwdgrp-Clear-errno-in-convert_to_struct-to-preven.patch
+deleted file mode 100644
+index 8895751..0000000
+--- a/package/busybox/0016-libpwdgrp-Clear-errno-in-convert_to_struct-to-preven.patch
++++ /dev/null
+@@ -1,32 +0,0 @@
+-From 6a714c95a081b4e8084300282fcae48675ff2637 Mon Sep 17 00:00:00 2001
+-From: Jeffy Chen <jeffy.chen@rock-chips.com>
+-Date: Mon, 16 Mar 2026 18:32:54 +0800
+-Subject: [PATCH 16/16] libpwdgrp: Clear errno in convert_to_struct to prevent
+- false error detection
+-
+-Fix spurious authentication (e.g., login) failures when USE_BB_SHADOW
+-is enabled. The convert_to_struct function incorrectly treated a
+-pre-existing global errno as its own error.
+-
+-Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+----
+- libpwdgrp/pwd_grp.c | 3 +++
+- 1 file changed, 3 insertions(+)
+-
+-diff --git a/libpwdgrp/pwd_grp.c b/libpwdgrp/pwd_grp.c
+-index 10debbc..7adfa15 100644
+---- a/libpwdgrp/pwd_grp.c
+-+++ b/libpwdgrp/pwd_grp.c
+-@@ -265,6 +265,9 @@ static void *convert_to_struct(struct passdb *db,
+- 	const char *def = db->def;
+- 	const uint8_t *off = db->off;
+- 
+-+	/* HACK: Clear errno to avoid false positives from previous calls */
+-+	errno = 0;
+-+
+- 	/* For consistency, zero out all fields */
+- 	memset(result, 0, db->size_of);
+- 
+--- 
+-2.39.5
+-
+-- 
+2.34.1
+

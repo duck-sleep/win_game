@@ -1,0 +1,37 @@
+From c01f31eaa02fce40b3db9b8479a8a35cc716f98f Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 09:40:30 +0800
+Subject: [PATCH 4/7] feat(debian): add debian overlay build form
+ debian/linaro-rootfs.img
+
+Origin: kickpi 130bb71ecf4eb20a2106aca6ea3216b2ad9f170a
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index d62f526..3d2aa8f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,15 +1,18 @@
+ device/rockchip/.chip
++device/rockchip/rk3562
+ device/rockchip/rk3566_rk3568
+ debian/binary/
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
+ ubuntu/binary/
++ubuntu/ubuntu-base-*.tar.gz
+ ubuntu/ubuntu-noble-*.tar.gz
+ ubuntu/history.txt
+ ubuntu/history_noble.txt
+ README.md
+ output/
+ rockdev
++rkbin/idblock.img
+ u-boot/bl31_0x00040000.bin.digest
+ u-boot/bl31_0x00040000.bin.gz
+ u-boot/examples/standalone/rkspi
+-- 
+2.34.1
+

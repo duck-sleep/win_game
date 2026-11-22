@@ -1,0 +1,1367 @@
+From 177a63667017762011710407dca294f6db88db1b Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 13:46:27 +0800
+Subject: [PATCH 02/34] feat(chip): update k11c config (part 1/6)
+
+Origin: kickpi 12e04b12f67bb7c14389ec10cbbd77e0f22879c6
+---
+ .chips/rk3308/overlays/rkpartybox/install.sh  |  30 -----
+ .chips/rk3308/parameter-32bit.txt             |  13 --
+ .../rk3308/parameter-64bit-128M-partybox.txt  |  15 ---
+ .chips/rk3308/parameter-64bit-emmc.txt        |  15 ---
+ .chips/rk3308/parameter-64bit.txt             |  15 ---
+ .chips/rk3308/parameter-display.txt           |  13 --
+ .chips/rk3308/parameters-rtos-amp.txt         |  13 --
+ .../parameters-rtos-linux-amp-32bit.txt       |  13 --
+ .../parameters-rtos-linux-amp-64bit.txt       |  13 --
+ .chips/rk3308/parameters-rtos-smp.txt         |  13 --
+ .chips/rk3308/rockchip_32bit_defconfig        |   1 -
+ .chips/rk3308/rockchip_defconfig              |   1 -
+ .../rk3308/rockchip_rk3308_audio_rtos_amp.its | 124 ------------------
+ ...chip_rk3308_audio_rtos_amp_32bit_defconfig |   8 --
+ .../rockchip_rk3308_audio_rtos_linux.its      |  72 ----------
+ ...rockchip_rk3308_audio_rtos_linux_32bit.its |  72 ----------
+ ...ip_rk3308_audio_rtos_linux_32bit_defconfig |  11 --
+ ...ip_rk3308_audio_rtos_linux_64bit_defconfig |   8 --
+ .../rk3308/rockchip_rk3308_audio_rtos_smp.its |  59 ---------
+ ...chip_rk3308_audio_rtos_smp_32bit_defconfig |   8 --
+ ...kchip_rk3308_evb_audio_v10_32bit_defconfig |  11 --
+ ...kchip_rk3308_evb_audio_v10_64bit_defconfig |   8 --
+ ...kchip_rk3308_evb_audio_v11_32bit_defconfig |  13 --
+ ...kchip_rk3308_evb_audio_v11_64bit_defconfig |  10 --
+ .../rockchip_rk3308_evb_v20_32bit_defconfig   |  14 --
+ .../rockchip_rk3308_evb_v20_64bit_defconfig   |   9 --
+ .chips/rk3308/rockchip_rk3308_rtos_amp.its    | 124 ------------------
+ .../rk3308/rockchip_rk3308_rtos_amp_32bit_cfg |  18 ---
+ .../rockchip_rk3308_rtos_amp_32bit_defconfig  |   8 --
+ .chips/rk3308/rockchip_rk3308_rtos_linux.its  |  72 ----------
+ .../rockchip_rk3308_rtos_linux_64bit_cfg      |  20 ---
+ ...rockchip_rk3308_rtos_linux_64bit_defconfig |   8 --
+ .chips/rk3308/rockchip_rk3308_rtos_smp.its    |  59 ---------
+ .../rk3308/rockchip_rk3308_rtos_smp_32bit_cfg |   2 -
+ .../rockchip_rk3308_rtos_smp_32bit_defconfig  |   8 --
+ .../rk3308/rockchip_rk3308b_32bit_defconfig   |  11 --
+ .../rk3308/rockchip_rk3308b_64bit_defconfig   |   8 --
+ ...3308b_64bit_rkpartybox_coreboard_defconfig |  13 --
+ ...ockchip_rk3308b_64bit_rkpartybox_defconfig |  13 --
+ .../rockchip_rk3308bs_evb_v11_32bit_defconfig |  11 --
+ .../rockchip_rk3308bs_evb_v11_64bit_defconfig |   8 --
+ ...ckchip_rk3308bs_evb_v20_ia_32bit_defconfig |  16 ---
+ .../rk3308/rockchip_rk3308h_32bit_defconfig   |  10 --
+ .../rk3308/rockchip_rk3308hs_32bit_defconfig  |  10 --
+ 44 files changed, 1001 deletions(-)
+ delete mode 100755 device/rockchip/.chips/rk3308/overlays/rkpartybox/install.sh
+ delete mode 100644 device/rockchip/.chips/rk3308/parameter-32bit.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameter-64bit-128M-partybox.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameter-64bit-emmc.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameter-64bit.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameter-display.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameters-rtos-amp.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameters-rtos-linux-amp-32bit.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameters-rtos-linux-amp-64bit.txt
+ delete mode 100644 device/rockchip/.chips/rk3308/parameters-rtos-smp.txt
+ delete mode 120000 device/rockchip/.chips/rk3308/rockchip_32bit_defconfig
+ delete mode 120000 device/rockchip/.chips/rk3308/rockchip_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_amp.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_amp_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_linux.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_smp.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_audio_rtos_smp_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_audio_v10_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_audio_v10_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_audio_v11_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_audio_v11_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_v20_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_evb_v20_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_amp.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_cfg
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_linux.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_cfg
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_smp.its
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_cfg
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308b_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308b_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_coreboard_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308bs_evb_v11_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308bs_evb_v11_64bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308bs_evb_v20_ia_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308h_32bit_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3308/rockchip_rk3308hs_32bit_defconfig
+
+diff --git a/.chips/rk3308/overlays/rkpartybox/install.sh b/.chips/rk3308/overlays/rkpartybox/install.sh
+deleted file mode 100755
+index 94b73b6..0000000
+--- a/.chips/rk3308/overlays/rkpartybox/install.sh
++++ /dev/null
+@@ -1,30 +0,0 @@
+-#!/bin/bash -e
+-
+-TARGET_DIR="$1"
+-[ "$TARGET_DIR" ] || exit 1
+-
+-OVERLAY_DIR="$(dirname "$(realpath "$0")")"
+-
+-message "Installing rkpartybox overlay to $TARGET_DIR..."
+-
+-$RK_RSYNC "$OVERLAY_DIR/usr" "$TARGET_DIR/"
+-
+-rm $TARGET_DIR/etc/init.d/S05async-commit.sh -rf
+-rm $TARGET_DIR/etc/init.d/S20urandom -rf
+-# rm $TARGET_DIR/etc/init.d/S40network -rf
+-rm $TARGET_DIR/etc/init.d/S41dhcpcd -rf
+-rm $TARGET_DIR/etc/init.d/S80dnsmasq -rf
+-rm $TARGET_DIR/etc/init.d/S50dropbear -rf
+-rm $TARGET_DIR/etc/init.d/S49chrony -rf
+-
+-if [ -x "$TARGET_DIR/etc/init.d/S30dbus" ]; then
+-       mv $TARGET_DIR/etc/init.d/S30dbus $TARGET_DIR/etc/init.d/S03dbus
+-fi
+-
+-if [ -x "$TARGET_DIR/etc/init.d/S36wifibt-init.sh" ]; then
+-       mv $TARGET_DIR/etc/init.d/S36wifibt-init.sh $TARGET_DIR/etc/init.d/S03wifibt-init.sh
+-fi
+-
+-if [ -x "$TARGET_DIR/etc/init.d/S40bluetoothd" ]; then
+-      mv $TARGET_DIR/etc/init.d/S40bluetoothd $TARGET_DIR/etc/init.d/S30bluetoothd
+-fi
+diff --git a/.chips/rk3308/parameter-32bit.txt b/.chips/rk3308/parameter-32bit.txt
+deleted file mode 100644
+index bf18ead..0000000
+--- a/.chips/rk3308/parameter-32bit.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00000800@0x00002000(uboot),0x00000800@0x00002800(trust),0x00000800@0x00003000(misc),0x00009000@0x00003800(recovery),0x00003000@0x0000C800(boot),0x00014000@0x0000F800(rootfs),0x0000E000@0x00023800(oem),-@0x00031800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/parameter-64bit-128M-partybox.txt b/.chips/rk3308/parameter-64bit-128M-partybox.txt
+deleted file mode 100644
+index 05eb347..0000000
+--- a/.chips/rk3308/parameter-64bit-128M-partybox.txt
++++ /dev/null
+@@ -1,15 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00000800@0x00004000(misc),0x00008000@0x00004800(recovery),0x00004000@0x0000C800(boot),0x00016800@0x00010800(rootfs),0x00005000@0x00027000(oem),-@0x0002C000(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+-# partition size default
+-# 2MB(uboot),2MB(trust),1MB(misc),20MB(recovery),8MB(boot),40MB(rootfs),16MB(oem),-(userdata)
+diff --git a/.chips/rk3308/parameter-64bit-emmc.txt b/.chips/rk3308/parameter-64bit-emmc.txt
+deleted file mode 100644
+index 4864721..0000000
+--- a/.chips/rk3308/parameter-64bit-emmc.txt
++++ /dev/null
+@@ -1,15 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00000800@0x00004000(misc),0x00008000@0x00004800(recovery),0x00004000@0x0000C800(boot),0x00064000@0x00010800(rootfs),0x00004000@0x00074800(oem),-@0x00078800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+-# partition size default
+-# 2MB(uboot),2MB(trust),1MB(misc),20MB(recovery),8MB(boot),40MB(rootfs),16MB(oem),-(userdata)
+diff --git a/.chips/rk3308/parameter-64bit.txt b/.chips/rk3308/parameter-64bit.txt
+deleted file mode 100644
+index 1f1bdff..0000000
+--- a/.chips/rk3308/parameter-64bit.txt
++++ /dev/null
+@@ -1,15 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00000800@0x00004000(misc),0x0000A000@0x00004800(recovery),0x00004000@0x0000E800(boot),0x00014000@0x00012800(rootfs),0x00008000@0x00026800(oem),-@0x002E800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+-# partition size default
+-# 2MB(uboot),2MB(trust),1MB(misc),20MB(recovery),8MB(boot),40MB(rootfs),16MB(oem),-(userdata)
+diff --git a/.chips/rk3308/parameter-display.txt b/.chips/rk3308/parameter-display.txt
+deleted file mode 100644
+index bf18ead..0000000
+--- a/.chips/rk3308/parameter-display.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00000800@0x00002000(uboot),0x00000800@0x00002800(trust),0x00000800@0x00003000(misc),0x00009000@0x00003800(recovery),0x00003000@0x0000C800(boot),0x00014000@0x0000F800(rootfs),0x0000E000@0x00023800(oem),-@0x00031800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/parameters-rtos-amp.txt b/.chips/rk3308/parameters-rtos-amp.txt
+deleted file mode 100644
+index 2455148..0000000
+--- a/.chips/rk3308/parameters-rtos-amp.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00002000@0x00004000(amp),0x00000800@0x00006000(rootfs),-@0x00006800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/parameters-rtos-linux-amp-32bit.txt b/.chips/rk3308/parameters-rtos-linux-amp-32bit.txt
+deleted file mode 100644
+index 6b41fc1..0000000
+--- a/.chips/rk3308/parameters-rtos-linux-amp-32bit.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00000800@0x00002000(uboot),0x00000800@0x00002800(trust),0x00000800@0x00003000(misc),0x00009000@0x00003800(recovery),0x00003000@0x0000C800(boot),0x00011800@0x0000F800(rootfs),0x00003000@0x00021000(amp),0x0000E000@0x00024000(oem),-@0x00032000(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/parameters-rtos-linux-amp-64bit.txt b/.chips/rk3308/parameters-rtos-linux-amp-64bit.txt
+deleted file mode 100644
+index a1c5b80..0000000
+--- a/.chips/rk3308/parameters-rtos-linux-amp-64bit.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=rk29xxnand:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00000800@0x00004000(misc),0x00008000@0x00004800(recovery),0x00004800@0x0000C800(boot),0x00012000@0x00011000(rootfs),0x00003000@0x00023000(amp),0x0000D000@0x00026000(oem),-@0x0033000(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/parameters-rtos-smp.txt b/.chips/rk3308/parameters-rtos-smp.txt
+deleted file mode 100644
+index 2455148..0000000
+--- a/.chips/rk3308/parameters-rtos-smp.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER:8.1
+-MACHINE_MODEL:RK3308
+-MACHINE_ID:007
+-MANUFACTURER: RK3308
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 3308
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE:mtdparts=:0x00001000@0x00002000(uboot),0x00001000@0x00003000(trust),0x00002000@0x00004000(amp),0x00000800@0x00006000(rootfs),-@0x00006800(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3308/rockchip_32bit_defconfig b/.chips/rk3308/rockchip_32bit_defconfig
+deleted file mode 120000
+index 77f6b0c..0000000
+--- a/.chips/rk3308/rockchip_32bit_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-rockchip_rk3308_evb_audio_v11_32bit_defconfig
+\ No newline at end of file
+diff --git a/.chips/rk3308/rockchip_defconfig b/.chips/rk3308/rockchip_defconfig
+deleted file mode 120000
+index a6c7655..0000000
+--- a/.chips/rk3308/rockchip_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-rockchip_rk3308_evb_audio_v11_64bit_defconfig
+\ No newline at end of file
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_amp.its b/.chips/rk3308/rockchip_rk3308_audio_rtos_amp.its
+deleted file mode 100644
+index 244cf79..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_amp.its
++++ /dev/null
+@@ -1,124 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-
+-		amp0 {
+-			description  = "bare-mental-core0";
+-			data         = /incbin/("cpu0.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";	 // "arm64" or "arm"
+-			cpu          = <0x000>;  // mpidr
+-			thumb        = <0>;      // 0: arm or thumb2; 1: thumb
+-			hyp          = <0>;      // 0: el1/svc; 1: el2/hyp
+-			load         = <0x02600000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00900000>;
+-				srambase     = <0xfffb0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";	 // "hal" or "rtt"
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp1 {
+-			description  = "bare-mental-core1";
+-			data         = /incbin/("cpu1.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x1>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x00800000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfff88000>;
+-				sramsize     = <0x00008000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_audio_v10/amp_rtt-hal_defconfig"
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp2 {
+-			description  = "bare-mental-core2";
+-			data         = /incbin/("cpu2.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x2>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x01200000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfff90000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp3 {
+-			description  = "bare-mental-core3";
+-			data         = /incbin/("cpu3.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x3>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x01c00000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfffa0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-	};
+-
+-	share {
+-		shm_base         = <0x02f00000>;
+-		shm_size         = <0x00100000>;
+-		primary          = <0x1>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp0", "amp1", "amp2", "amp3";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_amp_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_audio_rtos_amp_32bit_defconfig
+deleted file mode 100644
+index 173f392..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_amp_32bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-aarch32-amp"
+-RK_UBOOT_INI="RK3308MINIALL.ini"
+-RK_UBOOT_ARM32=y
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_amp_32bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_audio_rtos_amp.its"
+-# RK_KERNEL is not set
+-RK_PARAMETER="parameters-rtos-amp.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux.its b/.chips/rk3308/rockchip_rk3308_audio_rtos_linux.its
+deleted file mode 100644
+index 9b0f7f6..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux.its
++++ /dev/null
+@@ -1,72 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-		amp3 {
+-			description  = "bare-mental-core3";
+-			data         = /incbin/("cpu3.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x3>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x02e00000>;
+-			compile {
+-				size         = <0x00400000>;
+-				srambase     = <0xfffa0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_audio_v10/amp_rtt-linux_defconfig"
+-			};
+-			udelay       = <10000>;
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-	};
+-
+-	share {
+-		shm_base         = <0x03200000>;
+-		shm_size         = <0x00100000>;
+-		rpmsg_base       = <0x07c00000>;
+-		rpmsg_size       = <0x00500000>;
+-		primary = <0x3>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp3";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-
+-			/* - run linux on cpu0
+-			 * - it is brought up by amp(that run on U-Boot)
+-			 * - it is boot entry depends on U-Boot
+-			 */
+-			linux {
+-				description  = "linux-os";
+-				arch         = "arm64";
+-				cpu          = <0x0>;
+-				thumb        = <0>;
+-				hyp          = <0>;
+-				udelay       = <0>;
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit.its b/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit.its
+deleted file mode 100644
+index 25336a6..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit.its
++++ /dev/null
+@@ -1,72 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-		amp3 {
+-			description  = "bare-mental-core3";
+-			data         = /incbin/("cpu3.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x3>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x02e00000>;
+-			compile {
+-				size         = <0x00400000>;
+-				srambase     = <0xfffa0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_audio_v10/amp_rtt-linux_defconfig"
+-			};
+-			udelay       = <10000>;
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-	};
+-
+-	share {
+-		shm_base         = <0x03200000>;
+-		shm_size         = <0x00100000>;
+-		rpmsg_base       = <0x07c00000>;
+-		rpmsg_size       = <0x00500000>;
+-		primary = <0x3>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp3";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-
+-			/* - run linux on cpu0
+-			 * - it is brought up by amp(that run on U-Boot)
+-			 * - it is boot entry depends on U-Boot
+-			 */
+-			linux {
+-				description  = "linux-os";
+-				arch         = "arm";
+-				cpu          = <0x0>;
+-				thumb        = <0>;
+-				hyp          = <0>;
+-				udelay       = <0>;
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit_defconfig
+deleted file mode 100644
+index e43e202..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_32bit_defconfig
++++ /dev/null
+@@ -1,11 +0,0 @@
+-RK_UBOOT_CFG="rk3308-aarch32-amp"
+-RK_UBOOT_INI="RK3308MINIALL.ini"
+-RK_UBOOT_TRUST_INI="RK3308AARCH32TRUST.ini"
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_linux_64bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_audio_rtos_linux_32bit.its"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_aarch32_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v10-amp-display-rgb-aarch32"
+-RK_PARAMETER="parameters-rtos-linux-amp-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_64bit_defconfig b/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_64bit_defconfig
+deleted file mode 100644
+index 4259823..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_linux_64bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-amp"
+-RK_UBOOT_INI="RK3308MINIALL.ini"
+-RK_UBOOT_TRUST_INI="RK3308TRUST_CPU3.ini"
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_linux_64bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_audio_rtos_linux.its"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v10-amp-display-rgb"
+-RK_PARAMETER="parameters-rtos-linux-amp-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_smp.its b/.chips/rk3308/rockchip_rk3308_audio_rtos_smp.its
+deleted file mode 100644
+index d4581cc..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_smp.its
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-
+-		amp0 {
+-			description  = "bare-mental-core0";
+-			data         = /incbin/("cpu0.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";	 // "arm64" or "arm"
+-			cpu          = <0x000>;  // mpidr
+-			thumb        = <0>;      // 0: arm or thumb2; 1: thumb
+-			hyp          = <0>;      // 0: el1/svc; 1: el2/hyp
+-			load         = <0x00800000>;
+-			compile {
+-				size         = <0x02700000>;
+-				srambase     = <0xfff88000>;
+-				sramsize     = <0x00038000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_audio_v10/smp_defconfig"
+-			};
+-			udelay       = <10000>;
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-	};
+-
+-	share {
+-		shm_base         = <0x02f00000>;
+-		shm_size         = <0x00100000>;
+-		primary = <0x0>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp0";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_audio_rtos_smp_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_audio_rtos_smp_32bit_defconfig
+deleted file mode 100644
+index 053f54f..0000000
+--- a/.chips/rk3308/rockchip_rk3308_audio_rtos_smp_32bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-aarch32-amp"
+-RK_UBOOT_INI="RK3308MINIALL.ini"
+-RK_UBOOT_ARM32=y
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_smp_32bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_audio_rtos_smp.its"
+-# RK_KERNEL is not set
+-RK_PARAMETER="parameters-rtos-smp.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_audio_v10_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_audio_v10_32bit_defconfig
+deleted file mode 100644
+index f927888..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_audio_v10_32bit_defconfig
++++ /dev/null
+@@ -1,11 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_32_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_aarch32_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v10-display-rgb-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_audio_v10_64bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_audio_v10_64bit_defconfig
+deleted file mode 100644
+index c9cf8d0..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_audio_v10_64bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v10-display-rgb"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_audio_v11_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_audio_v11_32bit_defconfig
+deleted file mode 100644
+index 955a26c..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_audio_v11_32bit_defconfig
++++ /dev/null
+@@ -1,13 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_32_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_aarch32_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v11-display-rgb-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="normal"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_EXTRA_PARTITION_2_SRC="normal"
+-RK_PARAMETER="parameter-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_audio_v11_64bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_audio_v11_64bit_defconfig
+deleted file mode 100644
+index 21c0894..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_audio_v11_64bit_defconfig
++++ /dev/null
+@@ -1,10 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v11-display-rgb"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="normal"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_EXTRA_PARTITION_2_SRC="normal"
+-RK_PARAMETER="parameter-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_v20_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_v20_32bit_defconfig
+deleted file mode 100644
+index b203155..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_v20_32bit_defconfig
++++ /dev/null
+@@ -1,14 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_32_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_aarch32_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308bs-evb-mipi-display-v11-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="normal"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_EXTRA_PARTITION_2_SRC="normal"
+-RK_PARAMETER="parameter-display.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_evb_v20_64bit_defconfig b/.chips/rk3308/rockchip_rk3308_evb_v20_64bit_defconfig
+deleted file mode 100644
+index 31df0ab..0000000
+--- a/.chips/rk3308/rockchip_rk3308_evb_v20_64bit_defconfig
++++ /dev/null
+@@ -1,9 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_lvgl_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_mipi_display.config"
+-RK_KERNEL_DTS_NAME="rk3308bs-evb-mipi-display-v11"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_amp.its b/.chips/rk3308/rockchip_rk3308_rtos_amp.its
+deleted file mode 100644
+index 923111d..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_amp.its
++++ /dev/null
+@@ -1,124 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-
+-		amp0 {
+-			description  = "bare-mental-core0";
+-			data         = /incbin/("cpu0.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";	 // "arm64" or "arm"
+-			cpu          = <0x000>;  // mpidr
+-			thumb        = <0>;      // 0: arm or thumb2; 1: thumb
+-			hyp          = <0>;      // 0: el1/svc; 1: el2/hyp
+-			load         = <0x02600000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00900000>;
+-				srambase     = <0xfffb0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";	 // "hal" or "rtt"
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp1 {
+-			description  = "bare-mental-core1";
+-			data         = /incbin/("cpu1.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x1>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x00800000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfff88000>;
+-				sramsize     = <0x00008000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_ddr2_v10/amp_rtt-hal_defconfig"
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp2 {
+-			description  = "bare-mental-core2";
+-			data         = /incbin/("cpu2.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x2>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x01200000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfff90000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-		amp3 {
+-			description  = "bare-mental-core3";
+-			data         = /incbin/("cpu3.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x3>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x01c00000>;
+-			udelay       = <10000>;
+-			compile {
+-				size         = <0x00a00000>;
+-				srambase     = <0xfffa0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "hal";
+-			};
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-	};
+-
+-	share {
+-		shm_base         = <0x02f00000>;
+-		shm_size         = <0x00100000>;
+-		primary          = <0x1>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp0", "amp1", "amp2", "amp3";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_cfg b/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_cfg
+deleted file mode 100644
+index 43b958c..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_cfg
++++ /dev/null
+@@ -1,18 +0,0 @@
+-RK_AMP_RTT_ROOTFS_DATA="userdata"
+-
+-# Share Memory config
+-RTT_SHRPMSG_SIZE=0x00080000
+-RTT_SHRAMFS_SIZE=0x00020000
+-RTT_SHLOG0_SIZE=0x00001000
+-RTT_SHLOG1_SIZE=0x00001000
+-RTT_SHLOG2_SIZE=0x00001000
+-RTT_SHLOG3_SIZE=0x00001000
+-
+-# HAL config
+-# Share memory config same as RTT
+-SHRPMSG_SIZE=$RTT_SHRPMSG_SIZE
+-SHRAMFS_SIZE=$RTT_SHRAMFS_SIZE
+-SHLOG0_SIZE=$RTT_SHLOG0_SIZE
+-SHLOG1_SIZE=$RTT_SHLOG1_SIZE
+-SHLOG2_SIZE=$RTT_SHLOG2_SIZE
+-SHLOG3_SIZE=$RTT_SHLOG3_SIZE
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_defconfig
+deleted file mode 100644
+index 460a374..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_amp_32bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-aarch32-amp"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_UBOOT_ARM32=y
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_amp_32bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_rtos_amp.its"
+-# RK_KERNEL is not set
+-RK_PARAMETER="parameters-rtos-amp.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_linux.its b/.chips/rk3308/rockchip_rk3308_rtos_linux.its
+deleted file mode 100644
+index e65052d..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_linux.its
++++ /dev/null
+@@ -1,72 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2022 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-		amp3 {
+-			description  = "bare-mental-core3";
+-			data         = /incbin/("cpu3.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";
+-			cpu          = <0x3>;
+-			thumb        = <0>;
+-			hyp          = <0>;
+-			load         = <0x02e00000>;
+-			compile {
+-				size         = <0x00400000>;
+-				srambase     = <0xfffa0000>;
+-				sramsize     = <0x00010000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_ddr2_v10/amp_rtt-linux_defconfig"
+-			};
+-			udelay       = <10000>;
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-	};
+-
+-	share {
+-		shm_base         = <0x03200000>;
+-		shm_size         = <0x00100000>;
+-		rpmsg_base       = <0x07c00000>;
+-		rpmsg_size       = <0x00500000>;
+-		primary = <0x3>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp3";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-
+-			/* - run linux on cpu0
+-			 * - it is brought up by amp(that run on U-Boot)
+-			 * - it is boot entry depends on U-Boot
+-			 */
+-			linux {
+-				description  = "linux-os";
+-				arch         = "arm64";
+-				cpu          = <0x0>;
+-				thumb        = <0>;
+-				hyp          = <0>;
+-				udelay       = <0>;
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_cfg b/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_cfg
+deleted file mode 100644
+index 90346ce..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_cfg
++++ /dev/null
+@@ -1,20 +0,0 @@
+-
+-# RT-Thread config
+-AMP_KERNEL_ENABLE=true
+-
+-# Share Memory config
+-RTT_SHRPMSG_SIZE=0x00080000
+-RTT_SHRAMFS_SIZE=0x00020000
+-RTT_SHLOG0_SIZE=0x00001000
+-RTT_SHLOG1_SIZE=0x00001000
+-RTT_SHLOG2_SIZE=0x00001000
+-RTT_SHLOG3_SIZE=0x00001000
+-
+-# HAL config
+-# Share memory config same as RTT
+-SHRPMSG_SIZE=$RTT_SHRPMSG_SIZE
+-SHRAMFS_SIZE=$RTT_SHRAMFS_SIZE
+-SHLOG0_SIZE=$RTT_SHLOG0_SIZE
+-SHLOG1_SIZE=$RTT_SHLOG1_SIZE
+-SHLOG2_SIZE=$RTT_SHLOG2_SIZE
+-SHLOG3_SIZE=$RTT_SHLOG3_SIZE
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_defconfig b/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_defconfig
+deleted file mode 100644
+index 60bbc4a..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_linux_64bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-amp"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_UBOOT_TRUST_INI="RK3308TRUST_CPU3.ini"
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_linux_64bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_rtos_linux.its"
+-RK_KERNEL_DTS_NAME="rk3308b-evb-amic-v10-amp"
+-RK_PARAMETER="parameters-rtos-linux-amp-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_smp.its b/.chips/rk3308/rockchip_rk3308_rtos_smp.its
+deleted file mode 100644
+index 13ef22d..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_smp.its
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause */
+-/*
+- * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
+- */
+-
+-/dts-v1/;
+-/ {
+-	description = "FIT source file for rockchip AMP";
+-	#address-cells = <1>;
+-
+-	images {
+-
+-		amp0 {
+-			description  = "bare-mental-core0";
+-			data         = /incbin/("cpu0.bin");
+-			type         = "firmware";
+-			compression  = "none";
+-			arch         = "arm";	 // "arm64" or "arm"
+-			cpu          = <0x000>;  // mpidr
+-			thumb        = <0>;      // 0: arm or thumb2; 1: thumb
+-			hyp          = <0>;      // 0: el1/svc; 1: el2/hyp
+-			load         = <0x00800000>;
+-			compile {
+-				size         = <0x02700000>;
+-				srambase     = <0xfff88000>;
+-				sramsize     = <0x00038000>;
+-				sys          = "rtt";
+-				rtt_config   = "board/rk3308_ddr2_v10/smp_defconfig"
+-			};
+-			udelay       = <10000>;
+-			hash {
+-				algo = "sha256";
+-			};
+-		};
+-
+-	};
+-
+-	share {
+-		shm_base         = <0x02f00000>;
+-		shm_size         = <0x00100000>;
+-		primary = <0x0>;
+-	};
+-
+-	configurations {
+-		default = "conf";
+-		conf {
+-			description = "Rockchip AMP images";
+-			rollback-index = <0x0>;
+-			loadables = "amp0";
+-
+-			signature {
+-				algo = "sha256,rsa2048";
+-				padding = "pss";
+-				key-name-hint = "dev";
+-				sign-images = "loadables";
+-			};
+-		};
+-	};
+-};
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_cfg b/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_cfg
+deleted file mode 100644
+index 8d86da3..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_cfg
++++ /dev/null
+@@ -1,2 +0,0 @@
+-# RT-Thread config
+-RK_AMP_RTT_ROOTFS_DATA="userdata"
+diff --git a/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_defconfig b/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_defconfig
+deleted file mode 100644
+index b60fe2b..0000000
+--- a/.chips/rk3308/rockchip_rk3308_rtos_smp_32bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_UBOOT_CFG="rk3308-aarch32-amp"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_UBOOT_ARM32=y
+-RK_AMP=y
+-RK_AMP_CFG="rockchip_rk3308_rtos_smp_32bit_cfg"
+-RK_AMP_FIT_ITS="rockchip_rk3308_rtos_smp.its"
+-# RK_KERNEL is not set
+-RK_PARAMETER="parameters-rtos-smp.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308b_32bit_defconfig b/.chips/rk3308/rockchip_rk3308b_32bit_defconfig
+deleted file mode 100644
+index 4842738..0000000
+--- a/.chips/rk3308/rockchip_rk3308b_32bit_defconfig
++++ /dev/null
+@@ -1,11 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_b_32_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6255"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_DTS_NAME="rk3308b-evb-amic-v10-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308b_64bit_defconfig b/.chips/rk3308/rockchip_rk3308b_64bit_defconfig
+deleted file mode 100644
+index cc3f514..0000000
+--- a/.chips/rk3308/rockchip_rk3308b_64bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_b_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6255"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_DTS_NAME="rk3308b-evb-amic-v10"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_coreboard_defconfig b/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_coreboard_defconfig
+deleted file mode 100644
+index 0384661..0000000
+--- a/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_coreboard_defconfig
++++ /dev/null
+@@ -1,13 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_b_rkpartybox_nodisp"
+-RK_ROOTFS_SQUASHFS=y
+-RK_ROOTFS_EXTRA_OVERLAY_DIRS="rkpartybox"
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_INI="RK3308MINIALL_UART2_M0.ini"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_PREFERRED="5.10"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_mipi_display.config rk3308_rkpartybox.config"
+-RK_KERNEL_DTS_NAME="rk3308-partybox-coreboard-demo-v10"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="rkpartybox"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit-128M-partybox.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_defconfig b/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_defconfig
+deleted file mode 100644
+index cd81533..0000000
+--- a/.chips/rk3308/rockchip_rk3308b_64bit_rkpartybox_defconfig
++++ /dev/null
+@@ -1,13 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_b_rkpartybox"
+-RK_ROOTFS_SQUASHFS=y
+-RK_ROOTFS_EXTRA_OVERLAY_DIRS="rkpartybox"
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_INI="RK3308MINIALL.ini"
+-RK_UBOOT_SPL=y
+-RK_KERNEL_PREFERRED="5.10"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308bs_mipi_display.config rk3308_rkpartybox.config"
+-RK_KERNEL_DTS_NAME="rk3308-evb-audio-v10-partybox"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="rkpartybox"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit-emmc.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308bs_evb_v11_32bit_defconfig b/.chips/rk3308/rockchip_rk3308bs_evb_v11_32bit_defconfig
+deleted file mode 100644
+index 7a38ae1..0000000
+--- a/.chips/rk3308/rockchip_rk3308bs_evb_v11_32bit_defconfig
++++ /dev/null
+@@ -1,11 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_32_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_DTS_NAME="rk3308bs-evb-amic-v11-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308bs_evb_v11_64bit_defconfig b/.chips/rk3308/rockchip_rk3308bs_evb_v11_64bit_defconfig
+deleted file mode 100644
+index 5a77626..0000000
+--- a/.chips/rk3308/rockchip_rk3308bs_evb_v11_64bit_defconfig
++++ /dev/null
+@@ -1,8 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_INI="RK3308MINIALL_UART4.ini"
+-RK_KERNEL_DTS_NAME="rk3308bs-evb-amic-v11"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-64bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308bs_evb_v20_ia_32bit_defconfig b/.chips/rk3308/rockchip_rk3308bs_evb_v20_ia_32bit_defconfig
+deleted file mode 100644
+index 3733862..0000000
+--- a/.chips/rk3308/rockchip_rk3308bs_evb_v20_ia_32bit_defconfig
++++ /dev/null
+@@ -1,16 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_bs_32_ia_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="AP6256"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_UBOOT_CFG_FRAGMENTS="rk3308-ia"
+-RK_UBOOT_INI="RK3308MINIALL_SPI_NAND_UART4.ini"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_CFG_FRAGMENTS="rk3308-aarch32-ia.config"
+-RK_KERNEL_DTS_NAME="rk3308bs-evb-mipi-display-v11-aarch32"
+-RK_RECOVERY_BASE_CFG="rk3308_tiny"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_1_SRC="normal"
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_EXTRA_PARTITION_2_SRC="normal"
+-RK_PARAMETER="parameter-display.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308h_32bit_defconfig b/.chips/rk3308/rockchip_rk3308h_32bit_defconfig
+deleted file mode 100644
+index 1d41c5e..0000000
+--- a/.chips/rk3308/rockchip_rk3308h_32bit_defconfig
++++ /dev/null
+@@ -1,10 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_h_32_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="RTL8189FS"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_DTS_NAME="rk3308-voice-module-board-v11-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-32bit.txt"
+diff --git a/.chips/rk3308/rockchip_rk3308hs_32bit_defconfig b/.chips/rk3308/rockchip_rk3308hs_32bit_defconfig
+deleted file mode 100644
+index 6d4b4a9..0000000
+--- a/.chips/rk3308/rockchip_rk3308hs_32bit_defconfig
++++ /dev/null
+@@ -1,10 +0,0 @@
+-RK_BUILDROOT_BASE_CFG="rk3308_h_32_release"
+-RK_ROOTFS_SQUASHFS=y
+-RK_WIFIBT_CHIP="RTL8189FS"
+-RK_UBOOT_CFG="rk3308-aarch32"
+-RK_KERNEL_ARM32=y
+-RK_KERNEL_CFG="rk3308_linux_aarch32_defconfig"
+-RK_KERNEL_DTS_NAME="rk3308hs-voice-module-board-v10-aarch32"
+-RK_EXTRA_PARTITION_1_EXT2=y
+-RK_EXTRA_PARTITION_2_EXT2=y
+-RK_PARAMETER="parameter-32bit.txt"
+-- 
+2.34.1
+

@@ -1,0 +1,232 @@
+From 8b7581c4961dd3243a8afa0e5009a4977a36f082 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 9 Jun 2026 22:20:04 +0800
+Subject: [PATCH 45/50] drm: dw-hdmi-qp: add EDID sanitize for non-compliant
+ monitors
+
+Non-compliant monitors may have malformed EDIDs containing:
+- Control characters (0x0A etc.) in text descriptors (name, serial)
+- Extreme range limits (e.g. 120Hz, 340MHz on 1080p panels)
+- Non-sRGB color space flag
+- Garbage bytes in CEA extension data block padding area
+
+These can cause Xorg modesetting driver to segfault during
+OsLookupColor screen initialization.
+
+Add dw_hdmi_qp_edid_sanitize() called right after DDC read,
+before drm_edid_connector_update(), to fix these issues:
+ 1. Replace non-printable chars in text descriptors with spaces
+ 2. Clamp range limits to reasonable defaults
+ 3. Force sRGB flag on base block
+ 4. Zero CEA padding garbage after HDMI VSDB
+
+All fixes only activate on malformed EDIDs - compliant monitors
+see zero overhead.
+
+Origin: kickpi 544b6630ad1cf1321ef102c813141598c73baeed
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c | 174 +++++++++++++++++++
+ 1 file changed, 174 insertions(+)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
+index 032d143..4d150e9 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
+@@ -192,6 +192,7 @@ static const struct drm_display_mode dw_hdmi_default_modes[] = {
+ 	  .picture_aspect_ratio = HDMI_PICTURE_ASPECT_4_3, },
+ };
+ 
++
+ enum quirk_case {
+ 	VSI_SEND,
+ 	DELAY,
+@@ -374,6 +375,175 @@ struct dw_hdmi_qp {
+ 	struct workqueue_struct *workqueue;
+ };
+ 
++/*
++ * dw_hdmi_qp_edid_sanitize - Fix common EDID issues from non-compliant monitors
++ *
++ * Replaces control characters (0x00-0x1F) in EDID text descriptors
++ * (monitor name, serial number, data string) with spaces, and
++ * recalculates block checksums. Logs each fix via dev_info.
++ *
++ * These malformed EDIDs can cause Xorg modesetting driver to crash
++ * during screen initialization (e.g. segfault in OsLookupColor).
++ */
++static void dw_hdmi_qp_edid_sanitize(struct dw_hdmi_qp *hdmi,
++				     u8 *edid, size_t total_size)
++{
++	int i, j, block_count;
++	bool block_modified;
++	bool any_fixed = false;
++	static const char * const desc_names[] = {
++		[0x0C] = "name",
++		[0x0E] = "text",
++		[0x0F] = "serial",
++	};
++
++	if (!edid || total_size < 128)
++		return;
++
++	block_count = edid[0x7E] + 1;
++	if (block_count * 128 > total_size)
++		block_count = total_size / 128;
++
++	for (i = 0; i < block_count; i++) {
++		u8 *block = edid + i * 128;
++
++		block_modified = false;
++
++		/* Scan 4 descriptor slots per block (offsets 54,72,90,108) */
++		for (j = 0; j < 4; j++) {
++			int off = 54 + j * 18;
++			u8 tag;
++			int k;
++
++			if (block[off] || block[off + 1] || block[off + 2])
++				continue;
++
++			tag = block[off + 3] & 0x0F;
++
++			if (tag == 0x0C || tag == 0x0E || tag == 0x0F) {
++				/* Sanitize text descriptors */
++				for (k = 5; k < 18; k++) {
++					u8 *c = &block[off + k];
++
++					if (*c >= 0x20 && *c <= 0x7E)
++						continue;
++
++					dev_info(hdmi->dev,
++						 "EDID sanitize: blk%d %s[%d] 0x%02x->0x20\n",
++						 i, desc_names[tag] ? desc_names[tag] : "?",
++						 k - 5, *c);
++					*c = 0x20;
++					block_modified = true;
++					any_fixed = true;
++				}
++			} else if (tag == 0x0D) {
++				/* Clamp range limits to reasonable values */
++				u8 *v_min = &block[off + 5];
++				u8 *v_max = &block[off + 6];
++				u8 *h_min = &block[off + 7];
++				u8 *h_max = &block[off + 8];
++				u8 *pclk  = &block[off + 9];
++
++				if (*v_max > 76 || *h_max > 85 || *pclk > 17) {
++					dev_info(hdmi->dev,
++						 "EDID sanitize: clamp ranges V[%d-%d]H[%d-%d]P%d -> ",
++						 *v_min, *v_max, *h_min, *h_max, *pclk * 10);
++					if (*v_max > 76)
++						*v_max = 76;
++					if (*h_max > 85)
++						*h_max = 85;
++					if (*pclk > 17)
++						*pclk = 17;
++					dev_info(hdmi->dev,
++						 "V[%d-%d]H[%d-%d]P%d\n",
++						 *v_min, *v_max, *h_min, *h_max, *pclk * 10);
++					block_modified = true;
++					any_fixed = true;
++				}
++			}
++		}
++
++		if (block_modified) {
++			u8 sum = 0;
++
++			for (j = 0; j < 127; j++)
++				sum += block[j];
++			block[127] = (256 - sum) & 0xFF;
++		}
++	}
++
++	if (any_fixed)
++		dev_info(hdmi->dev, "EDID sanitize: fixed descriptors from monitor\n");
++
++	/* Ensure sRGB flag is set on base block (byte 0x18 bit 2) */
++	if (!(edid[0x18] & 0x04)) {
++		dev_info(hdmi->dev, "EDID sanitize: forcing sRGB flag 0x%02x->0x%02x\n",
++			 edid[0x18], edid[0x18] | 0x04);
++		edid[0x18] |= 0x04;
++		/* Recalculate base block checksum */
++		{
++			u8 sum = 0;
++			int j;
++			for (j = 0; j < 127; j++)
++				sum += edid[j];
++			edid[127] = (256 - sum) & 0xFF;
++		}
++	}
++
++	/*
++	 * Zero out garbage padding in CEA extension data block area.
++	 * On non-compliant monitors, the padding between the last valid
++	 * CEA data block and the DTD area may contain non-zero bytes
++	 * that get parsed as fake data blocks, triggering Xorg crashes.
++	 *
++	 * CEA format: [header 4B][data blocks...][padding 0x00...][DTDs...]
++	 * We zero all bytes in the data block area from the end of valid
++	 * blocks until the DTD start offset.
++	 */
++	if (block_count > 1 && total_size >= 256) {
++		u8 *cea = edid + 128;
++		u8 dtd_offset = cea[2];
++		int pos = 4;
++		int hdmi_vsdb_end = 0;
++		bool fixed_cea = false;
++
++		/*
++		 * Find the HDMI VSDB (tag 3, IEEE OUI 0x000C03) and
++		 * zero everything after it until the DTD area.
++		 */
++		while (pos < dtd_offset - 1 && pos < 124) {
++			u8 hdr = cea[pos];
++			int tag = (hdr >> 5) & 0x7;
++			int len = hdr & 0x1f;
++
++			if (tag == 3 && len >= 3 &&
++			    cea[pos + 1] == 0x03 &&
++			    cea[pos + 2] == 0x0C &&
++			    cea[pos + 3] == 0x00) {
++				/* Found HDMI VSDB */
++				hdmi_vsdb_end = pos + 1 + len;
++			}
++			pos += 1 + len;
++		}
++		if (hdmi_vsdb_end > 4 && hdmi_vsdb_end < dtd_offset) {
++			dev_info(hdmi->dev,
++				  "EDID sanitize: zero CEA bytes %d-%d after HDMI VSDB\n",
++				 hdmi_vsdb_end, dtd_offset - 1);
++			memset(cea + hdmi_vsdb_end, 0,
++			       dtd_offset - hdmi_vsdb_end);
++			fixed_cea = true;
++		}
++		if (fixed_cea) {
++			u8 sum = 0;
++			int j;
++			for (j = 0; j < 127; j++)
++				sum += cea[j];
++			cea[127] = (256 - sum) & 0xFF;
++		}
++	}
++}
++
++
+ static inline void hdmi_writel(struct dw_hdmi_qp *hdmi, u32 val, int offset)
+ {
+ 	regmap_write(hdmi->regm, offset, val);
+@@ -2947,6 +3117,10 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+ 	if (edid) {
+ 		u8 *raw_edid = (u8 *)edid;
+ 
++
++		/* Sanitize malformed EDID before passing to DRM/Xorg */
++		dw_hdmi_qp_edid_sanitize(hdmi, raw_edid,
++				  (edid->extensions + 1) * 128);
+ 		dev_dbg(hdmi->dev, "got edid: width[%d] x height[%d]\n",
+ 			edid->width_cm, edid->height_cm);
+ 
+-- 
+2.34.1
+

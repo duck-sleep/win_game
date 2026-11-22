@@ -10,4 +10,5 @@
 - [记忆要镜像进仓库才算存过](feedback-memory-mirrored-into-repo.md) — 写完本机记忆必须跑 sync_qoder_memory.sh 再提交；别挪走本机目录；VM 口令自动脱敏
 - [移植就照参考实现做全](feedback-follow-reference-implementation.md) — 先读他源码再定范围；别自作主张做最小子集；偏离处主动标理由
 - [改文档结构后要回跑检查](feedback-doc-edit-verification.md) — 替换标题附近内容会吃掉标题；grep 标题 + 数代码围栏再说"改好了"
+- [豁免要窄规则不要名单](feedback-narrow-exemption-rules.md) — 先消差异再豁免；白名单写死路径+行号+sha256；套不进规则=FAIL，加规则先问
 

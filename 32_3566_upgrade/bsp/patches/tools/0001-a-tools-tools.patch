@@ -1,0 +1,816 @@
+From bd84e45349cf10248970c17e51aa94507277c7dd Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:50:22 -0500
+Subject: [PATCH] tools: tools
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/tools@972d879d2357aa57644db17f637a74de51d9eede, path tools/linux/Linux_Pack_Firmware
+---
+ rockdev/revision.txt                          | 42 +++++++++++++++++++
+ rockdev/rk3308-package-file-amp               | 17 ++++++++
+ rockdev/rk3308-package-file-amp-linux         | 17 ++++++++
+ rockdev/rk3358-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3358-package-file                   | 21 ++++++++++
+ rockdev/rk3506-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3506-package-file                   | 20 +++++++++
+ rockdev/rk3528-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3528-package-file                   | 23 ++++++++++
+ rockdev/rk3562-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3562-package-file                   | 23 ++++++++++
+ rockdev/rk356x-amp-package-file               | 24 +++++++++++
+ rockdev/rk3576-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3576-package-file                   | 23 ++++++++++
+ rockdev/rk3576-package-file-ab                | 24 +++++++++++
+ rockdev/rk3576-package-file-nvr-emmc          | 23 ++++++++++
+ rockdev/rk3576-package-file-nvr-spi-nand      | 23 ++++++++++
+ rockdev/rk3588-mkupdate.sh                    | 22 ++++++++++
+ rockdev/rk3588-package-file                   | 23 ++++++++++
+ rockdev/rk3588-package-file-ab                | 24 +++++++++++
+ rockdev/rk3588-package-file-nvr-emmc          | 23 ++++++++++
+ rockdev/rk3588-package-file-nvr-spi-nand      | 23 ++++++++++
+ rockdev/rv1126-package-file-emmc-tb           |  2 +-
+ rockdev/rv1126-package-file-spi-nand          |  1 +
+ rockdev/rv1126-package-file-spi-nand-256MB-ab |  2 +-
+ rockdev/rv1126-package-file-spi-nand-uvc-ota  |  4 +-
+ rockdev/rv1126-package-file-spi-nor-tiny      |  2 +-
+ rockdev/rv1126-package-file-spi-nor-uvc       | 28 +++++++++++++
+ rockdev/rv1126_rv1109-package-file-uvc-ota    |  4 +-
+ 29 files changed, 541 insertions(+), 7 deletions(-)
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/revision.txt
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3308-package-file-amp
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3308-package-file-amp-linux
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3358-mkupdate.sh
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3358-package-file
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3506-mkupdate.sh
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3506-package-file
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3528-mkupdate.sh
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3528-package-file
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3562-mkupdate.sh
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3562-package-file
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk356x-amp-package-file
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3576-mkupdate.sh
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3576-package-file
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3576-package-file-ab
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3576-package-file-nvr-emmc
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3576-package-file-nvr-spi-nand
+ create mode 100755 tools/linux/Linux_Pack_Firmware/rockdev/rk3588-mkupdate.sh
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3588-package-file
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3588-package-file-ab
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3588-package-file-nvr-emmc
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rk3588-package-file-nvr-spi-nand
+ create mode 100644 tools/linux/Linux_Pack_Firmware/rockdev/rv1126-package-file-spi-nor-uvc
+
+diff --git a/rockdev/revision.txt b/rockdev/revision.txt
+new file mode 100644
+index 0000000..b6de815
+--- /dev/null
++++ b/rockdev/revision.txt
+@@ -0,0 +1,42 @@
++v2.29 revision(2024/12/24):
++1.change name from vdk into rvd
++
++v2.29 revision(2024/11/12):
++1.add ufs and vdk storage
++
++v2.28 revision(2024/07/18):
++1.create package-file when unpack image
++
++afptool: v2.27 revision(2023/10/25):
++1.fix check env condition bug
++
++afptool: v2.26 revision(2023/05/26):
++1.fix parse env.img bug 
++
++afptool: v2.25 revision(2023/04/24):
++1.add -no-overlap-check option on packing image
++
++afptool: v2.24 revision(2023/02/15):
++1.fix userdata:grow bug on package-file
++
++v2.23 revision(2022/10/28):
++1.fix unpack multi-storage firmware bug
++2.reopen file and rewrite entrys to avoid unflush buffer data 
++
++v2.22 revision(2022/08/08):
++1.support new format multi-storage firmware
++
++v2.21 revision(2022/08/04):
++1.support div placeholder on merging multi-storage firmware
++
++v2.2 revision(2022/03/28):
++1.support to create env firmware
++
++v2.1 revision(2022/03/09):
++1.support to compile on mac
++
++v2.0 revision(2021/08/16):
++afptool:
++1.fix bug when place normal item after replicated item in the package-file
++rkImageMaker:
++1.support input storage info
+diff --git a/rockdev/rk3308-package-file-amp b/rockdev/rk3308-package-file-amp
+new file mode 100755
+index 0000000..ce67e38
+--- /dev/null
++++ b/rockdev/rk3308-package-file-amp
+@@ -0,0 +1,17 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++uboot		Image/uboot.img
++trust		Image/trust.img
++amp			Image/amp.img
++rootfs		Image/rootfs.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3308-package-file-amp-linux b/rockdev/rk3308-package-file-amp-linux
+new file mode 100644
+index 0000000..48cc1fb
+--- /dev/null
++++ b/rockdev/rk3308-package-file-amp-linux
+@@ -0,0 +1,17 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++trust		Image/trust.img
++uboot		Image/uboot.img
++boot		Image/boot.img
++amp			Image/amp.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3358-mkupdate.sh b/rockdev/rk3358-mkupdate.sh
+new file mode 100755
+index 0000000..192042f
+--- /dev/null
++++ b/rockdev/rk3358-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RKPX30 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3358-package-file b/rockdev/rk3358-package-file
+new file mode 100755
+index 0000000..6930203
+--- /dev/null
++++ b/rockdev/rk3358-package-file
+@@ -0,0 +1,21 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++boot		Image/boot.img
++recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3506-mkupdate.sh b/rockdev/rk3506-mkupdate.sh
+new file mode 100755
+index 0000000..25cb4b9
+--- /dev/null
++++ b/rockdev/rk3506-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RK3506 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3506-package-file b/rockdev/rk3506-package-file
+new file mode 100755
+index 0000000..d84e574
+--- /dev/null
++++ b/rockdev/rk3506-package-file
+@@ -0,0 +1,20 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++uboot       Image/uboot.img
++boot        Image/boot.img
++rootfs      Image/rootfs.img
++recovery	Image/recovery.img
++oem			Image/oem.img
++userdata    Image/userdata.img
++misc		Image/misc.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3528-mkupdate.sh b/rockdev/rk3528-mkupdate.sh
+new file mode 100755
+index 0000000..17575d1
+--- /dev/null
++++ b/rockdev/rk3528-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RK3528 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making ./Image/update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3528-package-file b/rockdev/rk3528-package-file
+new file mode 100644
+index 0000000..4cad31e
+--- /dev/null
++++ b/rockdev/rk3528-package-file
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3562-mkupdate.sh b/rockdev/rk3562-mkupdate.sh
+new file mode 100755
+index 0000000..1358f07
+--- /dev/null
++++ b/rockdev/rk3562-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RK3562 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making ./Image/update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3562-package-file b/rockdev/rk3562-package-file
+new file mode 100644
+index 0000000..4cad31e
+--- /dev/null
++++ b/rockdev/rk3562-package-file
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk356x-amp-package-file b/rockdev/rk356x-amp-package-file
+new file mode 100644
+index 0000000..ccf12f8
+--- /dev/null
++++ b/rockdev/rk356x-amp-package-file
+@@ -0,0 +1,24 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++amp		Image/amp.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++#recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++#oem		Image/oem.img
++#userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3576-mkupdate.sh b/rockdev/rk3576-mkupdate.sh
+new file mode 100755
+index 0000000..faacf97
+--- /dev/null
++++ b/rockdev/rk3576-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RK3576 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making ./Image/update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3576-package-file b/rockdev/rk3576-package-file
+new file mode 100644
+index 0000000..4cad31e
+--- /dev/null
++++ b/rockdev/rk3576-package-file
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3576-package-file-ab b/rockdev/rk3576-package-file-ab
+new file mode 100644
+index 0000000..27f105d
+--- /dev/null
++++ b/rockdev/rk3576-package-file-ab
+@@ -0,0 +1,24 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot_a		Image/boot.img
++boot_b		Image/boot.img
++system_a	Image/rootfs.img
++system_b	Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3576-package-file-nvr-emmc b/rockdev/rk3576-package-file-nvr-emmc
+new file mode 100644
+index 0000000..4daf915
+--- /dev/null
++++ b/rockdev/rk3576-package-file-nvr-emmc
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++#misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++#recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++#oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3576-package-file-nvr-spi-nand b/rockdev/rk3576-package-file-nvr-spi-nand
+new file mode 100644
+index 0000000..4daf915
+--- /dev/null
++++ b/rockdev/rk3576-package-file-nvr-spi-nand
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++#misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++#recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++#oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3588-mkupdate.sh b/rockdev/rk3588-mkupdate.sh
+new file mode 100755
+index 0000000..6f1f579
+--- /dev/null
++++ b/rockdev/rk3588-mkupdate.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++pause()
++{
++echo "Press any key to quit:"
++read -n1 -s key
++exit 1
++}
++echo "start to make update.img..."
++if [ ! -f "Image/parameter" -a ! -f "Image/parameter.txt" ]; then
++	echo "Error:No found parameter!"
++	exit 1
++fi
++if [ ! -f "package-file" ]; then
++	echo "Error:No found package-file!"
++	exit 1
++fi
++./afptool -pack ./ Image/update.img || pause
++./rkImageMaker -RK3588 Image/MiniLoaderAll.bin Image/update.img update.img -os_type:androidos || pause
++echo "Making ./Image/update.img OK."
++#echo "Press any key to quit:"
++#read -n1 -s key
++exit $?
+diff --git a/rockdev/rk3588-package-file b/rockdev/rk3588-package-file
+new file mode 100644
+index 0000000..4cad31e
+--- /dev/null
++++ b/rockdev/rk3588-package-file
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3588-package-file-ab b/rockdev/rk3588-package-file-ab
+new file mode 100644
+index 0000000..27f105d
+--- /dev/null
++++ b/rockdev/rk3588-package-file-ab
+@@ -0,0 +1,24 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot_a		Image/boot.img
++boot_b		Image/boot.img
++system_a	Image/rootfs.img
++system_b	Image/rootfs.img
++oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3588-package-file-nvr-emmc b/rockdev/rk3588-package-file-nvr-emmc
+new file mode 100644
+index 0000000..4daf915
+--- /dev/null
++++ b/rockdev/rk3588-package-file-nvr-emmc
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++#misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++#recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++#oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rk3588-package-file-nvr-spi-nand b/rockdev/rk3588-package-file-nvr-spi-nand
+new file mode 100644
+index 0000000..4daf915
+--- /dev/null
++++ b/rockdev/rk3588-package-file-nvr-spi-nand
+@@ -0,0 +1,23 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#trust		Image/trust.img
++uboot		Image/uboot.img
++#misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++#recovery	Image/recovery.img
++rootfs		Image/rootfs.img
++#oem		Image/oem.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rv1126-package-file-emmc-tb b/rockdev/rv1126-package-file-emmc-tb
+index 74e66ac..50984d6 100644
+--- a/rockdev/rv1126-package-file-emmc-tb
++++ b/rockdev/rv1126-package-file-emmc-tb
+@@ -19,7 +19,7 @@ uboot		Image/uboot.img
+ boot		Image/boot.img
+ # recovery	Image/recovery.img
+ #rootfs		Image/rootfs.img
+-oem		Image/oem.img
++# oem         Image/oem.img
+ userdata	Image/userdata.img
+ # 要写入backup分区的文件就是自身（update.img）
+ # SELF 是关键字，表示升级文件（update.img）自身
+diff --git a/rockdev/rv1126-package-file-spi-nand b/rockdev/rv1126-package-file-spi-nand
+index a15de53..99b0463 100644
+--- a/rockdev/rv1126-package-file-spi-nand
++++ b/rockdev/rv1126-package-file-spi-nand
+@@ -17,6 +17,7 @@ misc		Image/misc.img
+ boot		Image/boot.img
+ recovery	Image/recovery.img
+ rootfs		Image/rootfs.img
++userdata	Image/userdata.img
+ # oem		Image/oem.img
+ # userdata:grow	Image/userdata.img
+ # 要写入backup分区的文件就是自身（update.img）
+diff --git a/rockdev/rv1126-package-file-spi-nand-256MB-ab b/rockdev/rv1126-package-file-spi-nand-256MB-ab
+index 19d6c6e..7191a41 100644
+--- a/rockdev/rv1126-package-file-spi-nand-256MB-ab
++++ b/rockdev/rv1126-package-file-spi-nand-256MB-ab
+@@ -11,7 +11,7 @@ boot_a      Image/boot.img
+ boot_b      Image/boot.img
+ system_a    Image/rootfs.img
+ system_b    Image/rootfs.img
+-# userdata    Image/userdata.img
++userdata    Image/userdata.img
+ # 要写入backup分区的文件就是自身（update.img）
+ # SELF 是关键字，表示升级文件（update.img）自身
+ # 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
+diff --git a/rockdev/rv1126-package-file-spi-nand-uvc-ota b/rockdev/rv1126-package-file-spi-nand-uvc-ota
+index 1efec6f..f8b9e8d 100644
+--- a/rockdev/rv1126-package-file-spi-nand-uvc-ota
++++ b/rockdev/rv1126-package-file-spi-nand-uvc-ota
+@@ -6,8 +6,8 @@ bootloader	Image/MiniLoaderAll.bin
+ parameter	Image/parameter.txt
+ #trust       Image/trust.img
+ #uboot       Image/uboot.img
+-boot        Image/boot.img
+-rootfs      Image/rootfs.img
++boot_a        Image/boot.img
++system_a      Image/rootfs.img
+ #recovery	Image/recovery.img
+ #oem			Image/oem.img
+ #userdata    Image/userdata.img
+diff --git a/rockdev/rv1126-package-file-spi-nor-tiny b/rockdev/rv1126-package-file-spi-nor-tiny
+index 68cf0d9..7022408 100644
+--- a/rockdev/rv1126-package-file-spi-nor-tiny
++++ b/rockdev/rv1126-package-file-spi-nor-tiny
+@@ -18,7 +18,7 @@ uboot		Image/uboot.img
+ #kernel		Image/kernel.img
+ boot		Image/boot.img
+ rootfs		Image/rootfs.img
+-# userdata	Image/userdata.img
++userdata	Image/userdata.img
+ # 要写入backup分区的文件就是自身（update.img）
+ # SELF 是关键字，表示升级文件（update.img）自身
+ # 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
+diff --git a/rockdev/rv1126-package-file-spi-nor-uvc b/rockdev/rv1126-package-file-spi-nor-uvc
+new file mode 100644
+index 0000000..7022408
+--- /dev/null
++++ b/rockdev/rv1126-package-file-spi-nor-uvc
+@@ -0,0 +1,28 @@
++# NAME		Relative path
++#
++#HWDEF		HWDEF
++package-file	package-file
++bootloader	Image/MiniLoaderAll.bin
++parameter	Image/parameter.txt
++#
++# if uboot.img is fit, uboot.img had include uboot and trust,
++# so ignore trust.img
++# file Image/uboot.img
++# Image/uboot.img: Device Tree Blob version 17
++#
++# trust		Image/trust.img
++#
++uboot		Image/uboot.img
++# misc		Image/misc.img
++#resource	Image/resource.img
++#kernel		Image/kernel.img
++boot		Image/boot.img
++rootfs		Image/rootfs.img
++userdata	Image/userdata.img
++# 要写入backup分区的文件就是自身（update.img）
++# SELF 是关键字，表示升级文件（update.img）自身
++# 在生成升级文件时，不加入SELF文件的内容，但在头部信息中有记录
++# 在解包升级文件时，不解包SELF文件的内容。
++backup		RESERVED
++#update-script	update-script
++#recover-script	recover-script
+diff --git a/rockdev/rv1126_rv1109-package-file-uvc-ota b/rockdev/rv1126_rv1109-package-file-uvc-ota
+index 1efec6f..f8b9e8d 100755
+--- a/rockdev/rv1126_rv1109-package-file-uvc-ota
++++ b/rockdev/rv1126_rv1109-package-file-uvc-ota
+@@ -6,8 +6,8 @@ bootloader	Image/MiniLoaderAll.bin
+ parameter	Image/parameter.txt
+ #trust       Image/trust.img
+ #uboot       Image/uboot.img
+-boot        Image/boot.img
+-rootfs      Image/rootfs.img
++boot_a        Image/boot.img
++system_a      Image/rootfs.img
+ #recovery	Image/recovery.img
+ #oem			Image/oem.img
+ #userdata    Image/userdata.img
+-- 
+2.34.1
+

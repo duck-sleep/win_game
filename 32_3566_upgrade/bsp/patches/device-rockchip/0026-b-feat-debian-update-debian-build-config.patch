@@ -1,0 +1,29 @@
+From 9e48501458cb0fc0e93e23b41f3566eebf8a6913 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 10:40:44 +0800
+Subject: [PATCH 18/34] feat(debian): update debian build config
+
+Origin: kickpi 471e4da8dc05d97b39373818b884b09bde3fda4b
+---
+ common/scripts/mk-rootfs.sh | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/common/scripts/mk-rootfs.sh b/common/scripts/mk-rootfs.sh
+index 565701c..d5205c6 100755
+--- a/common/scripts/mk-rootfs.sh
++++ b/common/scripts/mk-rootfs.sh
+@@ -399,7 +399,10 @@ build_hook()
+ 	touch "$ROOTFS_DIR/.stamp_build_start"
+ 	case "$ROOTFS" in
+ 		yocto) build_yocto "$IMAGE_DIR" ;;
+-		debian) build_debian "$IMAGE_DIR" ;;
++		debian) 
++			build_debian "$IMAGE_DIR" 
++			# ln -srf debian/linaro-rootfs.img $IMAGE_DIR/$ROOTFS_IMG
++		;;
+ 		buildroot) build_buildroot "$IMAGE_DIR" ;;
+ 	esac
+ 	touch "$ROOTFS_DIR/.stamp_build_finish"
+-- 
+2.34.1
+

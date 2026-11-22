@@ -1,0 +1,571 @@
+From 2840156e40f0069a58367a3b48644e2006cf9e4c Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Mon, 30 Mar 2026 14:38:34 +0800
+Subject: [PATCH 19/34] feat(ubuntu): add ubuntu build config
+
+Origin: kickpi ee97d4ee61f946ecc2cda784be35900353bcc001
+---
+ .../rk3566_rk3568/parameter-buildroot-fit.txt |   2 +-
+ ...ckchip_rk3566_kickpi_k11c_ubuntu_defconfig |   3 +-
+ common/configs/Config.in.rootfs               |   8 +-
+ common/configs/Config.in.ubuntu               |  69 +++++++++
+ common/scripts/check-ubuntu.sh                |  59 ++++++++
+ common/scripts/mk-rootfs.sh                   |  66 ++++++++-
+ common/scripts/post-helper                    |   5 +-
+ common/scripts/post-hostname.sh               |   5 +
+ common/scripts/post-ubuntu.sh                 | 137 ++++++++++++++++++
+ common/scripts/post-wifibt.sh                 |   4 +-
+ 10 files changed, 346 insertions(+), 12 deletions(-)
+ create mode 100644 device/rockchip/common/configs/Config.in.ubuntu
+ create mode 100755 device/rockchip/common/scripts/check-ubuntu.sh
+ create mode 100755 device/rockchip/common/scripts/post-ubuntu.sh
+
+diff --git a/.chips/rk3566_rk3568/parameter-buildroot-fit.txt b/.chips/rk3566_rk3568/parameter-buildroot-fit.txt
+index 52968c0..8f79d46 100755
+--- a/.chips/rk3566_rk3568/parameter-buildroot-fit.txt
++++ b/.chips/rk3566_rk3568/parameter-buildroot-fit.txt
+@@ -9,5 +9,5 @@ CHECK_MASK: 0x80
+ PWR_HLD: 0,0,A,0,1
+ TYPE: GPT
+ GROW_ALIGN: 0
+-CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00020000@0x00008000(boot),0x00040000@0x00028000(recovery),0x00010000@0x00068000(backup),0x00c00000@0x00078000(rootfs),0x00040000@0x00c78000(oem),-@0x00cb8000(userdata:grow)
++CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00020000@0x00008000(boot),0x00040000@0x00028000(recovery),0x00010000@0x00068000(backup),0x00040000@0x00078000(oem),0x00010000@0x000b8000(userdata),-@0x000c8000(rootfs:grow)
+ uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig
+index 5220d5c..a7f8eab 100755
+--- a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig
+@@ -1,4 +1,5 @@
+-RK_KERNEL_DTS_NAME="rk3566-evb2-lp4x-v10-linux"
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-linux"
+ RK_PARAMETER="parameter-buildroot-fit.txt"
+ RK_USE_FIT_IMG=y
+ RK_ROOTFS_SYSTEM=ubuntu
++RK_ROOTFS_SYSTEM_UBUNTU=y
+diff --git a/common/configs/Config.in.rootfs b/common/configs/Config.in.rootfs
+index c5bbc7b..f38bb00 100644
+--- a/common/configs/Config.in.rootfs
++++ b/common/configs/Config.in.rootfs
+@@ -4,7 +4,7 @@ comment "Rootfs system depends on linux kernel"
+ 	depends on !RK_KERNEL
+ 
+ menuconfig RK_ROOTFS
+-	bool "Rootfs (Buildroot|Debian|Yocto)"
++	bool "Rootfs (Buildroot|Debian|Ubuntu|Yocto)"
+ 	depends on RK_KERNEL
+ 	default y if !RK_AMP
+ 
+@@ -13,11 +13,13 @@ if RK_ROOTFS
+ source "Config.in.buildroot"
+ source "Config.in.yocto"
+ source "Config.in.debian"
++source "Config.in.ubuntu"
+ 
+ config RK_ROOTFS_SYSTEM
+ 	string
+ 	default "buildroot" if RK_ROOTFS_SYSTEM_BUILDROOT
+ 	default "debian" if RK_ROOTFS_SYSTEM_DEBIAN
++	default "ubuntu" if RK_ROOTFS_SYSTEM_UBUNTU
+ 	default "yocto" if RK_ROOTFS_SYSTEM_YOCTO
+ 
+ choice
+@@ -33,6 +35,10 @@ config RK_ROOTFS_SYSTEM_DEBIAN
+ 	bool "Debian"
+ 	depends on RK_DEBIAN
+ 
++config RK_ROOTFS_SYSTEM_UBUNTU
++	bool "Ubuntu"
++	depends on RK_UBUNTU
++
+ config RK_ROOTFS_SYSTEM_YOCTO
+ 	bool "Yocto"
+ 	depends on RK_YOCTO
+diff --git a/common/configs/Config.in.ubuntu b/common/configs/Config.in.ubuntu
+new file mode 100644
+index 0000000..ab1bab4
+--- /dev/null
++++ b/common/configs/Config.in.ubuntu
+@@ -0,0 +1,69 @@
++#
++
++config RK_UBUNTU_SUPPORTS
++	bool
++	default y if RK_CHIP_FAMILY = "rk3288" || RK_CHIP_FAMILY = "px30" || \
++		RK_CHIP_FAMILY = "rk3326" || RK_CHIP_FAMILY = "rk3328" || \
++		RK_CHIP_FAMILY = "rk3399" || RK_CHIP_FAMILY = "rk3399pro" || \
++		RK_CHIP_FAMILY = "rk3566_rk3568" || RK_CHIP_FAMILY = "rk3588" || \
++		RK_CHIP_FAMILY = "rk3562" || RK_CHIP_FAMILY = "rk3528" || \
++		RK_CHIP_FAMILY = "rk3576" || RK_CHIP_FAMILY = "rv1126b"
++
++comment "Ubuntu is not supported for this chip"
++	depends on !RK_UBUNTU_SUPPORTS
++
++menuconfig RK_UBUNTU
++	bool "Ubuntu"
++	depends on RK_UBUNTU_SUPPORTS
++	default y
++
++if RK_UBUNTU
++
++config RK_UBUNTU_VERSION
++	string
++	default "noble" if RK_UBUNTU_NOBLE
++
++choice
++	prompt "distro"
++	default RK_UBUNTU_NOBLE
++
++config RK_UBUNTU_NOBLE
++	bool "noble (24.04)"
++
++endchoice # distro
++
++config RK_UBUNTU_ARCH
++	string
++	default "armhf" if RK_UBUNTU_ARMHF
++	default "arm64" if RK_UBUNTU_ARM64
++
++choice
++	prompt "rootfs arch"
++
++config RK_UBUNTU_ARM64
++	bool "arm64"
++	depends on RK_KERNEL_ARM64
++
++config RK_UBUNTU_ARMHF
++	bool "armhf"
++	depends on RK_KERNEL_ARM32 || RK_KERNEL_ARM64
++
++endchoice # rootfs arch
++
++config RK_UBUNTU_SERVER
++	bool "server (without desktop)"
++
++config RK_UBUNTU_MIRROR
++	string "mirror source for APT"
++	default "mirrors.ustc.edu.cn"
++
++config RK_UBUNTU_USER
++	string "default user"
++	default "kickpi"
++
++config RK_UBUNTU_PASSWORD
++	string "password for the default user"
++	default "kickpi"
++
++endif # Ubuntu
++endmenuconfig # Ubuntu
+diff --git a/common/scripts/check-ubuntu.sh b/common/scripts/check-ubuntu.sh
+new file mode 100755
+index 0000000..bdeb9b5
+--- /dev/null
++++ b/common/scripts/check-ubuntu.sh
+@@ -0,0 +1,59 @@
++#!/bin/bash -e
++
++RK_SCRIPTS_DIR="${RK_SCRIPTS_DIR:-$(dirname "$(realpath "$0")")}"
++RK_SDK_DIR="${RK_SDK_DIR:-$(realpath "$RK_SCRIPTS_DIR/../../../..")}"
++RK_TOOLS_DIR="${RK_TOOLS_DIR:-$(realpath "$RK_SCRIPTS_DIR/../tools")}"
++RK_UBUNTU_ARCH="${RK_UBUNTU_ARCH:-arm64}"
++RK_UBUNTU_VERSION="${RK_UBUNTU_VERSION:-noble}"
++
++if [ ! -d "$RK_SDK_DIR/ubuntu" ]; then
++	echo -e "\e[35m"
++	echo "Current SDK doesn't support Ubuntu!"
++	echo -e "\e[0m"
++	exit 1
++fi
++
++if findmnt -fnu -o OPTIONS -T "$RK_SCRIPTS_DIR" | grep -qE "nodev"; then
++	echo -e "\e[35m"
++	echo "Please remount to allow creating devices on the filesystem:"
++	echo "sudo mount -o remount,dev $(findmnt -fnu -o TARGET -T "$RK_SCRIPTS_DIR")"
++	echo -e "\e[0m"
++	exit 1
++fi
++
++# The -d option is required to pack Ubuntu rootfs
++if ! mke2fs -h 2>&1 | grep -wq "\-d"; then
++	echo -e "\e[35m"
++	echo "Your mke2fs is too old: $(mke2fs -V 2>&1 | head -n 1)"
++	echo "Please update it:"
++	"$RK_SCRIPTS_DIR/install-e2fsprogs.sh"
++	echo -e "\e[0m"
++	exit 1
++fi
++
++case "$RK_UBUNTU_ARCH" in
++	arm64) QEMU_ARCH=aarch64 ;;
++	armhf) QEMU_ARCH=arm ;;
++	*)
++		echo -e "\e[35m"
++		echo "Unknown arch(RK_UBUNTU_ARCH): $RK_UBUNTU_ARCH!"
++		echo -e "\e[0m"
++		exit 1 ;;
++esac
++
++"$RK_SCRIPTS_DIR/check-package.sh" qemu-$QEMU_ARCH-static qemu-user-static
++
++if ! [ -r /proc/sys/fs/binfmt_misc/qemu-$QEMU_ARCH ]; then
++	echo -e "\e[35m"
++	echo "Your qemu-$QEMU_ARCH-static(qemu-user-static) is broken"
++	echo "Please reinstall it:"
++	echo "sudo apt-get install binfmt-support qemu-user-static --reinstall"
++	echo -e "\e[0m"
++	exit 1
++fi
++
++# Verify the mirror source
++if [ "$RK_UBUNTU_MIRROR" ]; then
++	"$RK_SCRIPTS_DIR/check-network.sh" "$RK_UBUNTU_MIRROR" \
++		"the Ubuntu mirror source:\n$RK_UBUNTU_MIRROR"
++fi
+diff --git a/common/scripts/mk-rootfs.sh b/common/scripts/mk-rootfs.sh
+index d5205c6..ca61bb1 100755
+--- a/common/scripts/mk-rootfs.sh
++++ b/common/scripts/mk-rootfs.sh
+@@ -256,6 +256,44 @@ build_debian()
+ 	finish_build build_debian $@
+ }
+ 
++build_ubuntu()
++{
++	check_config RK_UBUNTU || false
++
++	IMAGE_DIR="${1:-$RK_OUTDIR/ubuntu}"
++	ARCH=${RK_UBUNTU_ARCH:-armhf}
++
++	"$RK_SCRIPTS_DIR/check-ubuntu.sh"
++
++	message "=========================================="
++	message "          Start building $RK_UBUNTU_VERSION($ARCH)"
++	message "=========================================="
++
++	if [ "$RK_UBUNTU_SERVER" ]; then
++		TARGET=base
++	else
++		TARGET=desktop
++	fi
++
++	cd ubuntu
++
++	UBUNTU_SCRIPT=mk-rootfs-$RK_UBUNTU_VERSION.sh
++
++	RELEASE=$RK_UBUNTU_VERSION TARGET=$TARGET ARCH=$ARCH ./mk-base-ubuntu.sh
++
++	VERSION=debug ARCH=$ARCH ./$UBUNTU_SCRIPT
++
++	./mk-image.sh
++
++	if ! [ -r "$RK_LOG_DIR/post-rootfs.log" ]; then
++		warning "Building without post-rootfs stage!"
++	fi
++
++	ln -rsf "$PWD/ubuntu-rootfs.img" "$IMAGE_DIR/rootfs.ext4"
++
++	finish_build build_ubuntu $@
++}
++
+ # Hooks
+ 
+ usage_hook()
+@@ -267,16 +305,19 @@ usage_hook()
+ 	usage_oneline "buildroot-sdk" "build the buildroot SDK tarball"
+ 	usage_oneline "bsdk" "alias of buildroot-sdk"
+ 	usage_oneline "edit-debian-packages" "edit debian package list"
++	usage_oneline "edit-ubuntu-packages" "edit ubuntu package list"
+ 	usage_oneline "rootfs[:<rootfs type>]" "build default rootfs"
+ 	usage_oneline "buildroot" "build buildroot rootfs"
+ 	usage_oneline "yocto" "build yocto rootfs"
+ 	usage_oneline "debian" "build debian rootfs"
++	usage_oneline "ubuntu" "build ubuntu rootfs"
+ }
+ 
+ clean_hook()
+ {
+ 	rm -rf yocto/build/tmp yocto/build/*cache
+ 	rm -rf debian/binary
++	rm -rf ubuntu/binary
+ 
+ 	if check_config RK_BUILDROOT &>/dev/null; then
+ 		rm -rf buildroot/output/$RK_BUILDROOT_CFG
+@@ -285,11 +326,12 @@ clean_hook()
+ 	rm -rf "$RK_OUTDIR/buildroot"
+ 	rm -rf "$RK_OUTDIR/yocto"
+ 	rm -rf "$RK_OUTDIR/debian"
++	rm -rf "$RK_OUTDIR/ubuntu"
+ 	rm -rf "$RK_OUTDIR/rootfs"
+ 	rm -rf "$RK_FIRMWARE_DIR/rootfs.img"
+ }
+ 
+-INIT_CMDS="default buildroot debian yocto"
++INIT_CMDS="default buildroot debian ubuntu yocto"
+ init_hook()
+ {
+ 	load_config RK_ROOTFS
+@@ -322,7 +364,7 @@ init_hook()
+ 	fi
+ }
+ 
+-PRE_BUILD_CMDS="buildroot-config bconfig buildroot-make bmake edit-debian-packages"
++PRE_BUILD_CMDS="buildroot-config bconfig buildroot-make bmake edit-debian-packages edit-ubuntu-packages"
+ pre_build_hook()
+ {
+ 	check_config RK_ROOTFS || false
+@@ -365,10 +407,18 @@ pre_build_hook()
+ 				customization/package-lists/linaro.list.chroot
+ 			finish_build $@
+ 			;;
++		edit-ubuntu-packages)
++			check_config RK_UBUNTU || false
++			ARCH=${RK_UBUNTU_ARCH:-arm64}
++
++			cd "$RK_SDK_DIR/ubuntu"
++			${EDITOR:-vi} mk-rootfs-$RK_UBUNTU_VERSION.sh
++			finish_build $@
++			;;
+ 	esac
+ }
+ 
+-BUILD_CMDS="rootfs buildroot debian yocto"
++BUILD_CMDS="rootfs buildroot debian ubuntu yocto"
+ build_hook()
+ {
+ 	check_config RK_ROOTFS || false
+@@ -388,7 +438,7 @@ build_hook()
+ 	message "=========================================="
+ 
+ 	case "$ROOTFS" in
+-		yocto | debian | buildroot) ;;
++		yocto | debian | ubuntu | buildroot) ;;
+ 		*) usage ;;
+ 	esac
+ 
+@@ -402,7 +452,11 @@ build_hook()
+ 		debian) 
+ 			build_debian "$IMAGE_DIR" 
+ 			# ln -srf debian/linaro-rootfs.img $IMAGE_DIR/$ROOTFS_IMG
+-		;;
++			;;
++		ubuntu)
++			build_ubuntu "$IMAGE_DIR"
++			# ln -srf ubuntu/ubuntu-rootfs.img $IMAGE_DIR/$ROOTFS_IMG
++			;;
+ 		buildroot) build_buildroot "$IMAGE_DIR" ;;
+ 	esac
+ 	touch "$ROOTFS_DIR/.stamp_build_finish"
+@@ -462,6 +516,6 @@ case "${1:-rootfs}" in
+ 	yocto-config | yconfig) build_yocto_conf ;;
+ 	buildroot-config | bconfig | buildroot-make | bmake) pre_build_hook $@ ;;
+ 	buildroot-sdk | bsdk) post_build_hook $@ ;;
+-	buildroot | debian | yocto) init_hook $@ ;&
++	buildroot | debian | ubuntu | yocto) init_hook $@ ;&
+ 	*) build_hook $@ ;;
+ esac
+diff --git a/common/scripts/post-helper b/common/scripts/post-helper
+index 2c0344a..5b618da 100644
+--- a/common/scripts/post-helper
++++ b/common/scripts/post-helper
+@@ -118,6 +118,7 @@ unset POST_OS
+ case "$(grep "^ID=" "$TARGET_DIR/etc/os-release" 2>/dev/null || true)" in
+ 	ID=buildroot) POST_OS=buildroot ;;
+ 	ID=debian) POST_OS=debian ;;
++	ID=ubuntu) POST_OS=ubuntu ;;
+ 	ID=poky) POST_OS=yocto ;;
+ esac
+ case "$TARGET_DIR/" in
+@@ -128,7 +129,7 @@ export POST_OS=${POST_OS:-unknown}
+ 
+ # Override OS type
+ case "$1" in
+-	buildroot|debian|yocto|ramboot|recovery|unknown)
++	buildroot|debian|ubuntu|yocto|ramboot|recovery|unknown)
+ 		POST_OS="$1"
+ 		shift
+ 		;;
+@@ -136,7 +137,7 @@ esac
+ 
+ unset POST_ROOTFS
+ case "$POST_OS" in
+-	buildroot | debian | yocto) POST_ROOTFS=1 ;;
++	buildroot | debian | ubuntu | yocto) POST_ROOTFS=1 ;;
+ 	*) [ -z "$POST_ROOTFS_ONLY" ] || exit 0 ;;
+ esac
+ 
+diff --git a/common/scripts/post-hostname.sh b/common/scripts/post-hostname.sh
+index 33dffef..cc32a8a 100755
+--- a/common/scripts/post-hostname.sh
++++ b/common/scripts/post-hostname.sh
+@@ -9,6 +9,11 @@ if [ "$RK_ROOTFS_HOSTNAME_DEFAULT" -a "$POST_OS" = debian ]; then
+ 	exit 0
+ fi
+ 
++if [ "$RK_ROOTFS_HOSTNAME_DEFAULT" -a "$POST_OS" = ubuntu ]; then
++	notice "Keep original hostname for debian by default"
++	exit 0
++fi
++
+ HOSTNAME="${RK_ROOTFS_HOSTNAME:-"$RK_CHIP-$POST_OS"}"
+ 
+ message "Setting hostname: $HOSTNAME"
+diff --git a/common/scripts/post-ubuntu.sh b/common/scripts/post-ubuntu.sh
+new file mode 100755
+index 0000000..7672fa8
+--- /dev/null
++++ b/common/scripts/post-ubuntu.sh
+@@ -0,0 +1,137 @@
++#!/bin/bash -e
++
++function mnt() {
++    echo "MOUNTING"
++    sudo mount -t proc /proc ${2}/proc
++    sudo mount -t sysfs /sys ${2}/sys
++    sudo mount -o bind /dev ${2}/dev
++}
++
++function umnt() {
++    echo "UNMOUNTING"
++    sudo umount ${2}/proc
++    sudo umount ${2}/sys
++    sudo umount ${2}/dev
++}
++
++function ch-mount() {
++	if [ "$1" == "-m" ] && [ -n "$2" ] ;
++	then
++		mnt $1 $2
++	elif [ "$1" == "-u" ] && [ -n "$2" ];
++	then
++		umnt $1 $2
++	else
++		echo ""
++		echo "Either 1'st, 2'nd or both parameters were missing"
++		echo ""
++		echo "1'st parameter can be one of these: -m(mount) OR -u(umount)"
++		echo "2'nd parameter is the full path of rootfs directory"
++		echo ""
++		echo "For example: ch-mount.sh -m /media/sdcard"
++		echo ""
++		echo 1st parameter : ${1}
++		echo 2nd parameter : ${2}
++		exit 1
++	fi
++}
++
++### Mount
++ch-mount -m .
++
++rm -rfv sha256sum*
++
++if [ "$RK_DEBIAN_USER" != linaro ]; then
++	message "Changing default user to $RK_DEBIAN_USER..."
++
++	if [ ! -d home/$RK_DEBIAN_USER ]; then
++		mv -v home/linaro home/$RK_DEBIAN_USER || true
++	fi
++	grep -rwl "linaro" rockchip-test/ etc/ boot/ 2>/dev/null | \
++		xargs sed -i "s/\<linaro\>/$RK_DEBIAN_USER/g" 2>/dev/null || true
++fi
++
++if [ "$RK_DEBIAN_PASSWORD" != linaro ]; then
++	message "Changing default user's password..."
++	echo "$RK_DEBIAN_USER:$RK_DEBIAN_PASSWORD" | chroot . chpasswd -m || true
++fi
++
++if ! [ "$RK_DEBIAN_UNIFIED_IMAGE" ]; then
++	case "$RK_CHIP_FAMILY-$RK_CHIP" in
++		rk312*|rk3036-*)
++			LIBMALI=utgard-400
++			CAMERA_ENGINE=rkisp
++			;;
++		*-rk3288)
++			LIBMALI=midgard-t76x-*-r0p0
++			CAMERA_ENGINE=rkisp
++			;;
++		*-rk3288w)
++			LIBMALI=midgard-t76x-*-r1p0
++			CAMERA_ENGINE=rkisp
++			;;
++		rk3399*)
++			LIBMALI=midgard-t86x
++			CAMERA_ENGINE=rkisp
++			;;
++		px30-*|rk3326-*|rk3328-*|rk3528-*)
++			LIBMALI=bifrost-g31
++			CAMERA_ENGINE=rkisp
++			;;
++		rk3566_rk3568-*)
++			LIBMALI=bifrost-g52
++			CAMERA_ENGINE=rkaiq_rk3568
++			RKNPU=1
++			;;
++		rk3562-*)
++			LIBMALI=bifrost-g52
++			CAMERA_ENGINE=rkaiq_rk3562
++			RKNPU=1
++			;;
++		rk3576-*)
++			LIBMALI=bifrost-g52
++			CAMERA_ENGINE=rkaiq_rk3576
++			RKNPU=1
++			;;
++		rk3588-*)
++			LIBMALI=valhall-g610
++			CAMERA_ENGINE=rkaiq_rk3588
++			RKNPU=1
++			;;
++		rv1126b-*)
++			RKNPU=1
++			;;
++	esac
++
++	if [ "$RKNPU" ]; then
++		message "Extracting NPU2 tarball..."
++		tar xvf rknpu2.tar || true
++	fi
++
++	PKGS=
++	if [ "$CAMERA_ENGINE" ]; then
++		PKGS="$(ls ./* | grep "camera_engine_${CAMERA_ENGINE}_.*.deb")"
++	fi
++	if [ "$LIBMALI" ]; then
++		PKGS="$PKGS $(ls ./* | grep "libmali-$LIBMALI-.*.deb")"
++	fi
++	if [ "$PKGS" ]; then
++		message "Installing chip related packages..."
++
++		mkdir -pv var/cache/apt/archives/partial
++		PKGS="$(echo $PKGS | xargs)"
++		chroot . bash -c "apt update"
++		chroot . bash -c "apt install -fy --allow-downgrades $PKGS" || true
++		### fix lightdm err
++		chroot . bash -c "apt install lightdm --reinstall" || true
++
++		"$RK_TOOLS_DIR/x86_64/ldconfig" -r "$TARGET_DIR/" || true
++	fi
++
++	rm -rfv "var/lib/apt/lists/"* "var/cache/"
++	rm -rfv *.deb *.tar
++	touch usr/local/first_boot_flag
++	
++fi
++ch-mount -u .
++
+diff --git a/common/scripts/post-wifibt.sh b/common/scripts/post-wifibt.sh
+index df72174..d120f99 100755
+--- a/common/scripts/post-wifibt.sh
++++ b/common/scripts/post-wifibt.sh
+@@ -42,7 +42,9 @@ build_wifibt()
+ 		error "git add -f ."
+ 		error "sudo git reset --hard"
+ 		error "sudo chown -h -R $RK_OWNER:$RK_OWNER $RKWIFIBT_DIR/"
+-		exit 1
++		# exit 1
++
++		sudo chown -h -R $RK_OWNER:$RK_OWNER $RKWIFIBT_DIR/
+ 	fi
+ 	echo -ne "\e[0m"
+ 
+-- 
+2.34.1
+

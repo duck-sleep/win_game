@@ -1,0 +1,26 @@
+From a99ddce9f54227d188a0f7a8e0cb14c6ca1265a0 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:40 -0500
+Subject: [PATCH 03/19] buildroot: buildroot/package/bluez5_utils
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/bluez5_utils/bluez5_utils.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package/bluez5_utils/bluez5_utils.mk b/package/bluez5_utils/bluez5_utils.mk
+index fd82886..b6e2717 100644
+--- a/package/bluez5_utils/bluez5_utils.mk
++++ b/package/bluez5_utils/bluez5_utils.mk
+@@ -38,7 +38,7 @@ BLUEZ5_UTILS_CONF_OPTS = \
+ 	--disable-micp\
+ 	--disable-csip\
+ 	--with-dbusconfdir=/etc \
+-	--localstatedir=/userdata
++	--localstatedir=/data
+ 
+ ifeq ($(BR2_PACKAGE_BLUEZ5_UTILS_OBEX),y)
+ BLUEZ5_UTILS_CONF_OPTS += --enable-obex
+-- 
+2.34.1
+

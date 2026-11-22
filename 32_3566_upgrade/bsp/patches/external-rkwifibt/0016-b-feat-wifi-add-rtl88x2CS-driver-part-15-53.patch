@@ -1,0 +1,954 @@
+From dac29d28a67392efa6f8e8a6c9003126fef16938 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:48:01 +0800
+Subject: [PATCH 15/73] feat(wifi): add rtl88x2CS driver (part 15/53)
+
+Origin: kickpi e2b0eaf92399e18f9e8cc09fc9030cf390ed7a41
+---
+ drivers/rtl88x2CS/hal/efuse/efuse_mask.h      | 199 ++++++++++++++++++
+ .../efuse/rtl8822c/HalEfuseMask8822C_PCIE.c   | 195 +++++++++++++++++
+ .../efuse/rtl8822c/HalEfuseMask8822C_PCIE.h   |  33 +++
+ .../efuse/rtl8822c/HalEfuseMask8822C_SDIO.c   | 194 +++++++++++++++++
+ .../efuse/rtl8822c/HalEfuseMask8822C_SDIO.h   |  34 +++
+ .../efuse/rtl8822c/HalEfuseMask8822C_USB.c    | 197 +++++++++++++++++
+ .../efuse/rtl8822c/HalEfuseMask8822C_USB.h    |  34 +++
+ 7 files changed, 886 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/efuse_mask.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.h
+
+diff --git a/drivers/rtl88x2CS/hal/efuse/efuse_mask.h b/drivers/rtl88x2CS/hal/efuse/efuse_mask.h
+new file mode 100755
+index 0000000..9a53d83
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/efuse_mask.h
+@@ -0,0 +1,199 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2016 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++
++#ifdef CONFIG_USB_HCI
++
++	#if defined(CONFIG_RTL8188E)
++		#include "rtl8188e/HalEfuseMask8188E_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8812A)
++		#include "rtl8812a/HalEfuseMask8812A_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8821A)
++		#include "rtl8812a/HalEfuseMask8821A_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8192E)
++		#include "rtl8192e/HalEfuseMask8192E_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723B)
++		#include "rtl8723b/HalEfuseMask8723B_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8814A)
++		#include "rtl8814a/HalEfuseMask8814A_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8703B)
++		#include "rtl8703b/HalEfuseMask8703B_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723D)
++		#include "rtl8723d/HalEfuseMask8723D_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8188F)
++		#include "rtl8188f/HalEfuseMask8188F_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8188GTV)
++		#include "rtl8188gtv/HalEfuseMask8188GTV_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8822B)
++		#include "rtl8822b/HalEfuseMask8822B_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8821C)
++		#include "rtl8821c/HalEfuseMask8821C_USB.h"
++	#endif
++	
++	#if defined(CONFIG_RTL8710B)
++		#include "rtl8710b/HalEfuseMask8710B_USB.h"
++	#endif
++	
++	#if defined(CONFIG_RTL8192F)
++		#include "rtl8192f/HalEfuseMask8192F_USB.h"
++	#endif
++	#if defined(CONFIG_RTL8822C)
++		#include "rtl8822c/HalEfuseMask8822C_USB.h"
++	#endif
++	#if defined(CONFIG_RTL8814B)
++		#include "rtl8814b/HalEfuseMask8814B_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723F)
++		#include "rtl8723f/HalEfuseMask8723F_USB.h"
++	#endif
++
++	#if defined(CONFIG_RTL8822E)
++		#include "rtl8822e/HalEfuseMask8822E_USB.h"
++	#endif
++#endif /*CONFIG_USB_HCI*/
++
++#ifdef CONFIG_PCI_HCI
++
++	#if defined(CONFIG_RTL8188E)
++		#include "rtl8188e/HalEfuseMask8188E_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8812A)
++		#include "rtl8812a/HalEfuseMask8812A_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8821A)
++		#include "rtl8812a/HalEfuseMask8821A_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8192E)
++		#include "rtl8192e/HalEfuseMask8192E_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723B)
++		#include "rtl8723b/HalEfuseMask8723B_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8814A)
++		#include "rtl8814a/HalEfuseMask8814A_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8703B)
++		#include "rtl8703b/HalEfuseMask8703B_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8822B)
++		#include "rtl8822b/HalEfuseMask8822B_PCIE.h"
++	#endif
++	#if defined(CONFIG_RTL8723D)
++		#include "rtl8723d/HalEfuseMask8723D_PCIE.h"
++	#endif
++	#if defined(CONFIG_RTL8821C)
++		#include "rtl8821c/HalEfuseMask8821C_PCIE.h"
++	#endif
++
++	#if defined(CONFIG_RTL8192F)
++		#include "rtl8192f/HalEfuseMask8192F_PCIE.h"
++	#endif
++	#if defined(CONFIG_RTL8822C)
++		#include "rtl8822c/HalEfuseMask8822C_PCIE.h"
++	#endif
++	#if defined(CONFIG_RTL8814B)
++		#include "rtl8814b/HalEfuseMask8814B_PCIE.h"
++	#endif
++	#if defined(CONFIG_RTL8822E)
++		#include "rtl8822e/HalEfuseMask8822E_PCIE.h"
++	#endif
++#endif /*CONFIG_PCI_HCI*/
++#ifdef CONFIG_SDIO_HCI
++	#if defined(CONFIG_RTL8723B)
++		#include "rtl8723b/HalEfuseMask8723B_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8188E)
++		#include "rtl8188e/HalEfuseMask8188E_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8703B)
++		#include "rtl8703b/HalEfuseMask8703B_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8188F)
++		#include "rtl8188f/HalEfuseMask8188F_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8188GTV)
++		#include "rtl8188gtv/HalEfuseMask8188GTV_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723D)
++		#include "rtl8723d/HalEfuseMask8723D_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8192E)
++		#include "rtl8192e/HalEfuseMask8192E_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8821A)
++		#include "rtl8812a/HalEfuseMask8821A_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8821C)
++		#include "rtl8821c/HalEfuseMask8821C_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8822B)
++		#include "rtl8822b/HalEfuseMask8822B_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8192F)
++		#include "rtl8192f/HalEfuseMask8192F_SDIO.h"
++	#endif
++
++
++	#if defined(CONFIG_RTL8822C)
++		#include "rtl8822c/HalEfuseMask8822C_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8723F)
++		#include "rtl8723f/HalEfuseMask8723F_SDIO.h"
++	#endif
++
++	#if defined(CONFIG_RTL8822E)
++		#include "rtl8822e/HalEfuseMask8822E_SDIO.h"
++	#endif
++#endif /*CONFIG_SDIO_HCI*/
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.c b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.c
+new file mode 100755
+index 0000000..ece7a31
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.c
+@@ -0,0 +1,195 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++#include <drv_types.h>
++
++#include "HalEfuseMask8822C_PCIE.h"
++
++/******************************************************************************
++*                           MPCIE.TXT
++******************************************************************************/
++
++u8 Array_MP_8822C_MPCIE_BT[] = {
++		0x00,
++		0x41,
++		0x00,
++		0x70,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x02,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x08,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0xCF,
++		0xFF,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++};
++
++u8 Array_MP_8822C_MPCIE[] = {
++	0xFF,
++	0xF7,
++	0xEF,
++	0xDE,
++	0xFC,
++	0xFB,
++	0x10,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x03,
++	0xF7,
++	0xD7,
++	0x00,
++	0x00,
++	0x71,
++	0xF1,
++	0xFF,
++	0xFF,
++	0x7E,
++	0xFC,
++	0xFF,
++	0xF1,
++	0x00,
++	0xD0,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++};
++
++/* BT  eFuse Maks */
++u16 EFUSE_GetBTArrayLen_MP_8822C_MPCIE(void)
++{
++	return sizeof(Array_MP_8822C_MPCIE_BT) / sizeof(u8);
++}
++
++void EFUSE_GetBTMaskArray_MP_8822C_MPCIE(u8 *Array)
++{
++	u16 len = EFUSE_GetBTArrayLen_MP_8822C_MPCIE(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MPCIE_BT[i];
++}
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MPCIE(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MPCIE_BT[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MPCIE_BT[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
++
++/* WiFi eFuse Maks */
++u16 EFUSE_GetArrayLen_MP_8822C_MPCIE(void)
++{
++	return sizeof(Array_MP_8822C_MPCIE) / sizeof(u8);
++}
++
++void EFUSE_GetMaskArray_MP_8822C_MPCIE(u8 *Array)
++{
++	u16 len = EFUSE_GetArrayLen_MP_8822C_MPCIE(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MPCIE[i];
++}
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MPCIE(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MPCIE[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MPCIE[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.h b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.h
+new file mode 100755
+index 0000000..57824d0
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_PCIE.h
+@@ -0,0 +1,33 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++
++
++/******************************************************************************
++*                           MPCIE.TXT
++******************************************************************************/
++
++
++u16 EFUSE_GetArrayLen_MP_8822C_MPCIE(void);
++
++void EFUSE_GetMaskArray_MP_8822C_MPCIE(u8 *Array);
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MPCIE(u16 Offset);
++
++u16 EFUSE_GetBTArrayLen_MP_8822C_MPCIE(void);
++
++void EFUSE_GetBTMaskArray_MP_8822C_MPCIE(u8 *Array);
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MPCIE(u16 Offset);
++
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.c b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.c
+new file mode 100755
+index 0000000..7c5fd99
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.c
+@@ -0,0 +1,194 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++#include <drv_types.h>
++
++#include "HalEfuseMask8822C_SDIO.h"
++
++/******************************************************************************
++*                           MSDIO.TXT
++******************************************************************************/	
++u8 Array_MP_8822C_MSDIO_BT[] = {
++		0x00,
++		0x41,
++		0x00,
++		0x70,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x02,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x08,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0xCF,
++		0xFF,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++};
++
++u8 Array_MP_8822C_MSDIO[] = {
++	0xFF,
++	0xF7,
++	0xEF,
++	0xDE,
++	0xFC,
++	0xFB,
++	0x10,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x03,
++	0xF7,
++	0xD7,
++	0x00,
++	0x00,
++	0x71,
++	0xF1,
++	0x76,
++	0x00,
++	0x00,
++	0x00,
++	0x0E,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++};
++
++/*	BT eFuse Mask  */
++u16 EFUSE_GetBTArrayLen_MP_8822C_MSDIO(void)
++{
++	return sizeof(Array_MP_8822C_MSDIO_BT) / sizeof(u8);
++}
++
++void EFUSE_GetBTMaskArray_MP_8822C_MSDIO(u8 *Array)
++{
++	u16 len = EFUSE_GetBTArrayLen_MP_8822C_MSDIO(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MSDIO_BT[i];
++}
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MSDIO(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MSDIO_BT[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MSDIO_BT[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
++
++/*	WiFi eFuse Mask  */
++u16 EFUSE_GetArrayLen_MP_8822C_MSDIO(void)
++{
++	return sizeof(Array_MP_8822C_MSDIO) / sizeof(u8);
++}
++
++void EFUSE_GetMaskArray_MP_8822C_MSDIO(u8 *Array)
++{
++	u16 len = EFUSE_GetArrayLen_MP_8822C_MSDIO(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MSDIO[i];
++}
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MSDIO(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MSDIO[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MSDIO[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.h b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.h
+new file mode 100755
+index 0000000..6291981
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_SDIO.h
+@@ -0,0 +1,34 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++
++
++
++/******************************************************************************
++*                           MSDIO.TXT
++******************************************************************************/
++
++
++u16 EFUSE_GetArrayLen_MP_8822C_MSDIO(void);
++
++void EFUSE_GetMaskArray_MP_8822C_MSDIO(u8 *Array);
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MSDIO(u16 Offset);
++
++u16 EFUSE_GetBTArrayLen_MP_8822C_MSDIO(void);
++
++void EFUSE_GetBTMaskArray_MP_8822C_MSDIO(u8 *Array);
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MSDIO(u16 Offset);
++
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.c b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.c
+new file mode 100755
+index 0000000..5becf8b
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.c
+@@ -0,0 +1,197 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++#include <drv_types.h>
++
++#include "HalEfuseMask8822C_USB.h"
++
++/******************************************************************************
++*                           MUSB.TXT
++******************************************************************************/
++
++u8 Array_MP_8822C_MUSB_BT[] = {
++		0x00,
++		0x41,
++		0x00,
++		0x70,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x02,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x08,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0xCF,
++		0xFF,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++		0x00,
++};
++
++u8 Array_MP_8822C_MUSB[] = {
++	0xFF,
++	0xF7,
++	0xEF,
++	0xDE,
++	0xFC,
++	0xFB,
++	0x10,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x03,
++	0xF7,
++	0xD7,
++	0x00,
++	0x00,
++	0x71,
++	0xF1,
++	0x00,
++	0x00,
++	0x00,
++	0xFF,
++	0xFF,
++	0xFF,
++	0xFF,
++	0xD0,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++	0x00,
++};
++
++/* BT eFuse Mask */
++
++u16 EFUSE_GetBTArrayLen_MP_8822C_MUSB(void)
++{
++	return sizeof(Array_MP_8822C_MUSB_BT) / sizeof(u8);
++}
++
++void EFUSE_GetBTMaskArray_MP_8822C_MUSB(u8 *Array)
++{
++	u16 len = EFUSE_GetBTArrayLen_MP_8822C_MUSB(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MUSB_BT[i];
++}
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MUSB(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MUSB_BT[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MUSB_BT[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
++
++
++/* WiFi eFuse Mask */
++u16 EFUSE_GetArrayLen_MP_8822C_MUSB(void)
++{
++	return sizeof(Array_MP_8822C_MUSB) / sizeof(u8);
++}
++
++void EFUSE_GetMaskArray_MP_8822C_MUSB(u8 *Array)
++{
++	u16 len = EFUSE_GetArrayLen_MP_8822C_MUSB(), i = 0;
++
++	for (i = 0; i < len; ++i)
++		Array[i] = Array_MP_8822C_MUSB[i];
++}
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MUSB(u16 Offset)
++{
++	int r = Offset / 16;
++	int c = (Offset % 16) / 2;
++	int result = 0;
++
++	if (c < 4) /*Upper double word*/
++		result = (Array_MP_8822C_MUSB[r] & (0x10 << c));
++	else
++		result = (Array_MP_8822C_MUSB[r] & (0x01 << (c - 4)));
++
++	return (result > 0) ? 0 : 1;
++}
+diff --git a/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.h b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.h
+new file mode 100755
+index 0000000..476fa92
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/efuse/rtl8822c/HalEfuseMask8822C_USB.h
+@@ -0,0 +1,34 @@
++/******************************************************************************
++*
++ * Copyright(c) 2015 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++ *****************************************************************************/
++
++
++
++/******************************************************************************
++*                           MUSB.TXT
++******************************************************************************/
++
++
++u16 EFUSE_GetArrayLen_MP_8822C_MUSB(void);
++
++void EFUSE_GetMaskArray_MP_8822C_MUSB(u8 *Array);
++
++BOOLEAN EFUSE_IsAddressMasked_MP_8822C_MUSB(u16 Offset);
++
++u16 EFUSE_GetBTArrayLen_MP_8822C_MUSB(void);
++
++void EFUSE_GetBTMaskArray_MP_8822C_MUSB(u8 *Array);
++
++BOOLEAN EFUSE_IsBTAddressMasked_MP_8822C_MUSB(u16 Offset);
++
+-- 
+2.34.1
+

@@ -1,5 +1,7 @@
 # K11C V1.2：官方 SDK 做到 Buildroot + A/B 升级 + 公网 JetKVM
 
+> 没有 6.3GB 官方包也能重建：见 [bsp/README.md](bsp/README.md)（公开基线 + 三层 patch + blobs，fetch→apply→编译）。
+
 下次从零开始，只认这一份。官方包在下面「基线」。本目录是相对那份包的全部改动：补丁、新配置、根文件系统里要放进去的程序。没有整份 SDK，也没有 `update.img`。
 
 2026-11-18 板上跑的就是按这个做出来的系统：Buildroot，A/B 两套根文件系统，电视有画面，公网入口是 `https://app.jetkvm.com`。

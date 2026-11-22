@@ -1,0 +1,38 @@
+From dd71cf3c5ee790e5c0e9ce892309b1288449de4a Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 21 Apr 2026 17:27:45 +0800
+Subject: [PATCH 23/34] feat(k1mini): add k1mini ubuntu debian build config
+
+Origin: kickpi 5b0e634ba982331ae267a04d1fca7816d17d1601
+---
+ .../rockchip_rk3568_kickpi_k1Mini_debian_defconfig           | 5 +++++
+ .../rockchip_rk3568_kickpi_k1Mini_ubuntu_defconfig           | 5 +++++
+ 2 files changed, 10 insertions(+)
+ create mode 100755 device/rockchip/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_debian_defconfig
+ create mode 100755 device/rockchip/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_ubuntu_defconfig
+
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_debian_defconfig b/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_debian_defconfig
+new file mode 100755
+index 0000000..94de183
+--- /dev/null
++++ b/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_debian_defconfig
+@@ -0,0 +1,5 @@
++RK_KERNEL_DTS_NAME="rk3568-kickpi-k1Mini-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
++RK_ROOTFS_SYSTEM=debian
++RK_ROOTFS_SYSTEM_DEBIAN=y
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_ubuntu_defconfig b/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_ubuntu_defconfig
+new file mode 100755
+index 0000000..17faf42
+--- /dev/null
++++ b/.chips/rk3566_rk3568/rockchip_rk3568_kickpi_k1Mini_ubuntu_defconfig
+@@ -0,0 +1,5 @@
++RK_KERNEL_DTS_NAME="rk3568-kickpi-k1Mini-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
++RK_ROOTFS_SYSTEM=ubuntu
++RK_ROOTFS_SYSTEM_UBUNTU=y
+-- 
+2.34.1
+

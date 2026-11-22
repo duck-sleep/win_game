@@ -1,0 +1,26 @@
+From 29a09db6852ffbc41b4b441e290eef08d46ed2db Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:26:44 -0500
+Subject: [PATCH 8/8] device-rockchip: device/rockchip/common
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/device/rockchip@a6ba9949690ee56fe4be717d520f49525097e59b, path device/rockchip
+---
+ common/scripts/mk-kernel.sh | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/common/scripts/mk-kernel.sh b/common/scripts/mk-kernel.sh
+index 6abf49e..0f57954 100755
+--- a/common/scripts/mk-kernel.sh
++++ b/common/scripts/mk-kernel.sh
+@@ -397,6 +397,8 @@ pre_build_hook()
+ 			run_command $KMAKE $@
+ 			;;
+ 		kernel-config | kconfig)
++			#add: kernel-config not need megre RK_KERNEL_CFG_FRAGMENTS
++			RK_KERNEL_CFG_FRAGMENTS=""
+ 			do_build $@
+ 			;;
+ 	esac
+-- 
+2.34.1
+

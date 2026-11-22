@@ -1,0 +1,55 @@
+From e2dabf32ead58f19a2f30fce6079e6e1f9347b3c Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Mon, 18 May 2026 10:38:13 +0800
+Subject: [PATCH 70/73] feat(k8d): add k8d vs6621u wifi config
+
+Origin: kickpi 75a68c0f8df24d6ef1db601d31b1e6d2d1810c96
+---
+ scripts/wifibt-init.sh | 9 +++++++--
+ scripts/wifibt-util.sh | 3 ++-
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/wifibt-init.sh b/scripts/wifibt-init.sh
+index b360d1a..ce355ef 100755
+--- a/scripts/wifibt-init.sh
++++ b/scripts/wifibt-init.sh
+@@ -272,7 +272,11 @@ init_wifi()
+ 	case "$WIFIBT_VENDOR" in
+ 		Broadcom) try_insmod dhd_static_buf ;;
+ 		Realtek) try_insmod rtkm ;;
+-		Seekwave) try_insmod skw_sdio_lite ;;
++		SeekwaveS) try_insmod skw_sdio_lite ;;
++		SeekwaveU) 
++			sleep 2
++			try_insmod skw_usb_lite
++			;;
+ 	esac
+ 
+ 	do_insmod $(echo $WIFIBT_MODULE | tr ':' ' ')
+@@ -280,7 +284,8 @@ init_wifi()
+ 	wait_wifi
+ 
+ 	case "$WIFIBT_VENDOR" in
+-		Seekwave) try_insmod skwbt ;;
++		SeekwaveS) try_insmod skwbt ;;
++		SeekwaveU) try_insmod skwbt ;;
+ 	esac
+ }
+ 
+diff --git a/scripts/wifibt-util.sh b/scripts/wifibt-util.sh
+index 2799b8b..406174d 100755
+--- a/scripts/wifibt-util.sh
++++ b/scripts/wifibt-util.sh
+@@ -135,7 +135,8 @@ Realtek	RTL8822CE	10ec:c822	RTL8822CE.ko
+ Realtek	RTL8822CS	024c:c822	88x2cs.ko
+ Realtek	RTL8822CS	0bda:c822	88x2cs.ko
+ Realtek	RTL8852BE	10ec:b852	8852be.ko
+-Seekwave	ea6x21qx	1ffe:6621	swt6621s_wifi.ko
++SeekwaveS	vs6621s	1ffe:6621	swt6621s_wifi.ko
++SeekwaveU	vs6621u	3607:6621	swt6621u_wifi.ko
+ Realtek	RTL8852BS	024c:b852	8852bs.ko
+ Realtek	RTL8852BU	0bda:a85b	8852bu.ko
+ Broadcom	AP6212A	02d0:a9a6	bcmdhd.ko
+-- 
+2.34.1
+

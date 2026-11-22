@@ -1,0 +1,82 @@
+From 2c60978d30e55f3834c6fc833cba0cd5993b53ab Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:51:01 -0500
+Subject: [PATCH] sdk-top: (root)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Origin: rockchip sdk import 1f9d3a8 vs empty baseline (KickPI 私有根文件，无公开对应), path .
+---
+ .gitignore             | 9 +++++++++
+ Copyright_Statement.md | 1 +
+ Makefile               | 1 +
+ build.sh               | 1 +
+ kernel                 | 1 +
+ rkflash.sh             | 1 +
+ 6 files changed, 14 insertions(+)
+ create mode 100644 .gitignore
+ create mode 120000 Copyright_Statement.md
+ create mode 120000 Makefile
+ create mode 120000 build.sh
+ create mode 120000 kernel
+ create mode 120000 rkflash.sh
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..b8e8afe
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,9 @@
++README.md
++common
++output/
++rockdev
++u-boot/bl31_0x00040000.bin.digest
++u-boot/bl31_0x00040000.bin.gz
++u-boot/examples/standalone/rkspi
++u-boot/tee.bin.digest
++u-boot/tee.bin.gz
+diff --git a/Copyright_Statement.md b/Copyright_Statement.md
+new file mode 120000
+index 0000000..1fd6b42
+--- /dev/null
++++ b/Copyright_Statement.md
+@@ -0,0 +1 @@
++docs/licenses/LICENSE
+\ No newline at end of file
+diff --git a/Makefile b/Makefile
+new file mode 120000
+index 0000000..86bcc8b
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1 @@
++device/rockchip/common/Makefile
+\ No newline at end of file
+diff --git a/build.sh b/build.sh
+new file mode 120000
+index 0000000..7c607a1
+--- /dev/null
++++ b/build.sh
+@@ -0,0 +1 @@
++device/rockchip/common/scripts/build.sh
+\ No newline at end of file
+diff --git a/kernel b/kernel
+new file mode 120000
+index 0000000..fd8d1e4
+--- /dev/null
++++ b/kernel
+@@ -0,0 +1 @@
++kernel-6.1
+\ No newline at end of file
+diff --git a/rkflash.sh b/rkflash.sh
+new file mode 120000
+index 0000000..f1a23cf
+--- /dev/null
++++ b/rkflash.sh
+@@ -0,0 +1 @@
++device/rockchip/common/scripts/rkflash.sh
+\ No newline at end of file
+-- 
+2.34.1
+

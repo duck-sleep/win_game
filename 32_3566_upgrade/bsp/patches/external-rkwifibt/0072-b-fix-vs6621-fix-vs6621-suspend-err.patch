@@ -1,0 +1,26 @@
+From d00c41277873ffdc2a1f51d5e5df343ba212cb3b Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sun, 24 May 2026 11:01:20 +0800
+Subject: [PATCH 71/73] fix(vs6621): fix vs6621 suspend err
+
+Origin: kickpi f682d5cb6d268560930c3d284aef24c0197cf3df
+---
+ drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c b/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
+index b3a76fb..caaf9d3 100755
+--- a/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
++++ b/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
+@@ -857,7 +857,7 @@ static int skw_sdio_suspend(struct device *dev)
+ 	skw_sdio_dbg("[%s]enter\n", __func__);
+ 
+ 	if (skw_sdio->cp_state != 0)
+-		return -EBUSY;
++		skw_sdio_warn("cp_state=%d, suspend anyway\n", skw_sdio->cp_state);
+ 
+ 	skw_sdio_set_suspend_indication();
+ 
+-- 
+2.34.1
+

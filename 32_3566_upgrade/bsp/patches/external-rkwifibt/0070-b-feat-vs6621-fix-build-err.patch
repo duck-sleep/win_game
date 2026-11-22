@@ -1,0 +1,33 @@
+From e00b65c2fb1d67cd1c5e249e65dd67c0b7539f2d Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 14:43:13 +0800
+Subject: [PATCH 69/73] feat(vs6621): fix build err
+
+Origin: kickpi d0ae4483dea052a8feb0671a8ae7e88a5a6dde62
+---
+ drivers/skw6621s/swt6621s_wifi/skw_vendor.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_vendor.c b/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
+index b52877e..672b1f5 100755
+--- a/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
++++ b/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
+@@ -266,12 +266,13 @@ static int skw_vendor_get_usable_channels(struct wiphy *wiphy,
+ 	enum nl80211_band band;
+ 	struct skw_usable_chan *chans;
+ 	struct skw_usable_chan_req *req = (struct skw_usable_chan_req *)data;
++	size_t size_chans;
+ 
+ 	skw_dbg("band_mask: 0x%x\n", req->band_mask);
+ 
+ 	max = ieee80211_get_num_supported_channels(wiphy);
+-
+-	chans = SKW_ZALLOC(max * sizeof(*chans), GFP_KERNEL);
++	size_chans = max * sizeof(*chans);
++	chans = SKW_ZALLOC(size_chans, GFP_KERNEL);
+ 	if (!chans)
+ 		return -ENOMEM;
+ 
+-- 
+2.34.1
+

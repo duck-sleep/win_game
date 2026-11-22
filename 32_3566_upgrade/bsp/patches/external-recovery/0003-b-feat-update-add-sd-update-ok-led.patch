@@ -1,0 +1,62 @@
+From cc67fd98ef53e4412cf9c79eb7ac650468323ebc Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 3 Apr 2026 17:46:45 +0800
+Subject: [PATCH 2/2] feat(update): add sd update ok led
+
+Origin: kickpi d7dff8e787bb1f9fbdc384e135e968754efe7357
+---
+ rkupdate.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/rkupdate.c b/rkupdate.c
+index 4ff83f1..33f7507 100644
+--- a/rkupdate.c
++++ b/rkupdate.c
+@@ -31,6 +31,8 @@
+ #include "install.h"
+ #include "bootloader.h"
+ 
++void do_led_ok(void);
++
+ #define URL_MAX_LENGTH 512
+ #define CMDLINE_LENGTH 2048
+ extern bool bSDBootUpdate;
+@@ -86,6 +88,8 @@ static int start_main (const char *binary, char *args[], int* pipefd)
+         LOGE("Error in %s\n(Status %d)\n", binary, WEXITSTATUS(status));
+         return INSTALL_ERROR;
+     }
++
++    do_led_ok();
+     return INSTALL_SUCCESS;
+ 
+ }
+@@ -184,6 +188,26 @@ void do_led_update(void)
+     }
+ }
+ 
++void do_led_ok(void)
++{
++#define LED_TRIGGER_PATH    "/sys/class/leds/work-led/trigger"
++#define LED_BRIGHTNESS_PATH "/sys/class/leds/work-led/brightness"
++
++    FILE *led_file;
++
++    led_file = fopen(LED_TRIGGER_PATH, "w");
++    if (led_file != NULL) {
++        fputs("none", led_file);
++        fclose(led_file);
++    }
++
++    led_file = fopen(LED_BRIGHTNESS_PATH, "w");
++    if (led_file != NULL) {
++        fputs("1", led_file);
++        fclose(led_file);
++    }
++}
++
+ int do_rk_update(const char *binary, const char *path)
+ {
+     LOGI("[%s] start with main.\n", __func__);
+-- 
+2.34.1
+

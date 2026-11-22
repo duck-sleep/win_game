@@ -1,0 +1,8 @@
+0001-a-sdk-top-root.patch
+0002-b-feat-git-update-debian-.gitignore.patch
+0003-b-feat-git-update-common-.gitignore.patch
+0004-b-feat-.gitignore-update-.gitignore-rule.patch
+0005-b-feat-debian-add-debian-overlay-build-form-debian-lin.patch
+0006-b-feat-build-fix-build-wifibt-mk-image.sh-err.patch
+0007-b-feat-debian-add-DeviceTest-XML-configs-and-update-ki.patch
+0008-b-debian-add-onboard-package-wireplumber-restart-and-o.patch

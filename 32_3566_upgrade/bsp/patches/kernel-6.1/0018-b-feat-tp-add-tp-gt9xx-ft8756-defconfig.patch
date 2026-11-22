@@ -1,0 +1,28 @@
+From 94c408319f9b439c729a0effe8816fbebf0d31fc Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 10:42:22 +0800
+Subject: [PATCH 17/50] feat(tp): add tp gt9xx ft8756  defconfig
+
+Origin: kickpi 691c96cb72b10fc1c17971bd98bc0e434cb5da8f
+---
+ arch/arm64/configs/rockchip_linux_defconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 28e1a7f..ec6f913 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -238,8 +238,10 @@ CONFIG_MOUSE_CYAPA=y
+ CONFIG_MOUSE_ELAN_I2C=y
+ CONFIG_INPUT_TOUCHSCREEN=y
+ CONFIG_TOUCHSCREEN_ATMEL_MXT=y
++CONFIG_TOUCHSCREEN_FT8756=y
+ CONFIG_TOUCHSCREEN_GSL3673=y
+ CONFIG_TOUCHSCREEN_GT1X=y
++CONFIG_TOUCHSCREEN_GT9XX=y
+ CONFIG_TOUCHSCREEN_HYN=y
+ CONFIG_TOUCHSCREEN_ELAN=y
+ CONFIG_TOUCHSCREEN_USB_COMPOSITE=y
+-- 
+2.34.1
+

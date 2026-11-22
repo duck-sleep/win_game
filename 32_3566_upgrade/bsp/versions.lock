@@ -1,0 +1,18 @@
+# versions.lock — 各组件公开基线（fetch.sh 读取）
+# 格式: comp<TAB>method<TAB>url<TAB>ref<TAB>commit<TAB>sha256
+# method: git=按 commit 取（ref 为回退分支）; tarball=下载校验解压; empty=无基线
+external-mpp	git	https://github.com/rockchip-linux/mpp	develop	958803d74e4b53a56fedc1104408bf32a71e22c8	-
+external-linux-rga	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/linux-rga	multi_rga_im2d_api	4c7a04b34487d63d62d83c9d5bec2c3e843976af	-
+external-gstreamer-rockchip	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/gstreamer-rockchip	main	ed9f828600994b174a65130f27a5f48ad1d81228	-
+external-rktoolkit	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/external/rktoolkit	main	bc1d85d6d2a39c67ed2d619f6faf1a996d542722	-
+external-rkwifibt	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/external/rkwifibt	master	a62092c02fcebdf056c660dff9af5e9ffbc613e9	-
+external-recovery	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/recovery	main	dde564ddd12376a8674b3974216cdf37166da5ed	-
+external-rkupdate	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/external/rkupdate	main	bf7b5fa4cff84ebbc69c3bd5821b001149bebc6e	-
+tools	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/tools	main	972d879d2357aa57644db17f637a74de51d9eede	-
+prebuilts	tarball	https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz	-	-	1e33d53dea59c8de823bbdfe0798280bdcd138636c7060da9d77a97ded095a84
+kernel-6.1	git	https://gitlab.com/rockchip_linux_sdk_6.1/rk/kernel-stable	linux-6.1-stan-rkr7	b4ef083dc0c3608e744deabb43dc6b781aadbe6e	-
+u-boot	git	https://gitlab.com/rockchip_linux_sdk_6.1/android/rk/u-boot	next-dev	b028de208803db76212c50098e52470584676a63	-
+buildroot	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot	rockchip/2024.02	d92da2a3f2301e2d37a6afd32cb755f2cfec0643	-
+device-rockchip	git	https://gitlab.com/rockchip_linux_sdk_6.1/linux/device/rockchip	rk3566_rk3568	a6ba9949690ee56fe4be717d520f49525097e59b	-
+rkbin	git	https://github.com/rockchip-linux/rkbin	master	8adadbca3201db2989a224cfd4953ef6b5eb4252	-
+sdk-top	empty	-	-	-	-

@@ -1,0 +1,55 @@
+From fa83fa6167431eae6d0479ca2113ff9112e8a9b1 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:49:19 +0800
+Subject: [PATCH 54/73] feat(wifi): add vs6621 drvier & firmware (part 1/8)
+
+Origin: kickpi 38a920864783bf8dc38f33fdb884c5725f7bad7d
+---
+ drivers/skw6621s/Kconfig  |  9 +++++++++
+ drivers/skw6621s/Makefile | 18 ++++++++++++++++++
+ 2 files changed, 27 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/skw6621s/Kconfig
+ create mode 100755 external/rkwifibt/drivers/skw6621s/Makefile
+
+diff --git a/drivers/skw6621s/Kconfig b/drivers/skw6621s/Kconfig
+new file mode 100755
+index 0000000..1932c49
+--- /dev/null
++++ b/drivers/skw6621s/Kconfig
+@@ -0,0 +1,9 @@
++# SPDX-License-Identifier: GPL-2.0
++if SKW6621S
++
++source "drivers/net/wireless/skw6621s/seekwaveplatform_lite/Kconfig"
++source "drivers/net/wireless/skw6621s/skwbt/Kconfig"
++source "drivers/net/wireless/skw6621s/skwifi/Kconfig"
++source "drivers/net/wireless/skw6621s/swt6621s_wifi/Kconfig"
++
++endif 
+diff --git a/drivers/skw6621s/Makefile b/drivers/skw6621s/Makefile
+new file mode 100755
+index 0000000..3761026
+--- /dev/null
++++ b/drivers/skw6621s/Makefile
+@@ -0,0 +1,18 @@
++# SPDX-License-Identifier: GPL-2.0
++export CONFIG_SEEKWAVE_BSP_DRIVERS=y
++export CONFIG_SKW_SDIOHAL=m
++export CONFIG_SKW_BT=m
++export CONFIG_WLAN_VENDOR_SWT6621S=m
++export CONFIG_SKW6621S=y
++export CONFIG_SWT6621S_LOG_ERROR=y
++obj-$(CONFIG_SKW6621S)	+= seekwaveplatform_lite/
++obj-$(CONFIG_SKW6621S)	+= skwbt/
++obj-$(CONFIG_SKW6621S)	+= skwifi/
++obj-$(CONFIG_SKW6621S)	+= swt6621s_wifi/
++
++clean:
++	rm -f *.o *.ko *.mod.c .*.cmd *.order *.symvers
++	rm -f seekwaveplatform_lite/*.o seekwaveplatform_lite/.*.cmd
++	rm -f skwbt/*.o skwbt/.*.cmd
++	rm -f skwifi/*.o skwifi/.*.cmd
++	rm -f swt6621s_wifi/*.o swt6621s_wifi/.*.cmd
+-- 
+2.34.1
+

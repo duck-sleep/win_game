@@ -1,0 +1,26 @@
+From a19680a57952927ababc980c9dc4755e8c05b3ff Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 31 Mar 2026 10:02:04 +0800
+Subject: [PATCH 18/50] feat(git): update common .gitignore
+
+Origin: kickpi 2de0dcd7bdf84eea7fcbc0276761a1bdd50c4c8d
+---
+ arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
+index ccfc5e8..baa68a2 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-k11c.dtsi
+@@ -23,7 +23,7 @@
+ // #include "rk3566-kickpi-lcd-mipi0-5-720-1280-F050008M01.dtsi"
+ // #include "rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi"
+ // #include "rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi"
+-#include "rk3566-kickpi-lcd-edp.dtsi"
++// #include "rk3566-kickpi-lcd-edp.dtsi"
+ 
+ #include "rk3566-kickpi-extend-30pin.dtsi"
+ // #include "rk3566-kickpi-extend-30pin-pcm1808.dtsi"
+-- 
+2.34.1
+

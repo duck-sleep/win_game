@@ -1,0 +1,42 @@
+From ba929215c311af04638105b1e4467ce1a8963932 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 26 Mar 2026 10:37:07 +0800
+Subject: [PATCH 05/50] feat(led): add led config defconfig
+
+Origin: kickpi 77313884ce1f896d1c299af82a98d32686529397
+---
+ arch/arm64/configs/rockchip_linux_defconfig | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index d2fd3d1..cadf71a 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -517,6 +517,24 @@ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_GPIO=y
+ CONFIG_LEDS_IS31FL32XX=y
++CONFIG_LEDS_TRIGGERS=y
++CONFIG_LEDS_TRIGGER_TIMER=y
++CONFIG_LEDS_TRIGGER_ONESHOT=y
++CONFIG_LEDS_TRIGGER_DISK=y
++CONFIG_LEDS_TRIGGER_MTD=y
++CONFIG_LEDS_TRIGGER_HEARTBEAT=y
++CONFIG_LEDS_TRIGGER_BACKLIGHT=y
++CONFIG_LEDS_TRIGGER_CPU=y
++CONFIG_LEDS_TRIGGER_ACTIVITY=y
++CONFIG_LEDS_TRIGGER_GPIO=y
++CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
++CONFIG_LEDS_TRIGGER_TRANSIENT=y
++CONFIG_LEDS_TRIGGER_CAMERA=y
++CONFIG_LEDS_TRIGGER_PANIC=y
++CONFIG_LEDS_TRIGGER_NETDEV=y
++CONFIG_LEDS_TRIGGER_PATTERN=y
++CONFIG_LEDS_TRIGGER_AUDIO=y
++CONFIG_LEDS_TRIGGER_TTY=y
+ CONFIG_EDAC=y
+ CONFIG_EDAC_ROCKCHIP=y
+ CONFIG_RTC_CLASS=y
+-- 
+2.34.1
+

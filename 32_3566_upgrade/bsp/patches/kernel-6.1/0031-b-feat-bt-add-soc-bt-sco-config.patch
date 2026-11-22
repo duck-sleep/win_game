@@ -1,0 +1,25 @@
+From e10878f1048f786433e7b2feb0f2c753e7e54dbc Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 28 Apr 2026 14:26:37 +0800
+Subject: [PATCH 30/50] feat(bt): add soc bt sco config
+
+Origin: kickpi baa923ef547e6b15be59fa1910d09dd368205824
+---
+ arch/arm64/configs/rockchip_linux_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index 58e99ce..0aa620d 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -438,6 +438,7 @@ CONFIG_SND_SOC_ROCKCHIP_MAX98090=y
+ CONFIG_SND_SOC_ROCKCHIP_MULTICODECS=y
+ CONFIG_SND_SOC_ROCKCHIP_RT5645=y
+ CONFIG_SND_SOC_ROCKCHIP_HDMI=y
++CONFIG_SND_SOC_BT_SCO=y
+ CONFIG_SND_SOC_DUMMY_CODEC=y
+ CONFIG_SND_SOC_ES7202=y
+ CONFIG_SND_SOC_ES7243E=y
+-- 
+2.34.1
+

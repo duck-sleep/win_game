@@ -1,0 +1,28 @@
+From ddfd0311c5409444ff9021e35421c317c740c31e Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 1 Aug 2026 10:04:10 +0800
+Subject: [PATCH 2/2] fix(build): switch buildroot GNU mirror to Tsinghua
+
+USTC GNU mirror returns 403; same fix as rv1126b (c4d11cbd6).
+
+Origin: kickpi ced31a6ee3bab8b5688e294bbe3ae7ad7124ab1e
+---
+ configs/rockchip/base/common.config | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/rockchip/base/common.config b/configs/rockchip/base/common.config
+index 4ff2bb3..dc7780f 100644
+--- a/configs/rockchip/base/common.config
++++ b/configs/rockchip/base/common.config
+@@ -11,7 +11,7 @@ BR2_PRIMARY_SITE="https://sources.buildroot.net"
+ BR2_BACKUP_SITE=""
+ 
+ # Mirror for GNU packages
+-BR2_GNU_MIRROR="https://mirrors.ustc.edu.cn/gnu"
++BR2_GNU_MIRROR="https://mirrors.tuna.tsinghua.edu.cn/gnu"
+ 
+ # Rockchip BSP packages
+ BR2_PACKAGE_ROCKCHIP=y
+-- 
+2.34.1
+

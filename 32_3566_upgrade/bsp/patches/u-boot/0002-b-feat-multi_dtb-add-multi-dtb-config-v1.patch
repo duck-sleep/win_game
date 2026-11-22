@@ -1,0 +1,25 @@
+From cb0ba8008f4c2f0792423f15fddf548f55c76925 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 10:38:25 +0800
+Subject: [PATCH 1/5] feat(multi_dtb): add multi dtb config v1
+
+Origin: kickpi 7f16dc977278f80be1efa41d122c8aed1e974f70
+---
+ configs/rk3568_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/rk3568_defconfig b/configs/rk3568_defconfig
+index 8b7f7fb..53b6586 100644
+--- a/configs/rk3568_defconfig
++++ b/configs/rk3568_defconfig
+@@ -6,6 +6,7 @@ CONFIG_SYS_MALLOC_F_LEN=0x80000
+ CONFIG_SPL_FIT_GENERATOR="arch/arm/mach-rockchip/make_fit_atf.sh"
+ CONFIG_ROCKCHIP_RK3568=y
+ CONFIG_ROCKCHIP_FIT_IMAGE=y
++CONFIG_ROCKCHIP_HWID_DTB=y
+ CONFIG_ROCKCHIP_VENDOR_PARTITION=y
+ CONFIG_DM_DMC=y
+ CONFIG_ROCKCHIP_DMC_FSP=y
+-- 
+2.34.1
+

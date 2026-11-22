@@ -1,0 +1,82 @@
+From b867773e9caa6f38ffad99fb19bbedcca802cd42 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 16 Jul 2026 16:01:15 +0800
+Subject: [PATCH 33/34] feat(k11c): k11c v1.1 v1.2 config
+
+Origin: kickpi c3daab79761d4075ade4a7b2a1f9f22c7737a3f2
+---
+ ...nfig => rockchip_rk3566_kickpi_k11c_v11_debian_defconfig} | 4 ++--
+ ...nfig => rockchip_rk3566_kickpi_k11c_v11_ubuntu_defconfig} | 4 ++--
+ .../rockchip_rk3566_kickpi_k11c_v12_debian_defconfig         | 5 +++++
+ .../rockchip_rk3566_kickpi_k11c_v12_ubuntu_defconfig         | 5 +++++
+ 4 files changed, 14 insertions(+), 4 deletions(-)
+ rename device/rockchip/.chips/rk3566_rk3568/{rockchip_rk3566_kickpi_k11c_debian_defconfig => rockchip_rk3566_kickpi_k11c_v11_debian_defconfig} (52%)
+ mode change 100755 => 100644
+ rename device/rockchip/.chips/rk3566_rk3568/{rockchip_rk3566_kickpi_k11c_ubuntu_defconfig => rockchip_rk3566_kickpi_k11c_v11_ubuntu_defconfig} (52%)
+ mode change 100755 => 100644
+ create mode 100644 device/rockchip/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_debian_defconfig
+ create mode 100644 device/rockchip/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_ubuntu_defconfig
+
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_debian_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_debian_defconfig
+old mode 100755
+new mode 100644
+similarity index 52%
+rename from .chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_debian_defconfig
+rename to .chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_debian_defconfig
+index ce77c9a..03aeb59
+--- a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_debian_defconfig
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_debian_defconfig
+@@ -1,5 +1,5 @@
+-RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-linux"
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-v11-linux"
+ RK_PARAMETER="parameter-buildroot-fit.txt"
+ RK_USE_FIT_IMG=y
+ RK_ROOTFS_SYSTEM=debian
+-RK_ROOTFS_SYSTEM_DEBIAN=y
++RK_ROOTFS_SYSTEM_DEBIAN=y
+\ No newline at end of file
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_ubuntu_defconfig
+old mode 100755
+new mode 100644
+similarity index 52%
+rename from .chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig
+rename to .chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_ubuntu_defconfig
+index a7f8eab..e528fc5
+--- a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_ubuntu_defconfig
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v11_ubuntu_defconfig
+@@ -1,5 +1,5 @@
+-RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-linux"
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-v11-linux"
+ RK_PARAMETER="parameter-buildroot-fit.txt"
+ RK_USE_FIT_IMG=y
+ RK_ROOTFS_SYSTEM=ubuntu
+-RK_ROOTFS_SYSTEM_UBUNTU=y
++RK_ROOTFS_SYSTEM_UBUNTU=y
+\ No newline at end of file
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_debian_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_debian_defconfig
+new file mode 100644
+index 0000000..88ab72a
+--- /dev/null
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_debian_defconfig
+@@ -0,0 +1,5 @@
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-v12-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
++RK_ROOTFS_SYSTEM=debian
++RK_ROOTFS_SYSTEM_DEBIAN=y
+\ No newline at end of file
+diff --git a/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_ubuntu_defconfig b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_ubuntu_defconfig
+new file mode 100644
+index 0000000..9413c99
+--- /dev/null
++++ b/.chips/rk3566_rk3568/rockchip_rk3566_kickpi_k11c_v12_ubuntu_defconfig
+@@ -0,0 +1,5 @@
++RK_KERNEL_DTS_NAME="rk3566-kickpi-k11c-v12-linux"
++RK_PARAMETER="parameter-buildroot-fit.txt"
++RK_USE_FIT_IMG=y
++RK_ROOTFS_SYSTEM=ubuntu
++RK_ROOTFS_SYSTEM_UBUNTU=y
+\ No newline at end of file
+-- 
+2.34.1
+

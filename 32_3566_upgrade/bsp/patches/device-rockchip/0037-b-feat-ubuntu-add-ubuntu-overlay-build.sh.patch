@@ -1,0 +1,34 @@
+From 74a45076597977c02e8e227c96434276011b5761 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 19 May 2026 10:35:42 +0800
+Subject: [PATCH 29/34] feat(ubuntu): add ubuntu overlay build.sh
+
+Origin: kickpi 25e45901d9cfbbd2d8a269c3254b56360b5b7acd
+---
+ common/scripts/mk-rootfs.sh | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/common/scripts/mk-rootfs.sh b/common/scripts/mk-rootfs.sh
+index 2b3f84d..b780e04 100755
+--- a/common/scripts/mk-rootfs.sh
++++ b/common/scripts/mk-rootfs.sh
+@@ -285,9 +285,14 @@ build_ubuntu()
+ 
+ 	UBUNTU_SCRIPT=mk-rootfs-$RK_UBUNTU_VERSION.sh
+ 
+-	RELEASE=$RK_UBUNTU_VERSION TARGET=$TARGET ARCH=$ARCH ./mk-base-ubuntu.sh
++	if [ -f ubuntu-rootfs.img ]; then
++		message "Using overlay mode (ubuntu-rootfs.img found)"
++		VERSION=debug ARCH=$ARCH ./$UBUNTU_SCRIPT ubuntu-rootfs.img
++	else
++		RELEASE=$RK_UBUNTU_VERSION TARGET=$TARGET ARCH=$ARCH ./mk-base-ubuntu.sh
+ 
+-	VERSION=debug ARCH=$ARCH ./$UBUNTU_SCRIPT
++		VERSION=debug ARCH=$ARCH ./$UBUNTU_SCRIPT
++	fi
+ 
+ 	./mk-image.sh
+ 
+-- 
+2.34.1
+

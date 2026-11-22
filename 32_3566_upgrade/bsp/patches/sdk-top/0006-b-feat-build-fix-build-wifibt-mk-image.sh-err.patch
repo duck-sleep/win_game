@@ -1,0 +1,31 @@
+From 1d9b74991c3e8970620d163deb73dbd6774914c2 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 14:45:42 +0800
+Subject: [PATCH 5/7] feat(build): fix build wifibt & mk-image.sh err
+
+Origin: kickpi ddd7ca1854f001180ef1d04b01530d3bfba500a9
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 3d2aa8f..cf909ef 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,6 +1,7 @@
+ device/rockchip/.chip
+ device/rockchip/rk3562
+ device/rockchip/rk3566_rk3568
++device/rockchip/rk3588
+ debian/binary/
+ debian/linaro-bookworm*.tar.gz
+ debian/binary_backup
+@@ -18,3 +19,5 @@ u-boot/bl31_0x00040000.bin.gz
+ u-boot/examples/standalone/rkspi
+ u-boot/tee.bin.digest
+ u-boot/tee.bin.gz
++u-boot/bl31_0x00060000.bin.digest
++u-boot/bl31_0x00060000.bin.gz
+-- 
+2.34.1
+

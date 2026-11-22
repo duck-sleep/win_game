@@ -1,0 +1,26 @@
+From 66fc4065a4658268e010b744d7457829a985b119 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 11:12:27 -0500
+Subject: [PATCH 1/2] kernel-6.1: rockchip_linux_defconfig: enable
+ CONFIG_USB_CONFIGFS_F_HID
+
+Origin: 32_3566_upgrade/patches/01-kernel-hid-and-peripheral.patch
+---
+ arch/arm64/configs/rockchip_linux_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/rockchip_linux_defconfig b/arch/arm64/configs/rockchip_linux_defconfig
+index d65f1f1a8..9235a1b9d 100644
+--- a/arch/arm64/configs/rockchip_linux_defconfig
++++ b/arch/arm64/configs/rockchip_linux_defconfig
+@@ -503,6 +503,7 @@ CONFIG_USB_CONFIGFS_ACM=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_CONFIGFS_F_UVC=y
++CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_TYPEC_TCPM=y
+ CONFIG_TYPEC_TCPCI=y
+ CONFIG_TYPEC_HUSB311=y
+-- 
+2.34.1
+

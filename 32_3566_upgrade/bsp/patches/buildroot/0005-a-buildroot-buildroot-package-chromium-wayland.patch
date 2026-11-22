@@ -1,0 +1,24 @@
+From 1cdc94fe605f6a00eadf36cc58846ea2f9616517 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:40 -0500
+Subject: [PATCH 05/19] buildroot: buildroot/package/chromium-wayland
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/chromium-wayland/chromium-wayland.hash | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/package/chromium-wayland/chromium-wayland.hash b/package/chromium-wayland/chromium-wayland.hash
+index 902c232..9354a63 100644
+--- a/package/chromium-wayland/chromium-wayland.hash
++++ b/package/chromium-wayland/chromium-wayland.hash
+@@ -1,4 +1,4 @@
+ # Locally calculated
+-sha256  51ddd260069edaf77a9a0200f63118f71017a3ebfe2b0112818fea6688370fe0  chromium-ozone-wayland_132.0.6834.83_aarch64.tar.xz
+-sha256  b16522945f381413978148f5a2fcc814f34f7ebb80fd618072d236d7e26d71da  chromium-ozone-wayland_132.0.6834.83_armhf.tar.xz
++sha256  436d066aa64bf26ba8a76aa2778d89a9b0c78d62f0aed1d10d7461a9154d5573  chromium-ozone-wayland_132.0.6834.83_aarch64.tar.xz
++sha256  4132cc6cbf6d42f275b1316b14bcc3f37799a4dfc5ab957542a05c2329f95b0a  chromium-ozone-wayland_132.0.6834.83_armhf.tar.xz
+ sha256  368cca1106be99d39ecd32a38d8305585d802a475effb66380b91ffc9bcf709b  LICENSE
+-- 
+2.34.1
+

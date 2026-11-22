@@ -1,0 +1,68 @@
+From c3be59057ba5bb847871f5e3c7f90cd581455c70 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 2 Apr 2026 14:42:49 +0800
+Subject: [PATCH 20/50] feat(wifi/bt): fix k11c resume sdio wifi err
+
+Origin: kickpi 412af03b63f9f4d1682be809f214509e160bfa65
+---
+ arch/arm64/boot/dts/rockchip/rk3566-kickpi-wifibt.dtsi | 1 +
+ drivers/mmc/core/core.c                                | 5 +++++
+ drivers/mmc/core/host.c                                | 2 ++
+ include/linux/mmc/pm.h                                 | 2 ++
+ 4 files changed, 10 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-wifibt.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-wifibt.dtsi
+index 4bc4078..12e13de 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-wifibt.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-wifibt.dtsi
+@@ -89,6 +89,7 @@ &sdmmc1 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&sdmmc1_bus4 &sdmmc1_cmd &sdmmc1_clk>;
+ 	sd-uhs-sdr104;
++	force-hw-reset-in-resume;
+ 	// rockchip,default-sample-phase = <90>;
+ 	status = "okay";
+ };
+diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
+index 4e7ea76..3a05878 100644
+--- a/drivers/mmc/core/core.c
++++ b/drivers/mmc/core/core.c
+@@ -2047,6 +2047,11 @@ int mmc_sw_reset(struct mmc_card *card)
+ 		pr_warn("%s: tried to SW reset card, got error %d\n",
+ 			mmc_hostname(host), ret);
+ 
++	if (host->pm_caps & MMC_PM_FORCE_HW_RESET) {
++		pr_warn("%s: kickpi force hw reset %d\n", mmc_hostname(host), ret);
++		mmc_hw_reset(card);
++	}
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL(mmc_sw_reset);
+diff --git a/drivers/mmc/core/host.c b/drivers/mmc/core/host.c
+index 21ae863..68454df 100644
+--- a/drivers/mmc/core/host.c
++++ b/drivers/mmc/core/host.c
+@@ -381,6 +381,8 @@ int mmc_of_parse(struct mmc_host *host)
+ 		host->caps2 |= MMC_CAP2_FULL_PWR_CYCLE_IN_SUSPEND;
+ 	if (device_property_read_bool(dev, "keep-power-in-suspend"))
+ 		host->pm_caps |= MMC_PM_KEEP_POWER;
++	if (device_property_read_bool(dev, "force-hw-reset-in-resume"))
++		host->pm_caps |= MMC_PM_FORCE_HW_RESET;
+ 	if (device_property_read_bool(dev, "wakeup-source") ||
+ 	    device_property_read_bool(dev, "enable-sdio-wakeup")) /* legacy */
+ 		host->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
+diff --git a/include/linux/mmc/pm.h b/include/linux/mmc/pm.h
+index 3549f80..c717de8 100644
+--- a/include/linux/mmc/pm.h
++++ b/include/linux/mmc/pm.h
+@@ -24,4 +24,6 @@ typedef unsigned int mmc_pm_flag_t;
+ #define MMC_PM_KEEP_POWER	(1 << 0)	/* preserve card power during suspend */
+ #define MMC_PM_WAKE_SDIO_IRQ	(1 << 1)	/* wake up host system on SDIO IRQ assertion */
+ 
++#define MMC_PM_FORCE_HW_RESET  (1 << 4)        /* hardware reset card during resume */
++
+ #endif /* LINUX_MMC_PM_H */
+-- 
+2.34.1
+

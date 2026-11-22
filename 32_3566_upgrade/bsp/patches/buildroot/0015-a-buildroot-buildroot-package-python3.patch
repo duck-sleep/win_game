@@ -1,0 +1,25 @@
+From 73be23a9942f47e16a927909802966168cd13531 Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 12:23:41 -0500
+Subject: [PATCH 15/19] buildroot: buildroot/package/python3
+
+Origin: rockchip sdk import 1f9d3a8 vs https://gitlab.com/rockchip_linux_sdk_6.1/linux/buildroot@d92da2a3f2301e2d37a6afd32cb755f2cfec0643, path buildroot
+---
+ package/python3/python3.mk | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/package/python3/python3.mk b/package/python3/python3.mk
+index bea2e3e..021d4e0 100644
+--- a/package/python3/python3.mk
++++ b/package/python3/python3.mk
+@@ -38,6 +38,7 @@ HOST_PYTHON3_CONF_OPTS += \
+ # communicate over the network during the build.
+ HOST_PYTHON3_CONF_ENV += \
+ 	LDFLAGS="$(HOST_LDFLAGS) -Wl,--enable-new-dtags" \
++	ac_cv_header_stropts_h=no \
+ 	ac_cv_prog_HAS_HG=/bin/false
+ 
+ PYTHON3_DEPENDENCIES = host-python3 libffi
+-- 
+2.34.1
+

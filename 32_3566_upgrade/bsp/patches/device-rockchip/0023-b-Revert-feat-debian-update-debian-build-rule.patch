@@ -1,0 +1,40 @@
+From 83902be9783119f93b42fe1a609af6b3eae19ace Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 16:02:01 +0800
+Subject: [PATCH 15/34] Revert "feat(debian): update debian build rule"
+
+This reverts commit 2d493f556d5f306248523e98dea5dfdc56dc150e.
+
+Origin: kickpi 28b6e356853782d0dc63b84fb49c9623422db385
+---
+ common/scripts/mk-rootfs.sh | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
+
+diff --git a/common/scripts/mk-rootfs.sh b/common/scripts/mk-rootfs.sh
+index de88d9b..565701c 100755
+--- a/common/scripts/mk-rootfs.sh
++++ b/common/scripts/mk-rootfs.sh
+@@ -399,19 +399,7 @@ build_hook()
+ 	touch "$ROOTFS_DIR/.stamp_build_start"
+ 	case "$ROOTFS" in
+ 		yocto) build_yocto "$IMAGE_DIR" ;;
+-		debian) 
+-			if [ ! -f debian/linaro-rootfs.img ]; then
+-				echo ""
+-				echo -e "\033[31m linaro-rootfs.img file cannot be found.\033[0m"
+-				echo -e "\033[31m will make linaro-rootfs.img.\033[0m"
+-				echo ""
+-				build_debian "$IMAGE_DIR"
+-			else
+-				echo ""
+-				echo -e "\033[31m linaro-rootfs.img file found.\033[0m"
+-				ln -srf debian/linaro-rootfs.img $IMAGE_DIR/$ROOTFS_IMG
+-			fi
+-			;;
++		debian) build_debian "$IMAGE_DIR" ;;
+ 		buildroot) build_buildroot "$IMAGE_DIR" ;;
+ 	esac
+ 	touch "$ROOTFS_DIR/.stamp_build_finish"
+-- 
+2.34.1
+

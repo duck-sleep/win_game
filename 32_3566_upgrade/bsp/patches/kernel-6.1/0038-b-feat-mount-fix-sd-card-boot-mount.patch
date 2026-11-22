@@ -1,0 +1,56 @@
+From e47586ef66d7941020f10615bbade9c00c422a29 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sun, 24 May 2026 10:59:53 +0800
+Subject: [PATCH 37/50] feat(mount):fix sd card boot mount
+
+Origin: kickpi dc6b49a06d2f81e7034883adb7f7cd19e1bf3d9b
+---
+ init/do_mounts.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/init/do_mounts.c b/init/do_mounts.c
+index 2d705b9..d4bc1c3 100644
+--- a/init/do_mounts.c
++++ b/init/do_mounts.c
+@@ -31,6 +31,7 @@ int root_mountflags = MS_RDONLY | MS_SILENT;
+ static char * __initdata root_device_name;
+ static char __initdata saved_root_name[64];
+ static int root_wait;
++static const char *preferred_disk;
+ 
+ dev_t ROOT_DEV;
+ 
+@@ -60,6 +61,18 @@ static int __init readwrite(char *str)
+ __setup("ro", readonly);
+ __setup("rw", readwrite);
+ 
++static int __init storagemedia_setup(char *str)
++{
++	if (strcmp(str, "sd") == 0)
++		preferred_disk = "mmcblk1";
++	else if (strcmp(str, "emmc") == 0)
++		preferred_disk = "mmcblk0";
++	else
++		pr_warn("Unknown storagemedia: %s\n", str);
++	return 1;
++}
++__setup("storagemedia=", storagemedia_setup);
++
+ #ifdef CONFIG_BLOCK
+ struct uuidcmp {
+ 	const char *uuid;
+@@ -81,6 +94,11 @@ static int match_dev_by_uuid(struct device *dev, const void *data)
+ 	if (!bdev->bd_meta_info ||
+ 	    strncasecmp(cmp->uuid, bdev->bd_meta_info->uuid, cmp->len))
+ 		return 0;
++
++	/* 如果指定了优先磁盘，则只匹配该磁盘上的分区 */
++	struct gendisk *disk = dev_to_disk(dev);
++	if (preferred_disk && strcmp(disk->disk_name, preferred_disk) != 0)
++		return 0;
+ 	return 1;
+ }
+ 
+-- 
+2.34.1
+

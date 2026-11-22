@@ -1,0 +1,1186 @@
+From e2252b86cbf63582039b3fa5dce5655e804dc5c2 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:48:01 +0800
+Subject: [PATCH 53/73] feat(wifi): add rtl88x2CS driver (part 53/53)
+
+Origin: kickpi e2b0eaf92399e18f9e8cc09fc9030cf390ed7a41
+---
+ .../platform/custom_country_chplan.h          |  22 +++
+ .../platform/platform_ARM_SUN50IW1P1_sdio.c   |  86 +++++++++++
+ .../platform/platform_ARM_SUNnI_sdio.c        | 130 +++++++++++++++++
+ .../platform/platform_ARM_SUNxI_sdio.c        |  95 ++++++++++++
+ .../platform/platform_ARM_SUNxI_usb.c         | 136 ++++++++++++++++++
+ .../platform/platform_ARM_WMT_sdio.c          |  46 ++++++
+ .../rtl88x2CS/platform/platform_RTK_DMP_usb.c |  30 ++++
+ .../platform/platform_aml_s905_sdio.c         |  54 +++++++
+ .../platform/platform_aml_s905_sdio.h         |  28 ++++
+ .../platform/platform_arm_act_sdio.c          |  53 +++++++
+ .../platform/platform_hisilicon_hi3798_sdio.c | 110 ++++++++++++++
+ .../platform/platform_hisilicon_hi3798_sdio.h |  28 ++++
+ drivers/rtl88x2CS/platform/platform_ops.c     |  32 +++++
+ drivers/rtl88x2CS/platform/platform_ops.h     |  26 ++++
+ .../rtl88x2CS/platform/platform_sprd_sdio.c   |  84 +++++++++++
+ .../platform/platform_zte_zx296716_sdio.c     |  53 +++++++
+ .../platform/platform_zte_zx296716_sdio.h     |  25 ++++
+ 17 files changed, 1038 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/custom_country_chplan.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ARM_SUN50IW1P1_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ARM_SUNnI_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_usb.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ARM_WMT_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_RTK_DMP_usb.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_arm_act_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ops.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_ops.h
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_sprd_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.c
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.h
+
+diff --git a/drivers/rtl88x2CS/platform/custom_country_chplan.h b/drivers/rtl88x2CS/platform/custom_country_chplan.h
+new file mode 100755
+index 0000000..8039f1e
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/custom_country_chplan.h
+@@ -0,0 +1,22 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++
++#error "You have defined CONFIG_CUSTOMIZED_COUNTRY_CHPLAN_MAP to use a customized map of your own instead of the default one"
++#error "Before removing these error notifications, please make sure regulatory certification requirements of your target markets"
++
++static const struct country_chplan CUSTOMIZED_country_chplan_map[] = {
++	COUNTRY_CHPLAN_ENT("TW", 0x76, 0x00, DEF    , 1, 1, 1), /* Taiwan */
++};
++
+diff --git a/drivers/rtl88x2CS/platform/platform_ARM_SUN50IW1P1_sdio.c b/drivers/rtl88x2CS/platform/platform_ARM_SUN50IW1P1_sdio.c
+new file mode 100755
+index 0000000..2586455
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ARM_SUN50IW1P1_sdio.c
+@@ -0,0 +1,86 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++/*
++ * Description:
++ *	This file can be applied to following platforms:
++ *	CONFIG_PLATFORM_ARM_SUN50IW1P1
++ */
++#include <drv_types.h>
++#ifdef CONFIG_GPIO_WAKEUP
++#include <linux/gpio.h>
++#endif
++
++#ifdef CONFIG_MMC
++#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
++extern void sunxi_mmc_rescan_card(unsigned ids);
++extern void sunxi_wlan_set_power(int on);
++extern int sunxi_wlan_get_bus_index(void);
++extern int sunxi_wlan_get_oob_irq(void);
++extern int sunxi_wlan_get_oob_irq_flags(void);
++#endif
++#ifdef CONFIG_GPIO_WAKEUP
++extern unsigned int oob_irq;
++#endif
++#endif /* CONFIG_MMC */
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++#ifdef CONFIG_MMC
++	{
++
++#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
++		int wlan_bus_index = sunxi_wlan_get_bus_index();
++		if (wlan_bus_index < 0)
++			return wlan_bus_index;
++
++		sunxi_wlan_set_power(1);
++		mdelay(100);
++		sunxi_mmc_rescan_card(wlan_bus_index);
++#endif
++		RTW_INFO("%s: power up, rescan card.\n", __FUNCTION__);
++
++#ifdef CONFIG_GPIO_WAKEUP
++#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
++		oob_irq = sunxi_wlan_get_oob_irq();
++#endif
++#endif /* CONFIG_GPIO_WAKEUP */
++	}
++#endif /* CONFIG_MMC */
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++#ifdef CONFIG_MMC
++#if defined(CONFIG_PLATFORM_ARM_SUN50IW1P1)
++	int wlan_bus_index = sunxi_wlan_get_bus_index();
++	if (wlan_bus_index < 0)
++		return;
++
++	sunxi_mmc_rescan_card(wlan_bus_index);
++	mdelay(100);
++	sunxi_wlan_set_power(0);
++#endif
++	RTW_INFO("%s: remove card, power off.\n", __FUNCTION__);
++#endif /* CONFIG_MMC */
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_ARM_SUNnI_sdio.c b/drivers/rtl88x2CS/platform/platform_ARM_SUNnI_sdio.c
+new file mode 100755
+index 0000000..8a52aa9
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ARM_SUNnI_sdio.c
+@@ -0,0 +1,130 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++/*
++ * Description:
++ *	This file can be applied to following platforms:
++ *	CONFIG_PLATFORM_ARM_SUN6I
++ *	CONFIG_PLATFORM_ARM_SUN7I
++ *	CONFIG_PLATFORM_ARM_SUN8I
++ */
++#include <drv_types.h>
++#include <mach/sys_config.h>
++#ifdef CONFIG_GPIO_WAKEUP
++#include <linux/gpio.h>
++#endif
++
++#ifdef CONFIG_MMC
++static int sdc_id = -1;
++static signed int gpio_eint_wlan = -1;
++static u32 eint_wlan_handle = 0;
++
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++extern void sw_mci_rescan_card(unsigned id, unsigned insert);
++#elif defined(CONFIG_PLATFORM_ARM_SUN8I)
++extern void sunxi_mci_rescan_card(unsigned id, unsigned insert);
++#endif
++
++#ifdef CONFIG_PLATFORM_ARM_SUN8I_W5P1
++extern int get_rf_mod_type(void);
++#else
++extern int wifi_pm_get_mod_type(void);
++#endif
++
++extern void wifi_pm_power(int on);
++#ifdef CONFIG_GPIO_WAKEUP
++extern unsigned int oob_irq;
++#endif
++#endif /* CONFIG_MMC */
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++#ifdef CONFIG_MMC
++	{
++		script_item_u val;
++		script_item_value_type_e type;
++
++#ifdef CONFIG_PLATFORM_ARM_SUN8I_W5P1
++		unsigned int mod_sel = get_rf_mod_type();
++#else
++		unsigned int mod_sel = wifi_pm_get_mod_type();
++#endif
++
++		type = script_get_item("wifi_para", "wifi_sdc_id", &val);
++		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
++			RTW_INFO("get wifi_sdc_id failed\n");
++			ret = -1;
++		} else {
++			sdc_id = val.val;
++			RTW_INFO("----- %s sdc_id: %d, mod_sel: %d\n", __FUNCTION__, sdc_id, mod_sel);
++
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++			sw_mci_rescan_card(sdc_id, 1);
++#elif defined(CONFIG_PLATFORM_ARM_SUN8I)
++			sunxi_mci_rescan_card(sdc_id, 1);
++#endif
++			mdelay(100);
++			wifi_pm_power(1);
++
++			RTW_INFO("%s: power up, rescan card.\n", __FUNCTION__);
++		}
++
++#ifdef CONFIG_GPIO_WAKEUP
++#ifdef CONFIG_PLATFORM_ARM_SUN8I_W5P1
++		type = script_get_item("wifi_para", "wl_host_wake", &val);
++#else
++#ifdef CONFIG_RTL8723B
++		type = script_get_item("wifi_para", "rtl8723bs_wl_host_wake", &val);
++#endif
++#ifdef CONFIG_RTL8188E
++		type = script_get_item("wifi_para", "rtl8189es_host_wake", &val);
++#endif
++#endif /* CONFIG_PLATFORM_ARM_SUN8I_W5P1 */
++		if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
++			RTW_INFO("No definition of wake up host PIN\n");
++			ret = -1;
++		} else {
++			gpio_eint_wlan = val.gpio.gpio;
++#ifdef CONFIG_PLATFORM_ARM_SUN8I
++			oob_irq = gpio_to_irq(gpio_eint_wlan);
++#endif
++		}
++#endif /* CONFIG_GPIO_WAKEUP */
++	}
++#endif /* CONFIG_MMC */
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++#ifdef CONFIG_MMC
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++	sw_mci_rescan_card(sdc_id, 0);
++#elif defined(CONFIG_PLATFORM_ARM_SUN8I)
++	sunxi_mci_rescan_card(sdc_id, 0);
++#endif
++	mdelay(100);
++	wifi_pm_power(0);
++
++	RTW_INFO("%s: remove card, power off.\n", __FUNCTION__);
++#endif /* CONFIG_MMC */
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_sdio.c b/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_sdio.c
+new file mode 100755
+index 0000000..c7c4752
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_sdio.c
+@@ -0,0 +1,95 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <drv_types.h>
++
++#ifdef CONFIG_MMC_SUNXI_POWER_CONTROL
++#ifdef CONFIG_WITS_EVB_V13
++	#define SDIOID	0
++#else /* !CONFIG_WITS_EVB_V13 */
++	#define SDIOID (CONFIG_CHIP_ID == 1123 ? 3 : 1)
++#endif /* !CONFIG_WITS_EVB_V13 */
++
++#define SUNXI_SDIO_WIFI_NUM_RTL8189ES  10
++extern void sunximmc_rescan_card(unsigned id, unsigned insert);
++extern int mmc_pm_get_mod_type(void);
++extern int mmc_pm_gpio_ctrl(char *name, int level);
++/*
++ *	rtl8189es_shdn	= port:PH09<1><default><default><0>
++ *	rtl8189es_wakeup	= port:PH10<1><default><default><1>
++ *	rtl8189es_vdd_en  = port:PH11<1><default><default><0>
++ *	rtl8189es_vcc_en  = port:PH12<1><default><default><0>
++ */
++
++int rtl8189es_sdio_powerup(void)
++{
++	mmc_pm_gpio_ctrl("rtl8189es_vdd_en", 1);
++	udelay(100);
++	mmc_pm_gpio_ctrl("rtl8189es_vcc_en", 1);
++	udelay(50);
++	mmc_pm_gpio_ctrl("rtl8189es_shdn", 1);
++	return 0;
++}
++
++int rtl8189es_sdio_poweroff(void)
++{
++	mmc_pm_gpio_ctrl("rtl8189es_shdn", 0);
++	mmc_pm_gpio_ctrl("rtl8189es_vcc_en", 0);
++	mmc_pm_gpio_ctrl("rtl8189es_vdd_en", 0);
++	return 0;
++}
++#endif /* CONFIG_MMC_SUNXI_POWER_CONTROL */
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others:	power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++#ifdef CONFIG_MMC_SUNXI_POWER_CONTROL
++	unsigned int mod_sel = mmc_pm_get_mod_type();
++#endif /* CONFIG_MMC_SUNXI_POWER_CONTROL */
++
++
++#ifdef CONFIG_MMC_SUNXI_POWER_CONTROL
++	if (mod_sel == SUNXI_SDIO_WIFI_NUM_RTL8189ES) {
++		rtl8189es_sdio_powerup();
++		sunximmc_rescan_card(SDIOID, 1);
++		printk("[rtl8189es] %s: power up, rescan card.\n", __FUNCTION__);
++	} else {
++		ret = -1;
++		printk("[rtl8189es] %s: mod_sel = %d is incorrect.\n", __FUNCTION__, mod_sel);
++	}
++#endif /* CONFIG_MMC_SUNXI_POWER_CONTROL */
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++#ifdef CONFIG_MMC_SUNXI_POWER_CONTROL
++	sunximmc_rescan_card(SDIOID, 0);
++#ifdef CONFIG_RTL8188E
++	rtl8189es_sdio_poweroff();
++	printk("[rtl8189es] %s: remove card, power off.\n", __FUNCTION__);
++#endif /* CONFIG_RTL8188E */
++#endif /* CONFIG_MMC_SUNXI_POWER_CONTROL */
++}
++
++void platform_wifi_mac_addr(u8 *mac_addr)
++{
++
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_usb.c b/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_usb.c
+new file mode 100755
+index 0000000..9c2abc4
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ARM_SUNxI_usb.c
+@@ -0,0 +1,136 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++/*
++ * Description:
++ *	This file can be applied to following platforms:
++ *	CONFIG_PLATFORM_ARM_SUNXI Series platform
++ *
++ */
++
++#include <drv_types.h>
++#include <mach/sys_config.h>
++
++#ifdef CONFIG_PLATFORM_ARM_SUNxI
++extern int sw_usb_disable_hcd(__u32 usbc_no);
++extern int sw_usb_enable_hcd(__u32 usbc_no);
++static int usb_wifi_host = 2;
++#endif
++
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++extern int sw_usb_disable_hcd(__u32 usbc_no);
++extern int sw_usb_enable_hcd(__u32 usbc_no);
++extern void wifi_pm_power(int on);
++static script_item_u item;
++#endif
++
++#ifdef CONFIG_PLATFORM_ARM_SUN8I
++extern int sunxi_usb_disable_hcd(__u32 usbc_no);
++extern int sunxi_usb_enable_hcd(__u32 usbc_no);
++extern void wifi_pm_power(int on);
++static script_item_u item;
++#endif
++
++
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++#ifdef CONFIG_PLATFORM_ARM_SUNxI
++#ifndef CONFIG_RTL8723A
++	{
++		/* ----------get usb_wifi_usbc_num------------- */
++		ret = script_parser_fetch("usb_wifi_para", "usb_wifi_usbc_num", (int *)&usb_wifi_host, 64);
++		if (ret != 0) {
++			RTW_INFO("ERR: script_parser_fetch usb_wifi_usbc_num failed\n");
++			ret = -ENOMEM;
++			goto exit;
++		}
++		RTW_INFO("sw_usb_enable_hcd: usbc_num = %d\n", usb_wifi_host);
++		sw_usb_enable_hcd(usb_wifi_host);
++	}
++#endif /* CONFIG_RTL8723A */
++#endif /* CONFIG_PLATFORM_ARM_SUNxI */
++
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++	{
++		script_item_value_type_e type;
++
++		type = script_get_item("wifi_para", "wifi_usbc_id", &item);
++		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
++			printk("ERR: script_get_item wifi_usbc_id failed\n");
++			ret = -ENOMEM;
++			goto exit;
++		}
++
++		printk("sw_usb_enable_hcd: usbc_num = %d\n", item.val);
++		wifi_pm_power(1);
++		mdelay(10);
++
++#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
++		sw_usb_enable_hcd(item.val);
++#endif
++	}
++#endif /* defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I) */
++
++#if defined(CONFIG_PLATFORM_ARM_SUN8I)
++	{
++		script_item_value_type_e type;
++
++		type = script_get_item("wifi_para", "wifi_usbc_id", &item);
++		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
++			printk("ERR: script_get_item wifi_usbc_id failed\n");
++			ret = -ENOMEM;
++			goto exit;
++		}
++
++		printk("sw_usb_enable_hcd: usbc_num = %d\n", item.val);
++		wifi_pm_power(1);
++		mdelay(10);
++
++#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
++		sunxi_usb_enable_hcd(item.val);
++#endif
++	}
++#endif /* CONFIG_PLATFORM_ARM_SUN8I */
++
++exit:
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++
++#ifdef CONFIG_PLATFORM_ARM_SUNxI
++#ifndef CONFIG_RTL8723A
++	RTW_INFO("sw_usb_disable_hcd: usbc_num = %d\n", usb_wifi_host);
++	sw_usb_disable_hcd(usb_wifi_host);
++#endif /* ifndef CONFIG_RTL8723A */
++#endif /* CONFIG_PLATFORM_ARM_SUNxI */
++
++#if defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I)
++	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
++	sw_usb_disable_hcd(item.val);
++	#endif
++	wifi_pm_power(0);
++#endif /* defined(CONFIG_PLATFORM_ARM_SUN6I) || defined(CONFIG_PLATFORM_ARM_SUN7I) */
++
++#if defined(CONFIG_PLATFORM_ARM_SUN8I)
++	#if !(defined(CONFIG_RTL8723A)) && !(defined(CONFIG_RTL8723B))
++	sunxi_usb_disable_hcd(item.val);
++	#endif
++	wifi_pm_power(0);
++#endif /* defined(CONFIG_PLATFORM_ARM_SUN8I) */
++
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_ARM_WMT_sdio.c b/drivers/rtl88x2CS/platform/platform_ARM_WMT_sdio.c
+new file mode 100755
+index 0000000..d85002c
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ARM_WMT_sdio.c
+@@ -0,0 +1,46 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <drv_types.h>
++#include <mach/wmt_iomux.h>
++#include <linux/gpio.h>
++
++extern void wmt_detect_sdio2(void);
++extern void force_remove_sdio2(void);
++
++int platform_wifi_power_on(void)
++{
++	int err = 0;
++	err = gpio_request(WMT_PIN_GP62_SUSGPIO1, "wifi_chip_en");
++	if (err < 0) {
++		printk("request gpio for rtl8188eu failed!\n");
++		return err;
++	}
++	gpio_direction_output(WMT_PIN_GP62_SUSGPIO1, 0);/* pull sus_gpio1 to 0 to open vcc_wifi. */
++	printk("power on rtl8189.\n");
++	msleep(500);
++	wmt_detect_sdio2();
++	printk("[rtl8189es] %s: new card, power on.\n", __FUNCTION__);
++	return err;
++}
++
++void platform_wifi_power_off(void)
++{
++	force_remove_sdio2();
++
++	gpio_direction_output(WMT_PIN_GP62_SUSGPIO1, 1);/* pull sus_gpio1 to 1 to close vcc_wifi. */
++	printk("power off rtl8189.\n");
++	gpio_free(WMT_PIN_GP62_SUSGPIO1);
++	printk("[rtl8189es] %s: remove card, power off.\n", __FUNCTION__);
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_RTK_DMP_usb.c b/drivers/rtl88x2CS/platform/platform_RTK_DMP_usb.c
+new file mode 100755
+index 0000000..cb740b2
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_RTK_DMP_usb.c
+@@ -0,0 +1,30 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <drv_types.h>
++
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++	u32 tmp;
++	tmp = readl((volatile unsigned int *)0xb801a608);
++	tmp &= 0xffffff00;
++	tmp |= 0x55;
++	writel(tmp, (volatile unsigned int *)0xb801a608); /* write dummy register for 1055 */
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.c b/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.c
+new file mode 100755
+index 0000000..334ca03
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.c
+@@ -0,0 +1,54 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2016 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <linux/printk.h>		/* pr_info(() */
++#include <linux/delay.h>		/* msleep() */
++#include "platform_aml_s905_sdio.h"	/* sdio_reinit() and etc */
++
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others:	power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
++	ret = wifi_setup_dt();
++	if (ret) {
++		pr_err("%s: setup dt failed!!(%d)\n", __func__, ret);
++		return -1;
++	}
++#endif /* kernel < 3.14.0 */
++
++#if 0 /* Seems redundancy? Already done before insert driver */
++	pr_info("######%s:\n", __func__);
++	extern_wifi_set_enable(0);
++	msleep(500);
++	extern_wifi_set_enable(1);
++	msleep(500);
++	sdio_reinit();
++#endif
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
++	wifi_teardown_dt();
++#endif /* kernel < 3.14.0 */
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.h b/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.h
+new file mode 100755
+index 0000000..2b87576
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_aml_s905_sdio.h
+@@ -0,0 +1,28 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2016 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#ifndef __PLATFORM_AML_S905_SDIO_H__
++#define __PLATFORM_AML_S905_SDIO_H__
++
++#include <linux/version.h>	/* Linux vresion */
++
++extern void sdio_reinit(void);
++extern void extern_wifi_set_enable(int is_on);
++
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
++extern void wifi_teardown_dt(void);
++extern int wifi_setup_dt(void);
++#endif /* kernel < 3.14.0 */
++
++#endif /* __PLATFORM_AML_S905_SDIO_H__ */
+diff --git a/drivers/rtl88x2CS/platform/platform_arm_act_sdio.c b/drivers/rtl88x2CS/platform/platform_arm_act_sdio.c
+new file mode 100755
+index 0000000..ad7b6cf
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_arm_act_sdio.c
+@@ -0,0 +1,53 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++/*
++ * Description:
++ *	This file can be applied to following platforms:
++ *    CONFIG_PLATFORM_ACTIONS_ATM703X
++ */
++#include <drv_types.h>
++
++#ifdef CONFIG_PLATFORM_ACTIONS_ATM705X
++extern int acts_wifi_init(void);
++extern void acts_wifi_cleanup(void);
++#endif
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++#ifdef CONFIG_PLATFORM_ACTIONS_ATM705X
++	ret = acts_wifi_init();
++	if (unlikely(ret < 0)) {
++		pr_err("%s Failed to register the power control driver.\n", __FUNCTION__);
++		goto exit;
++	}
++#endif
++
++exit:
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++#ifdef CONFIG_PLATFORM_ACTIONS_ATM705X
++	acts_wifi_cleanup();
++#endif
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.c b/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.c
+new file mode 100755
+index 0000000..11a0832
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.c
+@@ -0,0 +1,110 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2017 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <linux/delay.h>		/* mdelay() */
++#include <mach/hardware.h>		/* __io_address(), readl(), writel() */
++#include "platform_hisilicon_hi3798_sdio.h"	/* HI_S32() and etc. */
++
++typedef enum hi_GPIO_DIR_E {
++	HI_DIR_OUT = 0,
++	HI_DIR_IN  = 1,
++} HI_GPIO_DIR_E;
++
++#define RTL_REG_ON_GPIO		(4*8 + 3)
++
++#define REG_BASE_CTRL		__io_address(0xf8a20008)
++
++int gpio_wlan_reg_on = RTL_REG_ON_GPIO;
++#if 0
++module_param(gpio_wlan_reg_on, uint, 0644);
++MODULE_PARM_DESC(gpio_wlan_reg_on, "wlan reg_on gpio num (default:gpio4_3)");
++#endif
++
++static int hi_gpio_set_value(u32 gpio, u32 value)
++{
++	HI_S32 s32Status;
++
++	s32Status = HI_DRV_GPIO_SetDirBit(gpio, HI_DIR_OUT);
++	if (s32Status != HI_SUCCESS) {
++		pr_err("gpio(%d) HI_DRV_GPIO_SetDirBit HI_DIR_OUT failed\n",
++			gpio);
++		return -1;
++	}
++
++	s32Status = HI_DRV_GPIO_WriteBit(gpio, value);
++	if (s32Status != HI_SUCCESS) {
++		pr_err("gpio(%d) HI_DRV_GPIO_WriteBit value(%d) failed\n",
++			gpio, value);
++		return -1;
++	}
++
++	return 0;
++}
++
++static int hisi_wlan_set_carddetect(bool present)
++{
++	u32 regval;
++	u32 mask;
++
++
++#ifndef CONFIG_HISI_SDIO_ID
++	return;
++#endif
++	pr_info("SDIO ID=%d\n", CONFIG_HISI_SDIO_ID);
++#if (CONFIG_HISI_SDIO_ID == 1)
++	mask = 1;
++#elif (CONFIG_HISI_SDIO_ID == 0)
++	mask = 2;
++#endif
++
++	regval = readl(REG_BASE_CTRL);
++	if (present) {
++		pr_info("====== Card detection to detect SDIO card! ======\n");
++		/* set card_detect low to detect card */
++		regval |= mask;
++	} else {
++		pr_info("====== Card detection to remove SDIO card! ======\n");
++		/* set card_detect high to remove card */
++		regval &= ~(mask);
++	}
++	writel(regval, REG_BASE_CTRL);
++
++	return 0;
++}
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++
++	hi_gpio_set_value(gpio_wlan_reg_on, 1);
++	mdelay(100);
++	hisi_wlan_set_carddetect(1);
++	mdelay(2000);
++	pr_info("======== set_carddetect delay 2s! ========\n");
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++	hisi_wlan_set_carddetect(0);
++	mdelay(100);
++	hi_gpio_set_value(gpio_wlan_reg_on, 0);
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.h b/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.h
+new file mode 100755
+index 0000000..1ad4240
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_hisilicon_hi3798_sdio.h
+@@ -0,0 +1,28 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2017 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#ifndef __PLATFORM_HISILICON_HI3798_SDIO_H__
++#define __PLATFORM_HISILICON_HI3798_SDIO_H__
++
++typedef unsigned int	HI_U32;
++
++typedef int		HI_S32;
++
++#define HI_SUCCESS	0
++#define HI_FAILURE	(-1)
++
++extern HI_S32 HI_DRV_GPIO_SetDirBit(HI_U32 u32GpioNo, HI_U32 u32DirBit);
++extern HI_S32 HI_DRV_GPIO_WriteBit(HI_U32 u32GpioNo, HI_U32 u32BitValue);
++
++#endif /* __PLATFORM_HISILICON_HI3798_SDIO_H__ */
+diff --git a/drivers/rtl88x2CS/platform/platform_ops.c b/drivers/rtl88x2CS/platform/platform_ops.c
+new file mode 100755
+index 0000000..10766aa
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ops.c
+@@ -0,0 +1,32 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#ifndef CONFIG_PLATFORM_OPS
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++}
++#endif /* !CONFIG_PLATFORM_OPS */
+diff --git a/drivers/rtl88x2CS/platform/platform_ops.h b/drivers/rtl88x2CS/platform/platform_ops.h
+new file mode 100755
+index 0000000..12caf3c
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_ops.h
+@@ -0,0 +1,26 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#ifndef __PLATFORM_OPS_H__
++#define __PLATFORM_OPS_H__
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others: power on failed
++ */
++int platform_wifi_power_on(void);
++void platform_wifi_power_off(void);
++
++#endif /* __PLATFORM_OPS_H__ */
+diff --git a/drivers/rtl88x2CS/platform/platform_sprd_sdio.c b/drivers/rtl88x2CS/platform/platform_sprd_sdio.c
+new file mode 100755
+index 0000000..34061d0
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_sprd_sdio.c
+@@ -0,0 +1,84 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2013 - 2017 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <drv_types.h>
++
++extern void sdhci_bus_scan(void);
++#ifndef ANDROID_2X
++extern int sdhci_device_attached(void);
++#endif
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others:	power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++
++#ifdef CONFIG_RTL8188E
++	rtw_wifi_gpio_wlan_ctrl(WLAN_POWER_ON);
++#endif /* CONFIG_RTL8188E */
++
++	/* Pull up pwd pin, make wifi leave power down mode. */
++	rtw_wifi_gpio_init();
++	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_ON);
++
++#if (MP_DRIVER == 1) && (defined(CONFIG_RTL8723A) || defined(CONFIG_RTL8723B))
++	/* Pull up BT reset pin. */
++	rtw_wifi_gpio_wlan_ctrl(WLAN_BT_PWDN_ON);
++#endif
++	rtw_mdelay_os(5);
++
++	sdhci_bus_scan();
++#ifdef CONFIG_RTL8723B
++	/* YJ,test,130305 */
++	rtw_mdelay_os(1000);
++#endif
++#ifdef ANDROID_2X
++	rtw_mdelay_os(200);
++#else /* !ANDROID_2X */
++	if (1) {
++		int i = 0;
++
++		for (i = 0; i <= 50; i++) {
++			msleep(10);
++			if (sdhci_device_attached())
++				break;
++			printk("%s delay times:%d\n", __func__, i);
++		}
++	}
++#endif /* !ANDROID_2X */
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++	/* Pull down pwd pin, make wifi enter power down mode. */
++	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_OFF);
++	rtw_mdelay_os(5);
++	rtw_wifi_gpio_deinit();
++
++#ifdef CONFIG_RTL8188E
++	rtw_wifi_gpio_wlan_ctrl(WLAN_POWER_OFF);
++#endif /* CONFIG_RTL8188E */
++
++#ifdef CONFIG_WOWLAN
++	if (mmc_host)
++		mmc_host->pm_flags &= ~MMC_PM_KEEP_POWER;
++#endif /* CONFIG_WOWLAN */
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.c b/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.c
+new file mode 100755
+index 0000000..472d24d
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.c
+@@ -0,0 +1,53 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2016 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#include <linux/printk.h>		/* pr_info(() */
++#include <linux/delay.h>		/* msleep() */
++#include "platform_zte_zx296716_sdio.h"	/* sdio_reinit() and etc */
++
++
++/*
++ * Return:
++ *	0:	power on successfully
++ *	others:	power on failed
++ */
++int platform_wifi_power_on(void)
++{
++	int ret = 0;
++
++	pr_info("######%s: disable--1--\n", __func__);
++	extern_wifi_set_enable(0);
++	/*msleep(500);*/ /* add in function:extern_wifi_set_enable */
++	pr_info("######%s: enable--2---\n", __func__);
++	extern_wifi_set_enable(1);
++	/*msleep(500);*/
++	sdio_reinit();
++
++	return ret;
++}
++
++void platform_wifi_power_off(void)
++{
++	int card_val;
++
++	pr_info("######%s:\n", __func__);
++#ifdef CONFIG_A16T03_BOARD
++	card_val = sdio_host_is_null();
++	if (card_val)
++		remove_card();
++#endif /* CONFIG_A16T03_BOARD */
++	extern_wifi_set_enable(0);
++
++	/*msleep(500);*/
++}
+diff --git a/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.h b/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.h
+new file mode 100755
+index 0000000..3a4fba1
+--- /dev/null
++++ b/drivers/rtl88x2CS/platform/platform_zte_zx296716_sdio.h
+@@ -0,0 +1,25 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2016 - 2018 Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++ * more details.
++ *
++ *****************************************************************************/
++#ifndef __PLATFORM_ZTE_ZX296716_SDIO_H__
++#define __PLATFORM_ZTE_ZX296716_SDIO_H__
++
++extern void sdio_reinit(void);
++extern void extern_wifi_set_enable(int val);
++#ifdef CONFIG_A16T03_BOARD
++extern int sdio_host_is_null(void);
++extern void remove_card(void);
++#endif /* CONFIG_A16T03_BOARD */
++
++#endif /* __PLATFORM_ZTE_ZX296716_SDIO_H__ */
+-- 
+2.34.1
+

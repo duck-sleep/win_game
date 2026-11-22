@@ -1,0 +1,25 @@
+From 35d97f14e3aa293bbefc3ffbabe28dc2e828415f Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 28 Apr 2026 15:54:57 +0800
+Subject: [PATCH 4/5] feat(k3b): add multi dtb config
+
+Origin: kickpi 81dbd376cdcb01ce60c1efa9614cb8111e13f139
+---
+ configs/rk3562_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/rk3562_defconfig b/configs/rk3562_defconfig
+index eb70ae4..84424ce 100644
+--- a/configs/rk3562_defconfig
++++ b/configs/rk3562_defconfig
+@@ -6,6 +6,7 @@ CONFIG_SYS_MALLOC_F_LEN=0x80000
+ CONFIG_SPL_FIT_GENERATOR="arch/arm/mach-rockchip/make_fit_atf.sh"
+ CONFIG_ROCKCHIP_RK3562=y
+ CONFIG_ROCKCHIP_FIT_IMAGE=y
++CONFIG_ROCKCHIP_HWID_DTB=y
+ CONFIG_ROCKCHIP_VENDOR_PARTITION=y
+ CONFIG_USING_KERNEL_DTB_V2=y
+ CONFIG_ROCKCHIP_FIT_IMAGE_PACK=y
+-- 
+2.34.1
+

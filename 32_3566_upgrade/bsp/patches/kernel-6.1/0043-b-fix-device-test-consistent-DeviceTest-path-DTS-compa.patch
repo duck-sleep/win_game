@@ -1,0 +1,64 @@
+From 853198993044703bc1c84ab41bdd05b7d54b6c0c Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 29 May 2026 10:14:47 +0800
+Subject: [PATCH 42/50] fix(device-test): consistent DeviceTest path, DTS
+ compatible, kickpi-hardware
+
+- Rename overlay Devicetest -> DeviceTest (unified casing)
+- DTS compatible: rk3568 k1/k1Mini/k3588 k8 corrected
+- kickpi-hardware: boardname k1Mini, path /etc/DeviceTest/
+- All XML config files moved to new path
+
+Origin: kickpi d2375232b04129be2794ca4721247e3b0a6d2d59
+---
+ arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi      | 4 ++--
+ arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1Mini.dtsi  | 4 ++--
+ arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8-linux.dts | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi
+index 162f04d..2462013 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1.dtsi
+@@ -51,8 +51,8 @@
+ 
+ 
+ / {
+-	model = "Rockchip RK3568 KICKPI K1A Board";
+-	compatible = "rockchip,rk3568-kickpi-k1a", "rockchip,rk3568";
++	model = "Rockchip RK3568 KICKPI K1 Board";
++	compatible = "rockchip,rk3568-kickpi-k1", "rockchip,rk3568";
+ 
+ 	vcc2v5_sys: vcc2v5-ddr {
+ 		compatible = "regulator-fixed";
+diff --git a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1Mini.dtsi b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1Mini.dtsi
+index e113941..e6dfe83 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1Mini.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3568-kickpi-k1Mini.dtsi
+@@ -53,8 +53,8 @@
+ 
+ 
+ / {
+-	model = "Rockchip RK3568 KICKPI K1A Board";
+-	compatible = "rockchip,rk3568-kickpi-k1a", "rockchip,rk3568";
++	model = "Rockchip RK3568 KICKPI K1Mini Board";
++	compatible = "rockchip,rk3568-kickpi-k1mini", "rockchip,rk3568";
+ 
+ 	vcc2v5_sys: vcc2v5-ddr {
+ 		compatible = "regulator-fixed";
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8-linux.dts b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8-linux.dts
+index b499f0c..48b3cb4 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588-kickpi-k8-linux.dts
+@@ -10,6 +10,6 @@
+ #include "rk3588-linux.dtsi"
+ 
+ / {
+-	model = "Rockchip RK3588 EVB7 V11 Board";
+-	compatible = "rockchip,rk3588-evb7-v11", "rockchip,rk3588";
++	model = "Rockchip RK3588 K8 Board";
++	compatible = "rockchip,rk3588-kickpi-k8", "rockchip,rk3588";
+ };
+-- 
+2.34.1
+

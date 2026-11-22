@@ -1,0 +1,5151 @@
+From ade3039a7b82278c8fa4b64729da8ce93f5a5f21 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:49:19 +0800
+Subject: [PATCH 60/73] feat(wifi): add vs6621 drvier & firmware (part 7/8)
+
+Origin: kickpi 38a920864783bf8dc38f33fdb884c5725f7bad7d
+---
+ drivers/skw6621s/swt6621s_wifi/skw_tx.c     | 2020 +++++++++++++++++++
+ drivers/skw6621s/swt6621s_wifi/skw_tx.h     |  150 ++
+ drivers/skw6621s/swt6621s_wifi/skw_util.c   |  657 ++++++
+ drivers/skw6621s/swt6621s_wifi/skw_util.h   |  338 ++++
+ drivers/skw6621s/swt6621s_wifi/skw_vendor.c |  495 +++++
+ drivers/skw6621s/swt6621s_wifi/skw_vendor.h |  162 ++
+ drivers/skw6621s/swt6621s_wifi/skw_work.c   |  420 ++++
+ drivers/skw6621s/swt6621s_wifi/skw_work.h   |  105 +
+ drivers/skw6621s/swt6621s_wifi/trace.c      |   28 +
+ drivers/skw6621s/swt6621s_wifi/trace.h      |  684 +++++++
+ 10 files changed, 5059 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_tx.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_tx.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_util.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_util.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_vendor.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_work.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/skw_work.h
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/trace.c
+ create mode 100755 external/rkwifibt/drivers/skw6621s/swt6621s_wifi/trace.h
+
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_tx.c b/drivers/skw6621s/swt6621s_wifi/skw_tx.c
+new file mode 100755
+index 0000000..a47d09d
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_tx.c
+@@ -0,0 +1,2020 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/kthread.h>
++#include <linux/ip.h>
++#include <linux/ctype.h>
++
++#include "skw_core.h"
++#include "skw_tx.h"
++#include "skw_msg.h"
++#include "skw_iface.h"
++#include "skw_edma.h"
++#include "trace.h"
++
++#define SKW_BASE_VO                    16
++#define SKW_BASE_VI                    24
++#define SKW_TX_TIMEOUT                 200
++#define SKW_TX_RUNING_TIMES            20
++
++struct skw_tx_info {
++	int quota;
++	bool reset;
++	struct sk_buff_head *list;
++};
++
++struct skw_tx_lmac {
++	bool reset;
++	int cred;
++	u16 txq_map;
++	u16 nr_txq;
++	int bk_tx_limit;
++	int current_qlen;
++	int ac_reset;
++	int tx_count_limit;
++	int pending_qlen;
++
++	struct sk_buff_head tx_list;
++	struct skw_tx_info tx[SKW_NR_IFACE];
++};
++
++unsigned int tx_wait_time;
++
++static int skw_tx_time_show(struct seq_file *seq, void *data)
++{
++	seq_printf(seq, "current tx_wait_time = %dus\n", tx_wait_time);
++	return 0;
++}
++
++static int skw_tx_time_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, skw_tx_time_show, inode->i_private);
++}
++
++static ssize_t skw_tx_time_write(struct file *fp, const char __user *buf,
++				size_t len, loff_t *offset)
++{
++	int i;
++	char cmd[32] = {0};
++	unsigned int res = 0;
++
++	for (i = 0; i < 32; i++) {
++		char c;
++
++		if (get_user(c, buf))
++			return -EFAULT;
++
++		if (c == '\n' || c == '\0')
++			break;
++
++		if (isdigit(c) != 0)
++			cmd[i] = c;
++		else {
++			skw_warn("set fail, not number\n");
++			return -EFAULT;
++		}
++		buf++;
++	}
++
++	if (kstrtouint(cmd, 10, &res))
++		return -EFAULT;
++
++	skw_info("set tx_wait_time = %dus\n", res);
++	tx_wait_time = res;
++
++	return len;
++}
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
++static const struct proc_ops skw_tx_time_fops = {
++	.proc_open = skw_tx_time_open,
++	.proc_read = seq_read,
++	.proc_release = single_release,
++	.proc_write = skw_tx_time_write,
++};
++#else
++static const struct file_operations skw_tx_time_fops = {
++	.owner = THIS_MODULE,
++	.open = skw_tx_time_open,
++	.read = seq_read,
++	.release = single_release,
++	.write = skw_tx_time_write,
++};
++#endif
++
++#ifdef CONFIG_SWT6621S_SKB_RECYCLE
++void skw_recycle_skb_free(struct skw_core *skw, struct sk_buff *skb)
++{
++	if (!skb)
++		return;
++
++	skb->data = skb->head;
++	skb_reset_tail_pointer(skb);
++
++	skb->mac_header = (typeof(skb->mac_header))~0U;
++	skb->transport_header = (typeof(skb->transport_header))~0U;
++	skb->network_header = 0;
++
++	skb->len = 0;
++
++	skb_reserve(skb, NET_SKB_PAD);
++
++	skb_queue_tail(&skw->skb_recycle_qlist, skb);
++}
++
++int skw_recycle_skb_copy(struct skw_core *skw, struct sk_buff *skb_recycle, struct sk_buff *skb)
++{
++	if (!skw || !skb_recycle || !skb)
++		return -1;
++
++	skb_recycle->dev = skb->dev;
++
++	skb_reserve(skb_recycle, skw->skb_headroom);
++	skb_put(skb_recycle, skb->len);
++	memcpy(skb_recycle->data, skb->data, skb->len);
++
++	skb_set_mac_header(skb_recycle, 0);
++	skb_set_network_header(skb_recycle, ETH_HLEN);
++	skb_set_transport_header(skb_recycle, skb->transport_header - skb->mac_header);
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		skb_recycle->ip_summed = skb->ip_summed;
++		skb_recycle->csum_start = skb_headroom(skb_recycle) + skb_checksum_start_offset(skb);
++	}
++
++	return 0;
++}
++
++struct sk_buff *skw_recycle_skb_get(struct skw_core *skw)
++{
++	unsigned long flags;
++	struct sk_buff *skb = NULL;
++
++	spin_lock_irqsave(&skw->skb_recycle_qlist.lock, flags);
++	if (skw->skb_recycle_qlist.qlen > 0) {
++		skb = skb_peek(&skw->skb_recycle_qlist);
++		if (skb)
++			__skb_unlink(skb, &skw->skb_recycle_qlist);
++	}
++	spin_unlock_irqrestore(&skw->skb_recycle_qlist.lock, flags);
++
++	return skb;
++}
++#endif
++
++void skw_skb_kfree(struct skw_core *skw, struct sk_buff *skb)
++{
++#ifdef CONFIG_SWT6621S_SKB_RECYCLE
++	if (1 == SKW_SKB_TXCB(skb)->recycle)
++		skw_recycle_skb_free(skw, skb);
++	else
++		dev_kfree_skb_any(skb);
++#else
++	dev_kfree_skb_any(skb);
++#endif
++}
++
++int skw_pcie_cmd_xmit(struct skw_core *skw, void *data, int data_len)
++{
++	skw->edma.cmd_chn.hdr[0].data_len = data_len;
++	skw_edma_set_data(priv_to_wiphy(skw), &skw->edma.cmd_chn, data, data_len);
++
++	return skw_edma_tx(priv_to_wiphy(skw), &skw->edma.cmd_chn, data_len);
++}
++
++int skw_sdio_cmd_xmit(struct skw_core *skw, void *data, int data_len)
++{
++	int nr = 0, total_len;
++
++	sg_init_table(skw->sgl_cmd, SKW_NR_SGL_CMD);
++	sg_set_buf(&skw->sgl_cmd[nr++], data, data_len);
++	total_len = data_len;
++
++	skw_set_extra_hdr(skw, skw->eof_blk, skw->hw.cmd_port, skw->hw.align, 0, 1);
++	sg_set_buf(&skw->sgl_cmd[nr++], skw->eof_blk, skw->hw.align);
++	total_len += skw->hw.align;
++
++	if (test_bit(SKW_CMD_FLAG_DISABLE_IRQ, &skw->cmd.flags))
++		return skw->hw.cmd_disable_irq_xmit(skw, NULL, -1,
++				skw->hw.cmd_port, skw->sgl_cmd, nr, total_len);
++	else
++		return skw->hw.cmd_xmit(skw, NULL, -1, skw->hw.cmd_port,
++					skw->sgl_cmd, nr, total_len);
++}
++
++int skw_usb_cmd_xmit(struct skw_core *skw, void *data, int data_len)
++{
++	int nr = 0, total_len;
++
++	sg_init_table(skw->sgl_cmd, SKW_NR_SGL_CMD);
++	sg_set_buf(&skw->sgl_cmd[nr++], data, data_len);
++	total_len = data_len;
++
++	return skw->hw.cmd_xmit(skw, NULL, -1, skw->hw.cmd_port,
++			skw->sgl_cmd, nr, total_len);
++}
++
++static int skw_sync_sdma_tx(struct skw_core *skw, struct sk_buff_head *list,
++			int lmac_id, int port, struct scatterlist *sgl,
++			int nents, int tx_len)
++{
++	int total_len;
++	int ret;
++	struct sk_buff *skb, *tmp;
++
++	if (!skw->hw_pdata || !skw->hw_pdata->hw_sdma_tx)
++		return -EINVAL;
++
++	if (!skw->sdma_buff) {
++		skw_err("invalid buff\n");
++		return -ENOMEM;
++	}
++
++	total_len = sg_copy_to_buffer(sgl, nents, skw->sdma_buff,
++				skw->hw_pdata->max_buffer_size);
++
++	ret = skw->hw_pdata->hw_sdma_tx(port, skw->sdma_buff, total_len);
++	if (ret < 0)
++		skw_err("failed, ret: %d nents:%d\n", ret, nents);
++
++	if (list) {
++		if (likely(0 == ret))
++			skw_sub_credit(skw, lmac_id, skb_queue_len(list));
++
++		skb_queue_walk_safe(list, skb, tmp) {
++			if (likely(0 == ret)) {
++				skb->dev->stats.tx_packets++;
++				skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++			} else
++				skb->dev->stats.tx_errors++;
++
++			__skb_unlink(skb, list);
++			//kfree_skb(skb);
++			skw_skb_kfree(skw, skb);
++		}
++		//skw_sub_credit(skw, lmac_id, skb_queue_len(list));
++		//__skb_queue_purge(list);
++	}
++
++	return ret;
++}
++
++static int skw_sync_sdma_cmd_disable_irq_tx(struct skw_core *skw,
++		struct sk_buff_head *list, int lmac_id, int port,
++		struct scatterlist *sgl, int nents, int tx_len)
++{
++	int total_len;
++
++	if (!skw->hw_pdata || !skw->hw_pdata->suspend_sdma_cmd)
++		return -EINVAL;
++
++	if (!skw->sdma_buff) {
++		skw_err("invalid buff\n");
++		return -ENOMEM;
++	}
++
++	total_len = sg_copy_to_buffer(sgl, nents, skw->sdma_buff,
++				skw->hw_pdata->max_buffer_size);
++
++	return skw->hw_pdata->suspend_sdma_cmd(port, skw->sdma_buff, total_len);
++}
++
++
++static int skw_async_sdma_tx(struct skw_core *skw, struct sk_buff_head *list,
++			int lmac_id, int port, struct scatterlist *sgl,
++			int nents, int tx_len)
++{
++	void *buff;
++	int ret, total_len;
++	struct sk_buff *skb, *tmp;
++	struct skw_sg_node *node;
++
++	if (!skw->hw_pdata || !skw->hw_pdata->hw_sdma_tx_async)
++		return -EINVAL;
++
++	tx_len += sizeof(struct skw_sg_node);
++
++	buff = SKW_ZALLOC(tx_len, GFP_KERNEL);
++	if (!buff) {
++		skw_err("invalid buffer\n");
++		return -ENOMEM;
++	}
++
++	node = (struct skw_sg_node *)buff;
++	buff = (u8 *)buff + sizeof(struct skw_sg_node);
++
++	total_len = sg_copy_to_buffer(sgl, nents, buff, tx_len);
++	node->lmac_id = lmac_id;
++	node->data = (void *)skw;
++	node->nents = nents;
++	ret = skw->hw_pdata->hw_sdma_tx_async(port, buff, total_len);
++	if (ret < 0) {
++		skw_err("failed, ret: %d nents:%d\n", ret, nents);
++		SKW_KFREE(buff);
++	}
++
++	if (list) {
++		if (likely(0 == ret))
++			skw_sub_credit(skw, lmac_id, skb_queue_len(list));
++
++		skb_queue_walk_safe(list, skb, tmp) {
++			if (likely(0 == ret)) {
++				skb->dev->stats.tx_packets++;
++				skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++			} else
++				skb->dev->stats.tx_errors++;
++
++			__skb_unlink(skb, list);
++			//kfree_skb(skb);
++			skw_skb_kfree(skw, skb);
++		}
++
++		//skw_sub_credit(skw, lmac_id, skb_queue_len(list));
++		//__skb_queue_purge(list);
++	}
++
++	return ret;
++}
++
++static int skw_sync_adma_tx(struct skw_core *skw, struct sk_buff_head *list,
++			int lmac_id, int port, struct scatterlist *sgl,
++			int nents, int tx_len)
++{
++	struct sk_buff *skb, *tmp;
++	int ret;
++	unsigned long flags;
++
++	if (!skw->hw_pdata || !skw->hw_pdata->hw_adma_tx)
++		return -EINVAL;
++
++	ret = skw->hw_pdata->hw_adma_tx(port, sgl, nents, tx_len);
++	trace_skw_hw_adma_tx_done(nents);
++	if (ret < 0)
++		skw_err("failed, ret: %d nents:%d\n", ret, nents);
++
++	if (list) {
++		if (likely(0 == ret))
++			skw_sub_credit(skw, lmac_id, skb_queue_len(list));
++		else
++			skb_queue_walk_safe(list, skb, tmp)
++				SKW_SKB_TXCB(skb)->ret = 1;
++
++		spin_lock_irqsave(&skw->kfree_skb_qlist.lock, flags);
++		skb_queue_splice_tail_init(list, &skw->kfree_skb_qlist);
++		spin_unlock_irqrestore(&skw->kfree_skb_qlist.lock, flags);
++		schedule_work(&skw->kfree_skb_task);
++	}
++
++	return ret;
++}
++
++static int skw_sync_adma_cmd_disable_irq_tx(struct skw_core *skw,
++		struct sk_buff_head *list, int lmac_id, int port,
++		struct scatterlist *sgl, int nents, int tx_len)
++{
++	if (!skw->hw_pdata || !skw->hw_pdata->suspend_adma_cmd)
++		return -EINVAL;
++
++	return skw->hw_pdata->suspend_adma_cmd(port, sgl, nents, tx_len);
++}
++
++static int skw_async_adma_tx(struct skw_core *skw, struct sk_buff_head *list,
++			int lmac_id, int port, struct scatterlist *sgl,
++			int nents, int tx_len)
++{
++	int ret, idx;
++	struct sk_buff *skb;
++	struct scatterlist *sg_list, *sg;
++	unsigned long *skb_addr, *sg_addr;
++
++	if (!skw->hw_pdata || !skw->hw_pdata->hw_adma_tx_async)
++		return -EINVAL;
++
++	if (!sgl) {
++		ret = -ENOMEM;
++		skw_err("sgl is NULL\n");
++		goto out;
++	}
++
++	sg_list = kcalloc(SKW_NR_SGL_DAT, sizeof(*sg_list), GFP_KERNEL);
++
++	ret = skw->hw_pdata->hw_adma_tx_async(port, sgl, nents, tx_len);
++	if (unlikely(ret < 0)) {
++		skw_err("failed, ret: %d nents:%d\n", ret, nents);
++
++		for_each_sg(sgl, sg, nents, idx) {
++			sg_addr = (unsigned long *)sg_virt(sg);
++
++			skb_addr = sg_addr - 1;
++			skb = (struct sk_buff *)*skb_addr;
++
++			skb->dev->stats.tx_errors++;
++			//kfree_skb(skb);
++			skw_skb_kfree(skw, skb);
++		}
++
++		SKW_KFREE(sgl);
++	} else {
++		atomic_add(nents, &skw->txqlen_pending);
++		skw_sub_credit(skw, lmac_id, nents);
++	}
++
++	skw->sgl_dat = sg_list;
++out:
++	return ret;
++}
++
++static int skw_async_adma_tx_free(int id, struct scatterlist *sg, int nents,
++			   void *data, int status)
++{
++	struct skw_sg_node node = {0};
++	struct skw_core *skw = data;
++	struct wiphy *wiphy = priv_to_wiphy(skw);
++
++	node.sg = sg;
++	node.nents = nents;
++	node.status = status;
++
++	skw_queue_work(wiphy, NULL, SKW_WORK_TX_FREE, &node, sizeof(node));
++
++	return 0;
++}
++
++static int skw_async_sdma_tx_free(int id,  void *buffer, int size,
++			   void *data, int status)
++{
++	struct skw_sg_node *node;
++
++	if (unlikely(!buffer)) {
++		skw_err("buffer is invalid\n");
++		return 0;
++	}
++
++	node = (struct skw_sg_node *) ((u8 *)buffer - sizeof(struct skw_sg_node));
++	if (unlikely(status < 0)) {
++		skw_err("failed status:%d %p\n", status, node->data);
++		if (node->data == NULL)
++			skw_err("buffer content was broke is NULL\n");
++		else
++			skw_add_credit((struct skw_core *)node->data, node->lmac_id, node->nents);
++	}
++
++	buffer = (void *) node;
++	SKW_KFREE(buffer);
++
++	return 0;
++}
++
++int skw_sdio_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq)
++{
++	struct sk_buff *skb, *tmp;
++	struct skw_lmac *lmac = &skw->hw.lmac[lmac_id];
++
++	skb_queue_walk_safe(txq, skb, tmp) {
++		int aligned;
++		struct skw_packet_header *extra_hdr;
++
++		extra_hdr = (void *)skb_push(skb, SKW_EXTER_HDR_SIZE);
++		aligned = round_up(skb->len, skw->hw.align);
++		skw_set_extra_hdr(skw, extra_hdr, lmac->lport, aligned, 0, 0);
++
++		skw_vring_set(skw, skb->data, skb->len, lmac_id);
++		__skb_unlink(skb, txq);
++		skb->dev->stats.tx_packets++;
++		skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++		dev_kfree_skb_any(skb);
++	}
++	schedule_work(&skw->hw.lmac[lmac_id].dy_work);
++
++	return 0;
++}
++
++#if 0
++int skw_sdio_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq)
++{
++	struct sk_buff *skb;
++	int nents = 0, tx_bytes = 0;
++	struct skw_lmac *lmac = &skw->hw.lmac[lmac_id];
++
++	sg_init_table(skw->sgl_dat, SKW_NR_SGL_DAT);
++
++	skb_queue_walk(txq, skb) {
++		int aligned;
++		struct skw_packet_header *extra_hdr;
++
++		extra_hdr = (void *)skb_push(skb, SKW_EXTER_HDR_SIZE);
++
++		aligned = round_up(skb->len, skw->hw.align);
++		skw_set_extra_hdr(skw, extra_hdr, lmac->lport, aligned, 0, 0);
++
++		sg_set_buf(&skw->sgl_dat[nents++], skb->data, aligned);
++
++		tx_bytes += aligned;
++	}
++
++	skw_set_extra_hdr(skw, skw->eof_blk, lmac->lport, skw->hw.align, 0, 1);
++	sg_set_buf(&skw->sgl_dat[nents++], skw->eof_blk, skw->hw.align);
++	tx_bytes += skw->hw.align;
++	skw_detail("nents:%d", nents);
++
++	return skw->hw.dat_xmit(skw, txq, lmac_id, lmac->dport,
++				skw->sgl_dat, nents, tx_bytes);
++}
++#endif
++
++int skw_usb_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq)
++{
++	struct sk_buff *skb, *tmp;
++	int nents = 0, tx_bytes = 0;
++	unsigned long *skb_addr;
++	struct skw_lmac *lmac = &skw->hw.lmac[lmac_id];
++
++	sg_init_table(skw->sgl_dat, SKW_NR_SGL_DAT);
++
++	skb_queue_walk_safe(txq, skb, tmp) {
++		int aligned;
++		struct skw_packet_header *extra_hdr;
++
++		extra_hdr = (void *)skb_push(skb, SKW_EXTER_HDR_SIZE);
++
++		aligned = round_up(skb->len, skw->hw.align);
++		skw_set_extra_hdr(skw, extra_hdr, lmac->lport, aligned, 0, 0);
++
++		sg_set_buf(&skw->sgl_dat[nents++], skb->data, aligned);
++
++		skb_addr = (unsigned long *)skb_push(skb, sizeof(unsigned long));
++		*skb_addr = (unsigned long)skb;
++		skb_pull(skb, sizeof(unsigned long));
++
++		tx_bytes += aligned;
++
++		if (skw->hw.dma == SKW_ASYNC_ADMA_TX)
++			__skb_unlink(skb, txq);
++	}
++
++	return skw->hw.dat_xmit(skw, txq, lmac_id, lmac->dport,
++				skw->sgl_dat, nents, tx_bytes);
++}
++
++int skw_pcie_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq)
++{
++	int ret, tx_bytes = 0;
++	unsigned long flags;
++	struct sk_buff *skb;
++	struct skw_lmac *lmac = &skw->hw.lmac[lmac_id];
++	struct wiphy *wiphy = priv_to_wiphy(skw);
++	unsigned long *addr;
++
++	skb_queue_walk(txq, skb) {
++		addr = (unsigned long *)skb_push(skb, sizeof(unsigned long)*2);
++		*addr = (unsigned long)skw->edma.tx_chn[lmac_id].current_node;
++		skb_pull(skb, 2 * sizeof(unsigned long));
++
++		skw_edma_set_data(wiphy, &skw->edma.tx_chn[lmac_id],
++				&SKW_SKB_TXCB(skb)->e,
++				sizeof(SKW_SKB_TXCB(skb)->e));
++
++		tx_bytes += round_up(skb->len, skw->hw.align);
++		addr = (unsigned long *)skb_push(skb, sizeof(unsigned long));
++		*addr = (unsigned long)skb;
++	}
++
++	skb = skb_peek(txq);
++
++	spin_lock_irqsave(&lmac->edma_free_list.lock, flags);
++	skb_queue_splice_tail_init(txq, &lmac->edma_free_list);
++	spin_unlock_irqrestore(&lmac->edma_free_list.lock, flags);
++
++	ret = skw_edma_tx(wiphy, &skw->edma.tx_chn[lmac_id], tx_bytes);
++	if (ret < 0) {
++		skw_err("failed, ret: %d\n", ret);
++		// TODO:
++		// release free list
++	}
++
++	return ret;
++}
++
++static inline int skw_bus_data_xmit(struct skw_core *skw, int mac_id,
++			struct sk_buff_head *txq_list)
++{
++	int ret;
++
++	if (!skb_queue_len(txq_list))
++		return 0;
++
++	skw->tx_packets += skb_queue_len(txq_list);
++
++	skw->dbg.dat_idx = (skw->dbg.dat_idx + 1) % skw->dbg.nr_dat;
++	skw->dbg.dat[skw->dbg.dat_idx].qlen = skb_queue_len(txq_list);
++	skw->dbg.dat[skw->dbg.dat_idx].trigger = skw_local_clock();
++
++	ret = skw->hw.bus_dat_xmit(skw, mac_id, txq_list);
++
++	skw->dbg.dat[skw->dbg.dat_idx].done = skw_local_clock();
++
++	return ret;
++}
++
++static inline int skw_bus_cmd_xmit(struct skw_core *skw, void *cmd, int cmd_len)
++{
++	int ret;
++	unsigned long flags = READ_ONCE(skw->flags);
++
++	if (test_bit(SKW_CMD_FLAG_IGNORE_BLOCK_TX, &skw->cmd.flags))
++		clear_bit(SKW_FLAG_BLOCK_TX, &flags);
++
++	if (!skw_cmd_tx_allowed(flags)) {
++		skw_warn("cmd: %s[%d] not allowed, flags: 0x%lx, cmd flags: 0x%lx\n",
++			 skw->cmd.name, skw->cmd.id, skw->flags, skw->cmd.flags);
++
++		skw_abort_cmd(skw);
++
++		return 0;
++	}
++
++	skw->dbg.cmd[skw->dbg.cmd_idx].xmit = skw_local_clock();
++	skw->dbg.cmd[skw->dbg.cmd_idx].loop = atomic_read(&skw->dbg.loop);
++
++	ret = skw->hw.bus_cmd_xmit(skw, cmd, cmd_len);
++
++	skw->dbg.cmd[skw->dbg.cmd_idx].done = skw_local_clock();
++
++	return ret;
++}
++
++static inline bool is_skw_same_tcp_stream(struct sk_buff *skb,
++					struct sk_buff *next)
++{
++	return ip_hdr(skb)->saddr == ip_hdr(next)->saddr &&
++	       ip_hdr(skb)->daddr == ip_hdr(next)->daddr &&
++	       tcp_hdr(skb)->source == tcp_hdr(next)->source &&
++	       tcp_hdr(skb)->dest == tcp_hdr(next)->dest;
++}
++
++static void skw_merge_pure_ack(struct skw_core *skw, struct sk_buff_head *ackq,
++				struct sk_buff_head *txq)
++{
++	int i, drop = 0;
++	struct sk_buff *skb, *tmp;
++
++	while ((skb = __skb_dequeue_tail(ackq))) {
++		for (i = 0; i < ackq->qlen; i++) {
++			tmp = __skb_dequeue(ackq);
++			if (!tmp)
++				break;
++
++			if (is_skw_same_tcp_stream(skb, tmp)) {
++				if (tcp_optlen(tmp) == 0 &&
++				    tcp_flag_word(tcp_hdr(tmp)) == TCP_FLAG_ACK) {
++					skw_skb_kfree(skw, tmp);
++					drop++;
++				} else {
++					__skb_queue_tail(txq, tmp);
++				}
++			} else {
++				__skb_queue_tail(ackq, tmp);
++			}
++		}
++
++		__skb_queue_tail(txq, skb);
++	}
++}
++
++static bool is_skw_peer_data_valid(struct skw_core *skw, struct sk_buff *skb)
++{
++	struct skw_ctx_entry *entry;
++	bool valid = true;
++	int peer_idx = SKW_SKB_TXCB(skb)->peer_idx;
++	int i;
++
++	rcu_read_lock();
++	for (i = 0; i < skw->hw.nr_lmac; i++) {
++		entry = rcu_dereference(skw->hw.lmac[i].peer_ctx[peer_idx].entry);
++		if (entry) {
++			if (entry->peer) {
++				entry->peer->tx.bytes += skb->len;
++				entry->peer->tx.pkts++;
++
++				if (entry->peer->flags & SKW_PEER_FLAG_DEAUTHED)
++					valid = false;
++			} else {
++				if (is_unicast_ether_addr(eth_hdr(skb)->h_dest))
++					valid = false;
++			}
++		}
++	}
++	rcu_read_unlock();
++
++	return valid;
++}
++
++static inline void skw_reset_ac(struct skw_tx_lmac *txlp)
++{
++	int i;
++
++	for (i = 0; i < SKW_MAX_LMAC_SUPPORT; i++) {
++		txlp->ac_reset = 0xF;
++		txlp++;
++	}
++}
++
++bool skw_check_txq(struct skw_core *skw)
++{
++	bool ret;
++	int ac, i;
++	unsigned long flags;
++	struct skw_iface *iface;
++
++	ret = false;
++	for (ac = 0; ac < SKW_WMM_AC_MAX; ac++) {
++		for (i = 0; i < SKW_NR_IFACE; i++) {
++			iface = skw->vif.iface[i];
++			if (!iface || !iface->ndev)
++				continue;
++
++			if (skb_queue_len(&iface->tx_cache[ac]) != 0) {
++				ret = true;
++				goto _exit;
++			}
++
++			spin_lock_irqsave(&iface->txq[ac].lock, flags);
++			if (skb_queue_len(&iface->txq[ac]) != 0) {
++				ret = true;
++				spin_unlock_irqrestore(&iface->txq[ac].lock, flags);
++				goto _exit;
++
++			}
++			spin_unlock_irqrestore(&iface->txq[ac].lock, flags);
++		}
++	}
++
++_exit:
++	return ret;
++}
++
++bool skw_tx_exit_check(struct skw_core *skw, struct skw_tx_lmac *txlp)
++{
++	bool ret;
++	int mac, credit = 0, pending_qlen = 0;
++
++	ret = true;
++
++	if (skw->hw.bus == SKW_BUS_USB || skw->hw.bus == SKW_BUS_USB2) {
++		for (mac = 0; mac < skw->hw.nr_lmac; mac++) {
++			if (skw_lmac_is_actived(skw, mac)) {
++				credit = skw_get_hw_credit(skw, mac);
++				if (credit > 0 && txlp[mac].pending_qlen > 0)
++					ret = false;
++			}
++			trace_skw_tx_exit_check(mac, credit, txlp[mac].pending_qlen);
++		}
++	}
++
++	if (skw->hw.bus == SKW_BUS_SDIO || skw->hw.bus == SKW_BUS_SDIO2) {
++		for (mac = 0; mac < skw->hw.nr_lmac; mac++) {
++			pending_qlen += txlp[mac].pending_qlen;
++		}
++
++		if (pending_qlen == 0) {
++			if (skw_check_txq(skw))
++			ret = false;
++		} else
++			ret = false;
++
++		if (msecs_to_jiffies(100) > (jiffies - skw->trans_start))
++			ret = true;
++	}
++
++	if (test_bit(SKW_CMD_FLAG_XMIT, &skw->cmd.flags))
++		ret = false;
++
++	return ret;
++}
++
++int skw_tx_running_check(struct skw_core *skw, int times)
++{
++	int all_credit, mac, ret;
++
++	ret = SKW_TX_RUNNING_EXIT;
++
++	if (!skw_tx_allowed(READ_ONCE(skw->flags)))
++		return ret;
++
++	all_credit = 0;
++	for (mac = 0; mac < skw->hw.nr_lmac; mac++)
++		if (skw_lmac_is_actived(skw, mac))
++			all_credit += skw_get_hw_credit(skw, mac);
++
++	if (all_credit == 0) {
++		if (skw->hw.bus == SKW_BUS_SDIO || skw->hw.bus == SKW_BUS_SDIO2) {
++			if (times < tx_wait_time)
++				ret = SKW_TX_RUNNING_RESTART;
++		}
++	} else
++		ret = SKW_TX_RUNNING_GO;
++
++	return ret;
++}
++
++void skw_cmd_do(struct skw_core *skw)
++{
++	if (test_and_clear_bit(SKW_CMD_FLAG_XMIT, &skw->cmd.flags)) {
++		skw_bus_cmd_xmit(skw, skw->cmd.data, skw->cmd.data_len);
++
++		if (test_bit(SKW_CMD_FLAG_NO_ACK, &skw->cmd.flags)) {
++			set_bit(SKW_CMD_FLAG_DONE, &skw->cmd.flags);
++			skw->cmd.callback(skw);
++		}
++	}
++}
++
++int skw_txq_prepare(struct skw_core *skw, struct sk_buff_head *pure_ack_list, struct skw_tx_lmac *txl, int ac)
++{
++	int i, qlen, ac_qlen = 0;
++	unsigned long flags;
++	struct sk_buff *skb;
++	struct skw_iface *iface;
++	struct sk_buff_head *qlist;
++	struct netdev_queue *txq;
++	struct skw_tx_lmac *txlp;
++
++	for (i = 0; i < SKW_NR_IFACE; i++) {
++		iface = skw->vif.iface[i];
++		// if (!iface || skw_lmac_is_actived(skw, iface->lmac_id))
++		if (!iface || !iface->ndev)
++			continue;
++
++		if (ac == SKW_WMM_AC_BE && iface->txq[SKW_ACK_TXQ].qlen) {
++			qlist = &iface->txq[SKW_ACK_TXQ];
++
++			__skb_queue_head_init(pure_ack_list);
++
++			spin_lock_irqsave(&qlist->lock, flags);
++			skb_queue_splice_tail_init(&iface->txq[SKW_ACK_TXQ],
++						pure_ack_list);
++			spin_unlock_irqrestore(&qlist->lock, flags);
++
++			skw_merge_pure_ack(skw, pure_ack_list,
++					&iface->tx_cache[ac]);
++		}
++
++		qlist = &iface->txq[ac];
++		if (!skb_queue_empty(qlist)) {
++			spin_lock_irqsave(&qlist->lock, flags);
++			skb_queue_splice_tail_init(qlist,
++					&iface->tx_cache[ac]);
++			spin_unlock_irqrestore(&qlist->lock, flags);
++		}
++
++		if (READ_ONCE(iface->flags) & SKW_IFACE_FLAG_DEAUTH) {
++			while ((skb = __skb_dequeue(&iface->tx_cache[ac])) != NULL)
++				skw_skb_kfree(skw, skb);
++		}
++
++		qlen = skb_queue_len(&iface->tx_cache[ac]);
++		if (qlen < SKW_TXQ_LOW_THRESHOLD) {
++			txq = netdev_get_tx_queue(iface->ndev, ac);
++			if (netif_tx_queue_stopped(txq)) {
++				netif_tx_start_queue(txq);
++				netif_schedule_queue(txq);
++			}
++		}
++
++		if (qlen) {
++			txlp = &txl[iface->lmac_id];
++			txlp->current_qlen += qlen;
++
++			trace_skw_txq_prepare(iface->ndev->name, qlen);
++
++			txlp->txq_map |= BIT(txlp->nr_txq);
++
++			txlp->tx[txlp->nr_txq].list = &iface->tx_cache[ac];
++			txlp->tx[txlp->nr_txq].reset = true;
++			txlp->reset = true;
++			if (txlp->ac_reset & BIT(ac)) {
++				txlp->tx[txlp->nr_txq].quota = iface->wmm.factor[ac];
++				txlp->ac_reset ^= BIT(ac);
++			}
++
++			txlp->nr_txq++;
++			ac_qlen += qlen;
++		}
++	}
++
++	return ac_qlen;
++}
++
++static inline bool skw_vring_check(struct skw_core *skw, struct sk_buff_head *qlist, struct skw_tx_vring *tx_vring)
++{
++	if (skw->hw.bus == SKW_BUS_SDIO || skw->hw.bus == SKW_BUS_SDIO2) {
++		if (skb_queue_len(qlist) + 1 >= skw_vring_available_count(tx_vring))
++			return true;
++	}
++
++	return false;
++}
++
++#ifdef CONFIG_SWT6621S_TX_WORKQUEUE
++void skw_tx_worker(struct work_struct *work)
++{
++	int i, ac, mac;
++	int base = 0;
++	//unsigned long flags;
++	int lmac_tx_capa;
++	//int qlen, pending_qlen = 0;
++	int pending_qlen = 0;
++	int max_tx_count_limit = 0;
++	struct sk_buff *skb;
++	//struct skw_iface *iface;
++	//struct sk_buff_head *qlist;
++	struct skw_tx_lmac txl[SKW_MAX_LMAC_SUPPORT];
++	struct skw_tx_lmac *txlp;
++	struct sk_buff_head pure_ack_list;
++	//int xmit_tx_flag;
++	struct skw_core *skw = container_of(to_delayed_work(work), struct skw_core, tx_worker);
++	int times = 0, ret;
++
++start:
++
++	memset(txl, 0, sizeof(txl));
++	skw_reset_ac(txl);
++
++	max_tx_count_limit = skw->hw.pkt_limit;
++
++	/* reserve one for eof block */
++	if (skw->hw.bus == SKW_BUS_SDIO)
++		max_tx_count_limit--;
++
++	for (i = 0; i < skw->hw.nr_lmac; i++) {
++		__skb_queue_head_init(&txl[i].tx_list);
++		txl[i].tx_count_limit = max_tx_count_limit;
++	}
++
++	while (!atomic_read(&skw->exit)) {
++
++		// TODO:
++		/* CPU bind */
++		/* check if frame in pending queue is timeout */
++
++		atomic_inc(&skw->dbg.loop);
++		skw_cmd_do(skw);
++
++		pending_qlen = 0;
++		ret = skw_tx_running_check(skw, times++);
++		if (ret == SKW_TX_RUNNING_RESTART)
++			goto start;
++		else if (ret == SKW_TX_RUNNING_EXIT) {
++			if (skw->hw.bus == SKW_BUS_PCIE)
++				skw_wakeup_tx(skw, 0);
++
++			return;
++		}
++
++		for (ac = 0; ac < SKW_WMM_AC_MAX; ac++) {
++			int ac_qlen = 0;
++
++			ac_qlen = skw_txq_prepare(skw, &pure_ack_list, txl, ac);
++
++			if (!ac_qlen)
++				continue;
++
++			pending_qlen += ac_qlen;
++
++			lmac_tx_capa = 0;
++
++			for (mac = 0; mac < skw->hw.nr_lmac; mac++) {
++				int credit;
++
++				txlp = &txl[mac];
++				if (!txlp->txq_map)
++					goto reset;
++
++				credit = txlp->cred = skw_get_hw_credit(skw, mac);
++				trace_skw_get_credit(credit, mac);
++				if (!txlp->cred)
++					goto reset;
++
++				if (txlp->reset) {
++					switch (ac) {
++					case SKW_WMM_AC_VO:
++						base = SKW_BASE_VO;
++						break;
++
++					case SKW_WMM_AC_VI:
++						base = SKW_BASE_VI;
++						break;
++
++					case SKW_WMM_AC_BK:
++						if (txlp->bk_tx_limit) {
++							base = min(txlp->cred, txlp->bk_tx_limit);
++							txlp->bk_tx_limit = 0;
++						} else {
++							base = txlp->cred;
++						}
++
++						base = base / txlp->nr_txq;
++						break;
++
++					default:
++						base = min(txlp->cred, txlp->current_qlen);
++						//base = base / txlp->nr_txq;
++						txlp->bk_tx_limit = (txlp->cred + 1) >> 1;
++						break;
++					}
++
++					base = base ? base : 1;
++					txlp->reset = false;
++				} else
++					base = 0;
++
++				trace_skw_txlp_mac(mac, txlp->cred, txlp->current_qlen, base);
++
++				for (i = 0; txlp->txq_map != 0; i++) {
++
++					i = i % txlp->nr_txq;
++					if (!(txlp->txq_map & BIT(i)))
++						continue;
++
++					if (skw_vring_check(skw, &txlp->tx_list, skw->hw.lmac[mac].tx_vring))
++						break;
++
++					if (!txlp->cred)
++						break;
++
++					if (txlp->tx[i].reset) {
++						txlp->tx[i].quota += base;
++
++						if (txlp->tx[i].quota < 0)
++							txlp->tx[i].quota = 0;
++
++						txlp->tx[i].reset = false;
++					}
++
++					skb = skb_peek(txlp->tx[i].list);
++					if (!skb) {
++						txlp->txq_map ^= BIT(i);
++						continue;
++					}
++
++					if (!is_skw_peer_data_valid(skw, skb)) {
++
++						skw_detail("drop dest: %pM\n",
++							   eth_hdr(skb)->h_dest);
++
++						__skb_unlink(skb, txlp->tx[i].list);
++						skw_skb_kfree(skw, skb);
++
++						continue;
++					}
++
++					if (!txlp->tx_count_limit--)
++						break;
++
++					if (txlp->tx[i].quota) {
++						txlp->tx[i].quota--;
++					} else {
++						txlp->txq_map ^= BIT(i);
++						continue;
++					}
++
++					__skb_unlink(skb, txlp->tx[i].list);
++					__skb_queue_tail(&txlp->tx_list, skb);
++
++					trace_skw_txlp_tx_list(skb->dev->name, ((struct skw_iface *)(netdev_priv(skb->dev)))->id);
++
++					txlp->cred--;
++				}
++
++				pending_qlen = pending_qlen - credit + txlp->cred;
++				//txlp->pending_qlen = pending_qlen;
++				txlp->pending_qlen = txlp->current_qlen - credit + txlp->cred;
++
++				trace_skw_tx_info(mac, ac, credit, credit - txlp->cred, txlp->current_qlen, pending_qlen);
++
++				if (skw_bus_data_xmit(skw, mac, &txlp->tx_list) >= 0)
++					skw->trans_start = jiffies;
++
++				txlp->tx_count_limit = max_tx_count_limit;
++
++				if (txlp->cred)
++					lmac_tx_capa |= BIT(mac);
++
++reset:
++				txlp->nr_txq = 0;
++				txlp->txq_map = 0;
++				txlp->current_qlen = 0;
++			}
++
++			if (!lmac_tx_capa)
++				break;
++		}
++
++		if (ac == SKW_WMM_AC_MAX)
++			skw_reset_ac(txl);
++
++		if (skw_tx_exit_check(skw, txl)) {
++			skw_start_dev_queue(skw);
++			return;
++		}
++	}
++}
++
++static void skw_kfree_skb_worker(struct work_struct *work)
++{
++	unsigned long flags;
++	struct sk_buff *skb, *tmp;
++	struct sk_buff_head qlist;
++	struct skw_core *skw = container_of(work, struct skw_core, kfree_skb_task);
++
++	__skb_queue_head_init(&qlist);
++
++	while (!skb_queue_empty(&skw->kfree_skb_qlist)) {
++		spin_lock_irqsave(&skw->kfree_skb_qlist.lock, flags);
++		skb_queue_splice_tail_init(&skw->kfree_skb_qlist, &qlist);
++		spin_unlock_irqrestore(&skw->kfree_skb_qlist.lock, flags);
++
++		skb_queue_walk_safe(&qlist, skb, tmp) {
++			if (likely(0 == SKW_SKB_TXCB(skb)->ret)) {
++				skb->dev->stats.tx_packets++;
++				skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++			} else
++				skb->dev->stats.tx_errors++;
++
++			__skb_unlink(skb, &qlist);
++			skw_skb_kfree(skw, skb);
++		}
++	}
++}
++
++void skw_dump_vring(struct vring *vr)
++{
++	int i;
++	u16 avail_idx = vr->avail->idx;
++	u16 used_idx = vr->used->idx;
++	u16 pending, available;
++
++	available = vr->num - (avail_idx - used_idx);
++	pending = (avail_idx - used_idx) & (vr->num - 1);
++
++	skw_dbg("===== VRING DUMP:=====\n");
++	skw_dbg("  Queue Size: %u\n", vr->num);
++	skw_dbg("  avail->idx: %u, used->idx: %u\n",
++			avail_idx, used_idx);
++	skw_dbg("  Available descriptors: %u\n",
++			available);
++	skw_dbg("  Descriptors pending hardware processing: %u\n", pending);
++
++	// 打印描述符表
++	skw_dbg("  Descriptor Table:\n");
++	for (i = 0; i < vr->num; i++) {
++		struct vring_desc *desc = &vr->desc[i];
++		skw_dbg("    Desc[%03u]: addr=0x%016llx, len=%u, flags=0x%04x, next=%u\n",
++				i, (unsigned long long)desc->addr, desc->len, desc->flags, desc->next);
++		skw_hex_dump("desc addr", phys_to_virt(desc->addr), desc->len, true);
++	}
++
++	// 打印可用环
++	skw_dbg("  Available Ring (avail->idx=%u):\n", avail_idx);
++	for (i = 0; i < vr->num; i++) {
++		unsigned int idx = i % vr->num;
++		skw_dbg("    Avail[%03u]: desc_idx=%u\n", i, vr->avail->ring[idx]);
++	}
++
++	// 打印已用环
++	skw_dbg("  Used Ring (used->idx=%u):\n", used_idx);
++	for (i = 0; i < vr->num; i++) {
++		unsigned int idx = i % vr->num;
++		skw_dbg("    Used[%03u]: id=%u, len=%u\n",
++				i, vr->used->ring[idx].id, vr->used->ring[idx].len);
++	}
++}
++
++u16 skw_vring_available_count(struct skw_tx_vring *tx_vring)
++{
++	struct vring *vr = &tx_vring->vr;
++	u16 avail_idx;
++	u16 used_idx;
++
++	spin_lock(&tx_vring->lock);
++	avail_idx = vr->avail->idx;
++	used_idx = vr->used->idx;
++	spin_unlock(&tx_vring->lock);
++
++	// 可用描述符数量 = 总容量 - (avail_idx - used_idx)
++	// 其中 (avail_idx - used_idx) 是已分配但未被设备处理的描述符数量
++	return vr->num - ((avail_idx - used_idx) & (vr->num - 1));
++}
++
++u16 skw_vring_pending_count(struct skw_tx_vring *tx_vring)
++{
++	u16 avail_idx, used_idx;
++	struct vring *vr;
++
++	vr = &tx_vring->vr;
++
++	spin_lock(&tx_vring->lock);
++	avail_idx = vr->avail->idx;
++	used_idx = vr->used->idx;
++	spin_unlock(&tx_vring->lock);
++
++
++	// 利用位运算处理回绕（要求vr->num是2的幂）
++	return (avail_idx - used_idx) & (vr->num - 1);
++}
++
++bool tx_vring_is_full(struct skw_tx_vring *tx_vring)
++{
++    struct vring *vr = &tx_vring->vr;
++    u16 avail_idx, used_idx;
++    u16 pending;
++
++    //spin_lock(&tx_vring->lock);
++    avail_idx = vr->avail->idx;
++    used_idx = vr->used->idx;
++    //spin_unlock(&tx_vring->lock);
++
++    // 计算待处理的描述符数量
++    pending = (avail_idx - used_idx) & (vr->num - 1);
++
++    // 当待处理数量达到队列大小时，表示队列已满
++    return pending >= (vr->num - 1);
++}
++
++bool vring_has_pending(struct skw_tx_vring *tx_vring)
++{
++	struct vring *vr;
++	u16 avail_idx, used_idx;
++
++	vr = &tx_vring->vr;
++
++	spin_lock(&tx_vring->lock);
++
++	avail_idx = vr->avail->idx;
++	used_idx = vr->used->idx;
++
++	spin_unlock(&tx_vring->lock);
++
++	// 计算待处理描述符数量（考虑回绕）
++	return ((avail_idx - used_idx) & (vr->num - 1)) != 0;
++}
++
++int skw_vring_set(struct skw_core *skw, void *data, u16 len, int lmac_id)
++{
++	u16 desc_idx, aligned;
++	struct vring *vr;
++	struct skw_tx_vring *tx_vring;
++
++	tx_vring = skw->hw.lmac[lmac_id].tx_vring;
++	vr = &tx_vring->vr;
++
++	// 1. 先获取锁，再检查队列状态
++	spin_lock(&tx_vring->lock);
++	smp_rmb();
++
++	if (tx_vring_is_full(tx_vring)) {
++		spin_unlock(&tx_vring->lock);
++		//skw_dbg("tx_vring_is_full\n");
++		return -EINVAL;
++	}
++
++	// 2. 获取当前可用描述符索引（正确方式）
++	desc_idx = vr->avail->idx & (vr->num - 1);
++
++	// 3. 配置描述符指向数据
++	//skw_sdio_hdr_set(skw, skb);
++	aligned = round_up(len, skw->hw.align);
++	memcpy(phys_to_virt(vr->desc[desc_idx].addr), data, aligned);
++	vr->desc[desc_idx].len = aligned;
++	vr->desc[desc_idx].flags = VRING_DESC_F_WRITE;
++
++	// 4. 更新可用环索引
++	vr->avail->ring[desc_idx] = desc_idx;
++
++	// 6. 使用内存屏障确保描述符更新先于索引更新
++	smp_wmb();
++	vr->avail->idx += 1;
++
++	//atomic_inc(&tx_vring->set);
++
++	spin_unlock(&tx_vring->lock);
++
++	return 0;
++}
++
++struct skw_tx_vring *skw_tx_vring_init(void)
++{
++	int i;
++	struct skw_tx_vring *tx_vring;
++	void *queue_mem;
++
++	tx_vring = kcalloc(1, sizeof(struct skw_tx_vring), GFP_KERNEL);
++	if (!tx_vring) {
++		skw_dbg("alloc tx_vring fail\n");
++		goto __1;
++	}
++
++	tx_vring->page = alloc_pages(GFP_KERNEL | GFP_DMA, get_order(SKW_TX_PACK_SIZE*SKW_TX_VRING_SIZE));
++	if (!tx_vring->page) {
++		skw_dbg("alloc page fail\n");
++		goto __2;
++	}
++
++	tx_vring->sgl_dat = kcalloc(SKW_TX_VRING_SIZE, sizeof(struct scatterlist), GFP_KERNEL);
++	if (!tx_vring->sgl_dat) {
++		skw_dbg("alloc sgl_dat fail\n");
++		goto __3;
++	}
++	sg_init_table(tx_vring->sgl_dat, SKW_TX_VRING_SIZE);
++	tx_vring->tx_bytes = 0;
++	spin_lock_init(&tx_vring->lock);
++
++	skw_dbg("size:%d\n", vring_size(SKW_TX_VRING_SIZE, PAGE_SIZE));
++	queue_mem = kzalloc(vring_size(SKW_TX_VRING_SIZE, PAGE_SIZE), GFP_KERNEL);
++	if (!queue_mem) {
++		skw_dbg("Failed to allocate vring memory\n");
++		goto __4;
++	}
++	skw_dbg("queue_mem:%p\n", queue_mem);
++
++	vring_init(&tx_vring->vr, SKW_TX_VRING_SIZE, queue_mem, PAGE_SIZE);
++	for (i = 0; i < SKW_TX_VRING_SIZE; i++) {
++		tx_vring->vr.avail->ring[i] = i;  // 将描述符索引 0~num-1 依次放入可用环
++		tx_vring->vr.desc[i].addr = virt_to_phys(page_address(tx_vring->page)) + i * SKW_TX_PACK_SIZE;
++	}
++	tx_vring->queue_mem = queue_mem;  // 记录指针以便后续释放
++
++	atomic_set(&tx_vring->set, 0);
++	atomic_set(&tx_vring->write, 0);
++
++	return tx_vring;
++
++__4:
++	kfree(tx_vring->sgl_dat);
++__3:
++	__free_pages(tx_vring->page, get_order(SKW_TX_PACK_SIZE*SKW_TX_VRING_SIZE));
++__2:
++	kfree(tx_vring);
++__1:
++	return NULL;
++}
++
++void skw_tx_vring_deinit(struct skw_tx_vring *tx_vring)
++{
++	if (tx_vring)
++		return ;
++	if (tx_vring->page)
++		__free_pages(tx_vring->page, get_order(SKW_TX_PACK_SIZE*SKW_TX_VRING_SIZE));
++	if (tx_vring->sgl_dat)
++		kfree(tx_vring->sgl_dat);
++
++	if (tx_vring->queue_mem)
++		kfree(tx_vring->queue_mem);
++
++	kfree(tx_vring);
++
++	return ;
++}
++
++int skw_sdio_write(struct skw_core *skw, struct skw_tx_vring *tx_vring, u16 limit, int lmac_id)
++{
++	struct vring *vr = &tx_vring->vr;
++	//u16 avail_idx;
++	//u16 used_idx;  // 使用vr->used->idx而不是last_used_idx
++	u16 desc_idx, data_len, used_ring_idx, used_idx, avail_idx;
++	u16 nents;
++	u32 tx_bytes;
++	int ret;
++
++	// 检查是否有新的可用描述符
++	if (!vring_has_pending(tx_vring)) {
++		skw_dbg("no avail data vr->avail->idx:%d vr->used->idx:%d\n", vr->avail->idx, vr->used->idx);
++		return -EINVAL;
++	}
++
++	spin_lock(&tx_vring->lock);
++	avail_idx = vr->avail->idx;
++	used_idx = vr->used->idx;
++
++	// 处理所有待处理的描述符（从used_idx到avail_idx-1）
++	sg_init_table(tx_vring->sgl_dat, SKW_TX_VRING_SIZE);
++	nents = 0;
++	tx_bytes = 0;
++	while ((used_idx & (vr->num - 1)) != (avail_idx & (vr->num - 1))) {
++		if (nents == limit)
++			break;
++		// 获取当前待处理的描述符索引
++		desc_idx = vr->avail->ring[used_idx % vr->num];
++
++		// 从描述符读取数据地址和长度
++		data_len = vr->desc[desc_idx].len;
++
++		// 记录调试信息
++		//printk("Processing descriptor %u: len=%u\n", desc_idx, data_len);
++
++		// 将结果添加到已用环
++		used_ring_idx = used_idx % vr->num;
++		vr->used->ring[used_ring_idx].id = desc_idx;
++		vr->used->ring[used_ring_idx].len = data_len;
++
++		sg_set_buf(&tx_vring->sgl_dat[nents++],  phys_to_virt(vr->desc[desc_idx].addr), vr->desc[desc_idx].len);
++		tx_bytes += vr->desc[desc_idx].len;
++
++		// 清理已处理描述符的状态
++		vr->desc[desc_idx].flags &= ~VRING_DESC_F_WRITE;
++		vr->desc[desc_idx].len = 0;
++
++		// 移动到下一个待处理的描述符
++		used_idx++;
++
++		//atomic_inc(&tx_vring->write);
++	}
++	spin_unlock(&tx_vring->lock);
++
++	skw_set_extra_hdr(skw, skw->eof_blk, skw->hw.lmac[lmac_id].lport, skw->hw.align, 0, 1);
++	sg_set_buf(&tx_vring->sgl_dat[nents++], skw->eof_blk, skw->hw.align);
++	tx_bytes += 512;
++
++	ret = skw->hw_pdata->hw_adma_tx(skw->hw.lmac[lmac_id].dport, tx_vring->sgl_dat, nents, tx_bytes);
++	if (ret)
++		skw_err("hw_adma_tx fail ret:%d nents:%d tx_bytes:%d\n", ret, nents, tx_bytes);
++
++	// 更新已用环索引
++	spin_lock(&tx_vring->lock);
++	smp_wmb();
++	vr->used->idx = used_idx;
++	spin_unlock(&tx_vring->lock);
++
++	return ret;
++}
++
++void skw_dy_worker(struct work_struct *work)
++{
++	int credit;
++	int pending, limit;
++	//int nents;
++	struct skw_tx_vring *tx_vring;
++	//struct skw_core *skw = container_of(work, struct skw_core, dy_work);
++	struct skw_lmac *lmac = container_of(work, struct skw_lmac, dy_work);
++	struct skw_core *skw = lmac->skw;
++
++	//tx_vring = skw->tx_vring;
++	tx_vring = lmac->tx_vring;
++	while (!atomic_read(&skw->exit)) {
++		credit = skw_get_hw_credit(skw, lmac->id);
++		if (credit == 0)
++			break;
++
++		//spin_lock(&tx_vring->lock);
++		pending = skw_vring_pending_count(tx_vring);
++		//spin_unlock(&tx_vring->lock);
++
++		if (pending == 0)
++			break;
++
++		limit = min(pending, credit);
++
++		if (skw_sdio_write(skw, tx_vring, limit, lmac->id) == 0)
++			skw_sub_credit(skw, lmac->id, limit);
++	}
++}
++
++static int __skw_tx_init(struct skw_core *skw)
++{
++	//struct workqueue_attrs wq_attrs;
++	int j;
++#ifdef CONFIG_SWT6621S_SKB_RECYCLE
++	int i;
++	struct sk_buff *skb;
++#endif
++
++	skw->tx_wq = alloc_workqueue("skw_txwq.%d",
++			WQ_UNBOUND | WQ_CPU_INTENSIVE | WQ_HIGHPRI | WQ_SYSFS,
++			0, skw->idx);
++	if (!skw->tx_wq) {
++		skw_err("alloc skwtx_workqueue failed\n");
++		return -EFAULT;
++	}
++
++	//memset(&wq_attrs, 0, sizeof(wq_attrs));
++
++	//wq_attrs.nice = MIN_NICE;
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0) && LINUX_VERSION_CODE <= KERNEL_VERSION(5, 2, 0)
++	//apply_workqueue_attrs(skw->tx_wq, &wq_attrs);
++#endif
++
++	INIT_DELAYED_WORK(&skw->tx_worker, skw_tx_worker);
++	queue_delayed_work(skw->tx_wq, &skw->tx_worker, msecs_to_jiffies(0));
++	//queue_work_on(cpumask_last(cpu_online_mask), skw->tx_wq, &skw->tx_worker);
++	skw->trans_start = 0;
++
++	skb_queue_head_init(&skw->kfree_skb_qlist);
++	INIT_WORK(&skw->kfree_skb_task, skw_kfree_skb_worker);
++
++	skb_queue_head_init(&skw->skb_recycle_qlist);
++#ifdef CONFIG_SWT6621S_SKB_RECYCLE
++	for (i = 0; i < SKW_SKB_RECYCLE_COUNT; i++) {
++		skb = dev_alloc_skb(SKW_2K_SIZE);
++		if (skb)
++			skb_queue_tail(&skw->skb_recycle_qlist, skb);
++		else {
++			__skb_queue_purge(&skw->skb_recycle_qlist);
++			destroy_workqueue(skw->tx_wq);
++			skw_err("alloc skb recycle failed\n");
++			return -ENOMEM;
++		}
++	}
++#endif
++
++	for (j = 0; j < SKW_MAX_LMAC_SUPPORT; j++) {
++		INIT_WORK(&skw->hw.lmac[j].dy_work, skw_dy_worker);
++		skw->hw.lmac[j].tx_vring = skw_tx_vring_init();
++	}
++
++	return 0;
++}
++
++static void __skw_tx_deinit(struct skw_core *skw)
++{
++	int j;
++
++	atomic_set(&skw->exit, 1);
++	cancel_delayed_work_sync(&skw->tx_worker);
++	cancel_work_sync(&skw->kfree_skb_task);
++	skb_queue_purge(&skw->kfree_skb_qlist);
++	destroy_workqueue(skw->tx_wq);
++	skb_queue_purge(&skw->skb_recycle_qlist);
++
++	for (j = 0; j < SKW_MAX_LMAC_SUPPORT; j++) {
++		cancel_work_sync(&skw->hw.lmac[j].dy_work);
++		skw_tx_vring_deinit(skw->hw.lmac[j].tx_vring);
++	}
++}
++
++#else
++
++static int skw_tx_thread(void *data)
++{
++	struct skw_core *skw = data;
++	int i, ac, mac;
++	int base = 0;
++	unsigned long flags;
++	int lmac_tx_capa;
++	int qlen, pending_qlen = 0;
++	int max_tx_count_limit = 0;
++	int lmac_tx_map = 0;
++	struct sk_buff *skb;
++	struct skw_iface *iface;
++	struct sk_buff_head *qlist;
++	struct skw_tx_lmac txl[SKW_MAX_LMAC_SUPPORT];
++	struct skw_tx_lmac *txlp;
++	struct sk_buff_head pure_ack_list;
++	int xmit_tx_flag;
++	int all_credit;
++
++	memset(txl, 0, sizeof(txl));
++	skw_reset_ac(txl);
++
++	max_tx_count_limit = skw->hw.pkt_limit;
++
++	/* reserve one for eof block */
++	if (skw->hw.bus == SKW_BUS_SDIO)
++		max_tx_count_limit--;
++
++	for (i = 0; i < skw->hw.nr_lmac; i++) {
++		__skb_queue_head_init(&txl[i].tx_list);
++		txl[i].tx_count_limit = max_tx_count_limit;
++	}
++
++	while (!kthread_should_stop()) {
++		// TODO:
++		/* CPU bind */
++		/* check if frame in pending queue is timeout */
++
++		atomic_inc(&skw->dbg.loop);
++
++		if (test_and_clear_bit(SKW_CMD_FLAG_XMIT, &skw->cmd.flags)) {
++			skw_bus_cmd_xmit(skw, skw->cmd.data, skw->cmd.data_len);
++
++			if (test_bit(SKW_CMD_FLAG_NO_ACK, &skw->cmd.flags)) {
++				set_bit(SKW_CMD_FLAG_DONE, &skw->cmd.flags);
++				skw->cmd.callback(skw);
++			}
++		}
++
++		if (!skw_tx_allowed(skw->flags)) {
++			set_current_state(TASK_INTERRUPTIBLE);
++			schedule_timeout(msecs_to_jiffies(200));
++			continue;
++		}
++
++		pending_qlen = 0;
++		lmac_tx_map = 0;
++
++		for (ac = 0; ac < SKW_WMM_AC_MAX; ac++) {
++			int ac_qlen = 0;
++
++			for (i = 0; i < SKW_NR_IFACE; i++) {
++				iface = skw->vif.iface[i];
++				// if (!iface || skw_lmac_is_actived(skw, iface->lmac_id))
++				if (!iface || !iface->ndev)
++					continue;
++
++				if (ac == SKW_WMM_AC_BE && iface->txq[SKW_ACK_TXQ].qlen) {
++					qlist = &iface->txq[SKW_ACK_TXQ];
++					__skb_queue_head_init(&pure_ack_list);
++
++					spin_lock_irqsave(&qlist->lock, flags);
++					skb_queue_splice_tail_init(&iface->txq[SKW_ACK_TXQ],
++								&pure_ack_list);
++					spin_unlock_irqrestore(&qlist->lock, flags);
++
++					skw_merge_pure_ack(skw, &pure_ack_list, &iface->tx_cache[ac]);
++				}
++
++				qlist = &iface->txq[ac];
++				if (!skb_queue_empty(qlist)) {
++					spin_lock_irqsave(&qlist->lock, flags);
++					skb_queue_splice_tail_init(qlist, &iface->tx_cache[ac]);
++					spin_unlock_irqrestore(&qlist->lock, flags);
++				}
++
++				qlen = skb_queue_len(&iface->tx_cache[ac]);
++				if (qlen) {
++					txlp = &txl[iface->lmac_id];
++					txlp->current_qlen += qlen;
++					txlp->txq_map |= BIT(txlp->nr_txq);
++					txlp->tx[txlp->nr_txq].list = &iface->tx_cache[ac];
++
++					if (txlp->ac_reset & BIT(ac)) {
++						txlp->tx[txlp->nr_txq].quota = iface->wmm.factor[ac];
++						txlp->tx[txlp->nr_txq].reset = true;
++						txlp->reset = true;
++						txlp->ac_reset ^= BIT(ac);
++					}
++
++					txlp->nr_txq++;
++					ac_qlen += qlen;
++				}
++			}
++
++			if (!ac_qlen)
++				continue;
++
++			pending_qlen += ac_qlen;
++			lmac_tx_capa = 0;
++
++			all_credit = 0;
++			for (mac = 0; mac < skw->hw.nr_lmac; mac++)
++				all_credit += skw_get_hw_credit(skw, mac);
++
++			if (all_credit == 0) {
++				skw_stop_dev_queue(skw);
++				wait_event_interruptible_exclusive(skw->tx_wait_q,
++					atomic_xchg(&skw->tx_wake, 0) || atomic_xchg(&skw->exit, 0));
++				skw_start_dev_queue(skw);
++			}
++
++			for (mac = 0; mac < skw->hw.nr_lmac; mac++) {
++				int credit;
++
++				txlp = &txl[mac];
++				if (!txlp->txq_map)
++					goto reset;
++
++				credit = txlp->cred = skw_get_hw_credit(skw, mac);
++				if (!txlp->cred)
++					goto reset;
++
++				if (txlp->reset) {
++					switch (ac) {
++					case SKW_WMM_AC_VO:
++						base = SKW_BASE_VO;
++						break;
++
++					case SKW_WMM_AC_VI:
++						base = SKW_BASE_VI;
++						break;
++
++					case SKW_WMM_AC_BK:
++						if (txlp->bk_tx_limit) {
++							base = min(txlp->cred, txlp->bk_tx_limit);
++							txlp->bk_tx_limit = 0;
++						} else {
++							base = txlp->cred;
++						}
++
++						base = base / txlp->nr_txq;
++
++						break;
++					default:
++						base = min(txlp->cred, txlp->current_qlen);
++						base = base / txlp->nr_txq;
++						txlp->bk_tx_limit = (txlp->cred + 1) >> 1;
++
++						break;
++					}
++
++					base = base ? base : 1;
++					txlp->reset = false;
++				}
++
++				for (i = 0; txlp->txq_map != 0; i++) {
++					i = i % txlp->nr_txq;
++
++					if (!(txlp->txq_map & BIT(i)))
++						continue;
++
++					if (!txlp->cred)
++						break;
++
++					if (txlp->tx[i].reset) {
++						txlp->tx[i].quota += base;
++
++						if (txlp->tx[i].quota < 0)
++							txlp->tx[i].quota = 0;
++
++						txlp->tx[i].reset = false;
++					}
++
++					skb = skb_peek(txlp->tx[i].list);
++					if (!skb) {
++						txlp->txq_map ^= BIT(i);
++						continue;
++					}
++
++					if (!is_skw_peer_data_valid(skw, skb)) {
++						skw_detail("drop dest: %pM\n",
++							   eth_hdr(skb)->h_dest);
++
++						__skb_unlink(skb, txlp->tx[i].list);
++						kfree_skb(skb);
++
++						continue;
++					}
++
++					if (!txlp->tx_count_limit--)
++						break;
++
++					if (txlp->tx[i].quota) {
++						txlp->tx[i].quota--;
++					} else {
++						txlp->txq_map ^= BIT(i);
++						continue;
++					}
++
++					if ((long)skb->data & SKW_DATA_ALIGN_MASK)
++						skw_warn("address unaligned\n");
++#if 0
++					if (skb->len % skw->hw_pdata->align_value)
++						skw_warn("len: %d unaligned\n", skb->len);
++#endif
++					__skb_unlink(skb, txlp->tx[i].list);
++					__skb_queue_tail(&txlp->tx_list, skb);
++					txlp->cred--;
++				}
++
++				pending_qlen = pending_qlen - credit + txlp->cred;
++
++				trace_skw_tx_info(mac, ac, credit, credit - txlp->cred,
++						txlp->current_qlen, pending_qlen);
++
++				// skw_lmac_tx(skw, mac, &txlp->tx_list);
++				skw_bus_data_xmit(skw, mac, &txlp->tx_list);
++				txlp->tx_count_limit = max_tx_count_limit;
++
++				lmac_tx_map |= BIT(mac);
++
++				if (txlp->cred)
++					lmac_tx_capa |= BIT(mac);
++reset:
++				txlp->nr_txq = 0;
++				txlp->txq_map = 0;
++				txlp->current_qlen = 0;
++			}
++
++			if (!lmac_tx_capa)
++				break;
++		}
++
++		if (ac == SKW_WMM_AC_MAX)
++			skw_reset_ac(txl);
++
++		if (pending_qlen == 0) {
++			xmit_tx_flag = 0;
++
++			for (ac = 0; ac < SKW_WMM_AC_MAX; ac++) {
++				for (i = 0; i < SKW_NR_IFACE; i++) {
++					iface = skw->vif.iface[i];
++					if (!iface || !iface->ndev)
++						continue;
++
++					if (skb_queue_len(&iface->tx_cache[ac]) != 0) {
++						xmit_tx_flag = 1;
++						goto need_running;
++					}
++
++					spin_lock_irqsave(&iface->txq[ac].lock, flags);
++					if (skb_queue_len(&iface->txq[ac]) != 0) {
++						xmit_tx_flag = 1;
++						spin_unlock_irqrestore(&iface->txq[ac].lock, flags);
++						goto need_running;
++
++					}
++					spin_unlock_irqrestore(&iface->txq[ac].lock, flags);
++				}
++			}
++need_running:
++
++			if (xmit_tx_flag == 0) {
++				//skw_start_dev_queue(skw);
++				wait_event_interruptible_exclusive(skw->tx_wait_q,
++					atomic_xchg(&skw->tx_wake, 0) || atomic_xchg(&skw->exit, 0));
++			}
++		}
++	}
++
++	skw_info("exit");
++
++	return 0;
++}
++
++static int __skw_tx_init(struct skw_core *skw)
++{
++	skw->tx_thread = kthread_create(skw_tx_thread, skw, "skw_tx.%d", skw->idx);
++	if (IS_ERR(skw->tx_thread)) {
++		skw_err("create tx thread failed\n");
++		return  PTR_ERR(skw->tx_thread);
++	}
++
++	//kthread_bind(skw->tx_thread, cpumask_last(cpu_online_mask));
++
++	skw_set_thread_priority(skw->tx_thread, SCHED_RR, 1);
++	set_user_nice(skw->tx_thread, MIN_NICE);
++	wake_up_process(skw->tx_thread);
++
++	return 0;
++}
++
++static void __skw_tx_deinit(struct skw_core *skw)
++{
++	if (skw->tx_thread) {
++		atomic_set(&skw->exit, 1);
++		kthread_stop(skw->tx_thread);
++		skw->tx_thread = NULL;
++	}
++}
++
++#endif
++
++static int skw_register_tx_callback(struct skw_core *skw, void *func, void *data)
++{
++	int i, map, ret = 0;
++
++	for (map = 0, i = 0; i < SKW_MAX_LMAC_SUPPORT; i++) {
++		if (!(skw->hw.lmac[i].flags & SKW_LMAC_FLAG_TXCB))
++			continue;
++
++		ret = skw_register_tx_cb(skw, skw->hw.lmac[i].dport, func, data);
++		if (ret < 0) {
++			skw_err("chip: %d, hw mac: %d, port: %d failed, ret: %d\n",
++				skw->idx, i, skw->hw.lmac[i].dport, ret);
++
++			break;
++		}
++
++		map |= BIT(skw->hw.lmac[i].dport);
++	}
++
++	skw_dbg("chip: %d, %s data port: 0x%x\n",
++		skw->idx, func ? "register" : "unregister", map);
++
++	return ret;
++}
++
++int skw_hw_xmit_init(struct skw_core *skw, int dma)
++{
++	int ret = 0;
++
++	skw_dbg("dma: %d\n", dma);
++
++	switch (dma) {
++	case SKW_SYNC_ADMA_TX:
++		skw->hw.dat_xmit = skw_sync_adma_tx;
++		skw->hw.cmd_xmit = skw_sync_adma_tx;
++		skw->hw.cmd_disable_irq_xmit = skw_sync_adma_cmd_disable_irq_tx;
++		break;
++
++	case SKW_SYNC_SDMA_TX:
++		skw->hw.dat_xmit = skw_sync_sdma_tx;
++		skw->hw.cmd_xmit = skw_sync_sdma_tx;
++		skw->hw.cmd_disable_irq_xmit = skw_sync_sdma_cmd_disable_irq_tx;
++
++		if (skw->sdma_buff)
++			break;
++		skw->sdma_buff = SKW_ZALLOC(skw->hw_pdata->max_buffer_size, GFP_KERNEL);
++		if (!skw->sdma_buff)
++			ret = -ENOMEM;
++
++		break;
++
++	case SKW_ASYNC_ADMA_TX:
++		skw->hw.dat_xmit = skw_async_adma_tx;
++		skw->hw.cmd_xmit = skw_sync_adma_tx;
++		skw->hw.cmd_disable_irq_xmit = NULL;
++
++		ret = skw_register_tx_callback(skw, skw_async_adma_tx_free, skw);
++		break;
++
++	case SKW_ASYNC_SDMA_TX:
++		skw->hw.dat_xmit = skw_async_sdma_tx;
++		skw->hw.cmd_xmit = skw_sync_sdma_tx;
++		skw->hw.cmd_disable_irq_xmit = NULL;
++
++		ret = skw_register_tx_callback(skw, skw_async_sdma_tx_free, skw);
++
++		if (skw->sdma_buff)
++			break;
++		skw->sdma_buff = SKW_ZALLOC(skw->hw_pdata->max_buffer_size, GFP_KERNEL);
++		if (!skw->sdma_buff)
++			ret = -ENOMEM;
++		break;
++
++	case SKW_ASYNC_EDMA_TX:
++		skw->hw.dat_xmit = NULL;
++		skw->hw.cmd_xmit = skw_sync_adma_tx;
++		skw->hw.cmd_disable_irq_xmit = NULL;
++		break;
++
++	default:
++		ret = -EINVAL;
++		skw->hw.dat_xmit = NULL;
++		skw->hw.cmd_xmit = NULL;
++		break;
++	}
++
++	return ret;
++}
++
++int skw_tx_init(struct skw_core *skw)
++{
++	int ret;
++
++	skw->skb_share_len = SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	skw->skb_headroom = sizeof(struct skw_tx_desc_hdr) +
++			    sizeof(struct skw_tx_desc_conf) +
++			    skw->hw.extra.hdr_len +
++			    SKW_DATA_ALIGN_SIZE + sizeof(unsigned long);
++
++	if (skw->hw.bus == SKW_BUS_SDIO) {
++		skw->eof_blk = SKW_ZALLOC(skw->hw.align, GFP_KERNEL);
++		if (!skw->eof_blk)
++			return -ENOMEM;
++	} else if (skw->hw.bus == SKW_BUS_PCIE) {
++		skw->skb_headroom = sizeof(struct skw_tx_desc_conf) +
++				    SKW_DATA_ALIGN_SIZE + 2 * sizeof(unsigned long);
++	}
++
++	ret = skw_hw_xmit_init(skw, skw->hw.dma);
++	if (ret < 0) {
++		SKW_KFREE(skw->eof_blk);
++		return ret;
++	}
++
++	ret = __skw_tx_init(skw);
++	if (ret < 0) {
++		SKW_KFREE(skw->eof_blk);
++		SKW_KFREE(skw->sdma_buff);
++	}
++
++	tx_wait_time = 5000;
++	skw_procfs_file(skw->pentry, "tx_wait_time", 0666, &skw_tx_time_fops, NULL);
++
++	return ret;
++}
++
++int skw_tx_deinit(struct skw_core *skw)
++{
++	__skw_tx_deinit(skw);
++
++	skw_register_tx_callback(skw, NULL, NULL);
++
++	SKW_KFREE(skw->eof_blk);
++	SKW_KFREE(skw->sdma_buff);
++
++	return 0;
++}
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_tx.h b/drivers/skw6621s/swt6621s_wifi/skw_tx.h
+new file mode 100755
+index 0000000..e53adbd
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_tx.h
+@@ -0,0 +1,150 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_TX_H__
++#define __SKW_TX_H__
++
++#include <linux/virtio_ring.h>
++
++#include "skw_platform_data.h"
++
++/* used for tx descriptor */
++#define SKW_ETHER_FRAME            0
++#define SKW_80211_FRAME            1
++
++#define SKW_SNAP_HDR_LEN           8
++
++#define SKW_TXQ_HIGH_THRESHOLD     768
++#define SKW_TXQ_LOW_THRESHOLD      512
++
++#define SKW_TX_WAIT_TIME 1000000
++
++#define SKW_TX_VRING_SIZE    128
++
++struct skw_tx_vring {
++	struct page *page;
++	int tx_bytes;
++	struct vring vr;
++	void *queue_mem;  // 新增：记录vring内存块指针
++
++	struct scatterlist *sgl_dat;
++	spinlock_t lock;
++
++	atomic_t set, write;
++};
++
++enum SKW_TX_RUNNING_STATE {
++	SKW_TX_RUNNING_EXIT,
++	SKW_TX_RUNNING_RESTART,
++	SKW_TX_RUNNING_GO,
++};
++
++struct skw_tx_desc_hdr {
++	/* pading bytes for gap */
++	u16 padding_gap:2;
++	u16 inst:2;
++	u16 tid:4;
++	u16 peer_lut:5;
++
++	/* frame_type:
++	 * 0: ethernet frame
++	 * 1: 80211 frame
++	 */
++	u16 frame_type:1;
++	u16 encry_dis:1;
++
++	/* rate: 0: auto, 1: sw config */
++	u16 rate:1;
++
++	u16 msdu_len:12;
++	u16 lmac_id:2;
++	u16 rsv:2;
++	u16 eth_type;
++
++	/* pading for address align */
++	u8 gap[0];
++} __packed;
++
++struct skw_tx_desc_conf {
++	u16 l4_hdr_offset:10;
++	u16 csum:1;
++
++	/* ip_prot: 0: UDP, 1: TCP */
++	u16 ip_prot:1;
++	u16 rsv:4;
++} __packed;
++
++struct skw_tx_cb {
++	u8 ret:1;
++	u8 recycle:1;
++	u8 lmac_id;
++	u8 peer_idx;
++	u8 tx_retry;
++	u16 skb_native_len;
++	dma_addr_t skb_data_pa;
++	struct skw_edma_elem e;
++};
++
++static inline void
++skw_set_tx_desc_eth_type(struct skw_tx_desc_hdr *desc_hdr, u16 proto)
++{
++	desc_hdr->eth_type = proto;
++}
++
++static inline int skw_tx_allowed(unsigned long flags)
++{
++	unsigned long mask = BIT(SKW_FLAG_FW_ASSERT) |
++			     BIT(SKW_FLAG_BLOCK_TX) |
++			     BIT(SKW_FLAG_MP_MODE) |
++			     BIT(SKW_FLAG_FW_THERMAL) |
++			     BIT(SKW_FLAG_FW_MAC_RECOVERY);
++
++	return !(mask & flags);
++}
++
++static inline int skw_cmd_tx_allowed(unsigned long flags)
++{
++	clear_bit(SKW_FLAG_FW_THERMAL, &flags);
++
++	return skw_tx_allowed(flags);
++}
++
++#ifdef CONFIG_SWT6621S_SKB_RECYCLE
++void skw_recycle_skb_free(struct skw_core *skw, struct sk_buff *skb);
++int skw_recycle_skb_copy(struct skw_core *skw, struct sk_buff *skb_recycle, struct sk_buff *skb);
++struct sk_buff *skw_recycle_skb_get(struct skw_core *skw);
++#endif
++void skw_skb_kfree(struct skw_core *skw, struct sk_buff *skb);
++
++int skw_pcie_cmd_xmit(struct skw_core *skw, void *data, int data_len);
++int skw_pcie_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq);
++
++int skw_sdio_cmd_xmit(struct skw_core *skw, void *data, int data_len);
++int skw_sdio_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq);
++
++int skw_usb_cmd_xmit(struct skw_core *skw, void *data, int data_len);
++int skw_usb_xmit(struct skw_core *skw, int lmac_id, struct sk_buff_head *txq);
++
++int skw_hw_xmit_init(struct skw_core *skw, int dma);
++int skw_tx_init(struct skw_core *skw);
++int skw_tx_deinit(struct skw_core *skw);
++
++void skw_sdio_hdr_set(struct skw_core *skw, struct sk_buff *skb, int lmac_id);
++int skw_vring_set(struct skw_core *skw, void *data, u16 len, int lmac_id);
++u16 skw_vring_available_count(struct skw_tx_vring *tx_vring);
++
++#endif
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_util.c b/drivers/skw6621s/swt6621s_wifi/skw_util.c
+new file mode 100755
+index 0000000..671265e
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_util.c
+@@ -0,0 +1,657 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/kernel.h>
++#include <linux/etherdevice.h>
++
++#include "skw_core.h"
++#include "skw_util.h"
++#include "skw_cfg80211.h"
++
++#ifdef CONFIG_PRINTK_TIME_FROM_ARM_ARCH_TIMER
++#include <clocksource/arm_arch_timer.h>
++u64 skw_local_clock(void)
++{
++	u64 ns;
++
++	ns = arch_timer_read_counter() * 1000;
++	do_div(ns, 24);
++
++	return ns;
++}
++#else
++u64 skw_local_clock(void)
++{
++	return local_clock();
++}
++#endif
++
++
++#ifdef SKW_IMPORT_NS
++struct file *skw_file_open(const char *path, int flags, int mode)
++{
++	struct file *fp = NULL;
++
++	fp = filp_open(path, flags, mode);
++	if (IS_ERR(fp)) {
++		skw_err("open fail\n");
++		return NULL;
++	}
++
++	return fp;
++}
++
++int skw_file_read(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
++	return kernel_read(fp, data, size, &offset);
++#else
++	return kernel_read(fp, offset, data, size);
++#endif
++}
++
++int skw_file_write(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
++	return kernel_write(fp, data, size, &offset);
++#else
++	return kernel_write(fp, data, size, offset);
++#endif
++}
++
++int skw_file_sync(struct file *fp)
++{
++	return vfs_fsync(fp, 0);
++}
++
++void skw_file_close(struct file *fp)
++{
++	filp_close(fp, NULL);
++}
++
++MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
++#endif
++
++void *skw_build_presp_frame(struct wiphy *wiphy, struct skw_iface *iface,
++			u8 *da, u8 *sa, u8 *bssid, u8 *ssid, int ssid_len,
++			u16 chan, struct ieee80211_supported_band *sband,
++			u16 capa, u64 tsf, int beacon_int, void *ie, int ie_len)
++{
++	u8 *pos;
++	int i, rate;
++	struct skw_template *temp;
++	struct ieee80211_mgmt *mgmt;
++
++	skw_dbg("ssid: %s, bssid: %pM\n", ssid, bssid);
++
++	temp = SKW_ZALLOC(1600, GFP_KERNEL);
++	if (!temp)
++		return NULL;
++
++	mgmt = temp->mgmt;
++	mgmt->frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
++					IEEE80211_STYPE_PROBE_RESP);
++	memcpy(mgmt->sa, sa, ETH_ALEN);
++	memcpy(mgmt->da, da, ETH_ALEN);
++	memcpy(mgmt->bssid, bssid, ETH_ALEN);
++
++	mgmt->u.beacon.beacon_int = cpu_to_le16(beacon_int);
++	mgmt->u.beacon.timestamp = cpu_to_le64(tsf);
++	mgmt->u.beacon.capab_info = cpu_to_le16(capa);
++
++	pos = mgmt->u.beacon.variable;
++
++	*pos++ = WLAN_EID_SSID;
++	*pos++ = ssid_len;
++	memcpy(pos, ssid, ssid_len);
++	pos += ssid_len;
++
++	*pos++ = WLAN_EID_SUPP_RATES;
++	*pos++ = SKW_BASIC_RATE_COUNT;
++	for (i = 0; i < SKW_BASIC_RATE_COUNT; i++) {
++		rate = DIV_ROUND_UP(sband->bitrates[i].bitrate, 5);
++		if (sband->bitrates[i].flags & 0x1)
++			rate |= 0x80;
++		*pos++ = rate;
++	}
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
++	if (sband->band == IEEE80211_BAND_2GHZ) {
++#else
++	if (sband->band == NL80211_BAND_2GHZ) {
++#endif
++		*pos++ = WLAN_EID_DS_PARAMS;
++		*pos++ = 1;
++		*pos++ = chan;
++	}
++
++	if (iface->wdev.iftype == NL80211_IFTYPE_ADHOC) {
++		*pos++ = WLAN_EID_IBSS_PARAMS;
++		*pos++ = 2;
++		*pos++ = 0;
++		*pos++ = 0;
++	}
++
++	*pos++ = WLAN_EID_EXT_SUPP_RATES;
++	*pos++ = sband->n_bitrates - SKW_BASIC_RATE_COUNT;
++	for (i = SKW_BASIC_RATE_COUNT; i < sband->n_bitrates; i++) {
++		rate = DIV_ROUND_UP(sband->bitrates[i].bitrate, 5);
++		if (sband->bitrates[i].flags & 0x1)
++			rate |= 0x80;
++		*pos++ = rate;
++	}
++
++	if (ie_len) {
++		memcpy(pos, ie, ie_len);
++		pos += ie_len;
++	}
++
++	return temp;
++}
++
++int skw_key_idx(u16 bitmap)
++{
++	static u8 idx[] = {0xff, 0x00, 0x01, 0xff,
++			   0x02, 0xff, 0xff, 0xff,
++			   0x03, 0xff, 0xff, 0xff,
++			   0xff, 0xff, 0xff, 0xff};
++
++	return idx[bitmap & 0xf];
++}
++
++int skw_build_deauth_frame(void *buf, int buf_len, u8 *da, u8 *sa,
++			u8 *bssid, u16 reason_code)
++{
++	u16 fc = IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_DEAUTH;
++	struct ieee80211_mgmt *mgmt = buf;
++
++	if (!buf || buf_len < SKW_DEAUTH_FRAME_LEN)
++		return -EINVAL;
++
++	mgmt->frame_control = cpu_to_le16(fc);
++	mgmt->duration = 0;
++	mgmt->seq_ctrl = 0;
++	skw_ether_copy(mgmt->da, da);
++	skw_ether_copy(mgmt->sa, sa);
++	skw_ether_copy(mgmt->bssid, bssid);
++
++	mgmt->u.deauth.reason_code = cpu_to_le16(reason_code);
++
++	return SKW_DEAUTH_FRAME_LEN;
++}
++
++char *skw_mgmt_name(u16 fc)
++{
++#define SKW_STYPE_STR(n) {case IEEE80211_STYPE_##n: return #n; }
++
++	switch (fc) {
++	SKW_STYPE_STR(ASSOC_REQ);
++	SKW_STYPE_STR(ASSOC_RESP);
++	SKW_STYPE_STR(REASSOC_REQ);
++	SKW_STYPE_STR(REASSOC_RESP);
++	SKW_STYPE_STR(PROBE_REQ);
++	SKW_STYPE_STR(PROBE_RESP);
++	SKW_STYPE_STR(BEACON);
++	SKW_STYPE_STR(ATIM);
++	SKW_STYPE_STR(DISASSOC);
++	SKW_STYPE_STR(AUTH);
++	SKW_STYPE_STR(DEAUTH);
++	SKW_STYPE_STR(ACTION);
++
++	default:
++		break;
++	}
++
++#undef SKW_STYPE_STR
++
++	return "UNDEFINE";
++}
++
++int skw_freq_to_chn(int freq)
++{
++	if (freq == 2484)
++		return 14;
++	else if (freq >= 2407 && freq < 2484)
++		return (freq - 2407) / 5;
++	else if (freq >= 4910 && freq <= 4980)
++		return (freq - 4000) / 5;
++	else if (freq >= 5000 && freq <= 45000)
++		return (freq - 5000) / 5;
++	else if (freq >= 58320 && freq <= 64800)
++		return (freq - 56160) / 2160;
++	else
++		return 0;
++}
++
++u32 skw_calc_rate(u64 bytes, u32 delta_ms)
++{
++	struct skw_tp_rate ret;
++	u64 cal_bytes = bytes;
++	u16 bps;
++	u16 Kbps;
++	u16 Mbps;
++	u16 Gbps;
++	u16 Tbps;
++
++	ret.ret = 0;
++	cal_bytes *= 8 * 1000;
++	do_div(cal_bytes, delta_ms);
++	bps = do_div(cal_bytes, 1 << 10);
++	Kbps = do_div(cal_bytes, 1 << 10);
++	Mbps = do_div(cal_bytes, 1 << 10);
++	Gbps = do_div(cal_bytes, 1 << 10);
++	Tbps = cal_bytes;
++
++	if (Tbps) {
++		ret.rate.value = Tbps;
++		ret.rate.unit = 'T';
++		ret.rate.two_dec = Gbps * 100 >> 10;
++	} else if (Gbps) {
++		ret.rate.value = Gbps;
++		ret.rate.unit = 'G';
++		ret.rate.two_dec = Mbps * 100 >> 10;
++	} else if (Mbps) {
++		ret.rate.value = Mbps;
++		ret.rate.unit = 'M';
++		ret.rate.two_dec = Kbps * 100 >> 10;
++	} else {
++		ret.rate.value = Kbps;
++		ret.rate.unit = 'K';
++		ret.rate.two_dec = bps * 100 >> 10;
++	}
++
++	return ret.ret;
++}
++
++static u32 skw_peer_rate(struct skw_stats_info *stat)
++{
++	u64 total_bytes, total_jiffies;
++
++	total_bytes = stat->bytes - stat->cal_bytes;
++	stat->cal_bytes = stat->bytes;
++	total_jiffies = jiffies - stat->cal_time;
++	stat->cal_time = jiffies;
++
++	return skw_calc_rate(total_bytes, jiffies_to_msecs(total_jiffies));
++}
++
++int skw_tx_throughput(struct skw_iface *iface, u8 *mac)
++{
++	int ret = 0;
++	struct skw_peer_ctx *ctx;
++
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	if (!mac || is_broadcast_ether_addr(mac)) {
++		ret = -EINVAL;
++		goto exit;
++	}
++
++	ctx = skw_peer_ctx(iface, mac);
++	if (!ctx) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	skw_peer_ctx_lock(ctx);
++
++	if (ctx->peer)
++		ret = skw_peer_rate(&ctx->peer->tx);
++
++	skw_peer_ctx_unlock(ctx);
++
++exit:
++	return ret;
++}
++
++int skw_rx_throughput(struct skw_iface *iface, u8 *mac)
++{
++	int ret = 0;
++	struct skw_peer_ctx *ctx;
++
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	if (!mac || is_broadcast_ether_addr(mac)) {
++		ret = -EINVAL;
++		goto exit;
++	}
++
++	ctx = skw_peer_ctx(iface, mac);
++	if (!ctx) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	skw_peer_ctx_lock(ctx);
++
++	if (ctx->peer)
++		ret = skw_peer_rate(&ctx->peer->rx);
++
++	skw_peer_ctx_unlock(ctx);
++
++exit:
++	return ret;
++}
++
++int skw_tx_throughput_whole(struct skw_iface *iface, u32 *tp)
++{
++	int ret = 0;
++	u32 peer_idx_map, idx;
++	struct skw_peer_ctx *ctx;
++
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	peer_idx_map = atomic_read(&iface->peer_map);
++
++	while (peer_idx_map) {
++		idx = ffs(peer_idx_map) - 1;
++		SKW_CLEAR(peer_idx_map, BIT(idx));
++
++		ctx = &iface->skw->hw.lmac[iface->lmac_id].peer_ctx[idx];
++
++		skw_peer_ctx_lock(ctx);
++
++		if (ctx->peer)
++			*(&(tp[idx])) = skw_peer_rate(&ctx->peer->tx);
++
++		skw_peer_ctx_unlock(ctx);
++	}
++
++exit:
++	return ret;
++}
++
++int skw_rx_throughput_whole(struct skw_iface *iface, u32 *tp)
++{
++	int ret = 0;
++	u32 peer_idx_map, idx;
++	struct skw_peer_ctx *ctx;
++
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	peer_idx_map = atomic_read(&iface->peer_map);
++
++	while (peer_idx_map) {
++		idx = ffs(peer_idx_map) - 1;
++		SKW_CLEAR(peer_idx_map, BIT(idx));
++
++		ctx = &iface->skw->hw.lmac[iface->lmac_id].peer_ctx[idx];
++
++		skw_peer_ctx_lock(ctx);
++
++		if (ctx->peer)
++			*(&(tp[idx])) = skw_peer_rate(&ctx->peer->rx);
++
++		skw_peer_ctx_unlock(ctx);
++	}
++
++exit:
++	return ret;
++}
++
++const u8 *skw_find_ie_match(u8 eid, const u8 *ies, int len, const u8 *match,
++			    int match_len, int match_offset)
++{
++	const struct skw_element *elem;
++
++	/* match_offset can't be smaller than 2, unless match_len is
++	 * zero, in which case match_offset must be zero as well.
++	 */
++	if (WARN_ON((match_len && match_offset < 2) ||
++		    (!match_len && match_offset)))
++		return NULL;
++
++	skw_foreach_element_id(elem, eid, ies, len) {
++		if (elem->datalen >= match_offset - 2 + match_len &&
++		    !memcmp(elem->data + match_offset - 2, match, match_len))
++			return (void *)elem;
++	}
++
++	return NULL;
++}
++
++bool skw_bss_check_vendor_name(struct cfg80211_bss *bss, const u8 *oui)
++{
++	const struct cfg80211_bss_ies *ies;
++	const struct skw_element *elem;
++	bool ret = false;
++	u8 eid = WLAN_EID_VENDOR_SPECIFIC;
++
++	ies = rcu_dereference(bss->beacon_ies);
++	if (!ies)
++		return false;
++
++	skw_hex_dump("beacon ies:", ies->data, ies->len, false);
++
++	skw_foreach_element_id(elem, eid, ies->data, ies->len) {
++		if (!memcmp(elem->data, oui, 3)) {
++			ret = true;
++			break;
++		}
++	}
++
++	return ret;
++}
++
++int skw_desc_get_rx_rate(struct skw_rate *rate, u8 bw, u8 mode, u8 gi,
++		    u8 nss, u8 dcm, u16 data_rate)
++{
++	u16 skw_supp_bs_rate[] = {
++		20, 55, 110,
++		/*2M,5.5M,11M*/
++	};
++	u16 skw_supp_bl_rate[] = {
++		10, 20, 55, 110,
++		/*1M,2M,5.5M,11M*/
++	};
++	u16 skw_supp_g_rate[] = {
++		60, 90, 120, 180, 240, 360, 480, 540,
++		/*6M, 9M, 12M, 18M, 24M, 36M, 48M, 54M*/
++	};
++
++	memset(rate, 0x0, sizeof(struct skw_rate));
++
++	rate->bw = bw;
++	rate->nss = nss;
++
++	switch (mode) {
++	case SKW_PPDUMODE_HT_MIXED:
++		rate->flags = SKW_RATE_INFO_FLAGS_HT;
++		rate->mcs_idx = 0x3F & data_rate;
++		rate->gi = gi;
++		break;
++
++	case SKW_PPDUMODE_VHT_SU:
++	case SKW_PPDUMODE_VHT_MU:
++		rate->flags = SKW_RATE_INFO_FLAGS_VHT;
++		rate->mcs_idx = 0xF & data_rate;
++		rate->gi = gi;
++		break;
++
++	case SKW_PPDUMODE_HE_SU:
++	case SKW_PPDUMODE_HE_TB:
++	case SKW_PPDUMODE_HE_ER_SU:
++	case SKW_PPDUMODE_HE_MU:
++		rate->flags = SKW_RATE_INFO_FLAGS_HE;
++		rate->mcs_idx = 0xF & data_rate;
++
++		if (dcm) {
++			rate->mcs_idx = 0x3 & data_rate;
++			rate->he_dcm = dcm;
++		} else if (mode == SKW_PPDUMODE_HE_ER_SU) {
++			rate->mcs_idx = 0x3 & data_rate;
++		}
++
++		rate->gi = gi;
++
++		if (bw != SKW_DESC_BW_USED_RU)
++			rate->he_ru = bw + 3;
++		break;
++
++	case SKW_PPDUMODE_11B_SHORT:
++		rate->flags = SKW_RATE_INFO_FLAGS_LEGACY;
++
++		if (data_rate < ARRAY_SIZE(skw_supp_bs_rate))
++			rate->legacy_rate = skw_supp_bs_rate[data_rate];
++		else
++			skw_warn("illegal 11B_SHORT rate:%d\n", data_rate);
++		break;
++
++	case SKW_PPDUMODE_11B_LONG:
++		rate->flags = SKW_RATE_INFO_FLAGS_LEGACY;
++
++		if (data_rate < ARRAY_SIZE(skw_supp_bl_rate))
++			rate->legacy_rate = skw_supp_bl_rate[data_rate];
++		else
++			skw_warn("illegal 11B_LONG rate:%d\n", data_rate);
++		break;
++
++	case SKW_PPDUMODE_11G:
++		rate->flags = SKW_RATE_INFO_FLAGS_LEGACY;
++
++		if (data_rate < ARRAY_SIZE(skw_supp_g_rate))
++			rate->legacy_rate = skw_supp_g_rate[data_rate];
++		else
++			skw_warn("illegal 11G rate:%d\n", data_rate);
++		break;
++
++	default:
++		skw_warn("unsupport ppdu mode:%d\n", mode);
++		break;
++	};
++
++	return 0;
++}
++
++int skw_tlv_add(struct skw_tlv_conf *conf, int type, void *dat, int dat_len)
++{
++	struct skw_tlv *tlv;
++
++	if (!conf || !conf->buff)
++		return -EINVAL;
++
++	if (conf->total_len + dat_len + 4 > conf->buff_len)
++		return -ENOMEM;
++
++	tlv = (struct skw_tlv *)(conf->buff + conf->total_len);
++	tlv->type = type;
++	tlv->len = dat_len;
++	memcpy(tlv->value, dat, dat_len);
++
++	conf->total_len += dat_len + 4;
++
++	return 0;
++}
++
++int skw_tlv_alloc(struct skw_tlv_conf *conf, int len, gfp_t gfp)
++{
++	if (!conf)
++		return -EINVAL;
++
++	conf->buff = SKW_ZALLOC(len, GFP_KERNEL);
++	if (!conf->buff)
++		return -ENOMEM;
++
++	conf->total_len = 0;
++	conf->buff_len = len;
++
++	return 0;
++}
++
++void *skw_tlv_reserve(struct skw_tlv_conf *conf, int len)
++{
++	void *start = NULL;
++
++	if (!conf || !conf->buff)
++		return NULL;
++
++	if (conf->total_len + len > conf->buff_len)
++		return NULL;
++
++	start = conf->buff + conf->total_len;
++	conf->total_len += len;
++
++	return start;
++}
++
++void skw_tlv_free(struct skw_tlv_conf *conf)
++{
++	if (conf) {
++		SKW_KFREE(conf->buff);
++		conf->total_len = 0;
++		conf->buff_len = 0;
++	}
++}
++
++int skw_util_set_mib_enable(struct wiphy *wiphy, int inst, int mib_id, bool enable)
++{
++	int ret;
++	u16 *plen;
++	struct skw_tlv_conf conf;
++	bool state = !!enable;
++
++	skw_dbg("set %d mib:%d\n", mib_id, enable);
++
++	ret = skw_tlv_alloc(&conf, 128, GFP_KERNEL);
++	if (ret) {
++		skw_err("alloc failed\n");
++		return ret;
++	}
++
++	plen = skw_tlv_reserve(&conf, 2);
++	if (!plen) {
++		skw_err("reserve failed\n");
++		skw_tlv_free(&conf);
++		return -ENOMEM;
++	}
++
++	if (skw_tlv_add(&conf, mib_id, &state, 1)) {
++		skw_err("set mib failed\n");
++		skw_tlv_free(&conf);
++
++		return -EINVAL;
++	}
++
++	*plen = conf.total_len;
++
++	ret = skw_msg_xmit(wiphy, inst, SKW_CMD_SET_MIB, conf.buff,
++			   conf.total_len, NULL, 0);
++	if (ret)
++		skw_warn("failed, ret: %d\n", ret);
++
++	skw_tlv_free(&conf);
++
++	return ret;
++}
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_util.h b/drivers/skw6621s/swt6621s_wifi/skw_util.h
+new file mode 100755
+index 0000000..795cff5
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_util.h
+@@ -0,0 +1,338 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_UTIL_H__
++#define __SKW_UTIL_H__
++
++#include <linux/version.h>
++#include <linux/ieee80211.h>
++#include <net/cfg80211.h>
++#include <linux/etherdevice.h>
++#include <linux/netdevice.h>
++#include <linux/sched.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
++#include <uapi/linux/sched/types.h>
++#endif
++
++#define SKW_NULL
++#define SKW_LEAVE                    WLAN_REASON_DEAUTH_LEAVING
++#define SKW_2K_SIZE                  2048
++#define SKW_SKB_RECYCLE_COUNT        4096
++#define SKW_BASIC_RATE_COUNT         8
++/* hdr(24) + reason(2) */
++#define SKW_DEAUTH_FRAME_LEN         26
++
++#define __SKW_STR(x)                 #x
++#define SKW_STR(x)                   __SKW_STR(x)
++
++#define SKW_SET(d, v)                ((d) |= (v))
++#define SKW_CLEAR(d, v)              ((d) &= ~(v))
++#define SKW_TEST(d, v)               ((d) & (v))
++
++#define SKW_ZALLOC(s, f)             kzalloc(s, f)
++
++#define SKW_KFREE(p)                 \
++	do {                         \
++		kfree(p);            \
++		p = NULL;            \
++	} while (0)
++
++#define SKW_KMEMDUP(s, l, f)     (((s) != NULL) ? kmemdup(s, l, f) : NULL)
++#define SKW_MGMT_SFC(fc)         (le16_to_cpu(fc) & IEEE80211_FCTL_STYPE)
++#define SKW_WDEV_TO_IFACE(w)     container_of(w, struct skw_iface, wdev)
++
++#define SKW_OUI(a, b, c)                                       \
++	(((a) & 0xff) << 16 | ((b) & 0xff) << 8 | ((c) & 0xff))
++
++#ifndef list_next_entry
++#define list_next_entry(pos, member)                           \
++	list_entry((pos)->member.next, typeof(*(pos)), member)
++#endif
++
++#ifdef SKWIFI_ASSERT
++#define SKW_BUG_ON(c)         BUG_ON(c)
++#else
++#define SKW_BUG_ON(c)         WARN_ON(c)
++#endif
++
++#ifndef READ_ONCE
++#define READ_ONCE(x)          ACCESS_ONCE(x)
++#endif
++
++#ifndef WRITE_ONCE
++#define WRITE_ONCE(x, v)      (ACCESS_ONCE(x) = v)
++#endif
++
++#ifndef __has_attribute
++#define __has_attribute(x) 0
++#endif
++
++#if __has_attribute(__fallthrough__)
++#define skw_fallthrough       __attribute__((__fallthrough__))
++#else
++#define skw_fallthrough       do {} while (0)  /* fallthrough */
++#endif
++
++
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
++static inline void u64_stats_init(struct u64_stats_sync *syncp)
++{
++#if BITS_PER_LONG == 32 && defined(CONFIG_SMP)
++	seqcount_init(&syncp->seq);
++#endif
++}
++#endif
++
++#ifndef NET_NAME_ENUM
++#define NET_NAME_ENUM 1
++#endif
++
++#ifndef netdev_alloc_pcpu_stats
++#define netdev_alloc_pcpu_stats(type)				\
++({								\
++	typeof(type) __percpu *pcpu_stats = alloc_percpu(type); \
++	if (pcpu_stats)	{					\
++		int i;						\
++		for_each_possible_cpu(i) {			\
++			typeof(type) *stat;			\
++			stat = per_cpu_ptr(pcpu_stats, i);	\
++			u64_stats_init(&stat->syncp);		\
++		}						\
++	}							\
++	pcpu_stats;						\
++})
++#endif
++
++#define skw_foreach_element(_elem, _data, _datalen)			     \
++	for (_elem = (struct skw_element *)(_data);                          \
++	     (const u8 *)(_data) + (_datalen) - (const u8 *)_elem >=	     \
++		(int)sizeof(*_elem) &&					     \
++	     (const u8 *)(_data) + (_datalen) - (const u8 *)_elem >=	     \
++		(int)sizeof(*_elem) + _elem->datalen;			     \
++	     _elem = (struct skw_element *)(_elem->data + _elem->datalen))
++
++#define skw_foreach_element_id(element, _id, data, datalen)		     \
++	skw_foreach_element(element, data, datalen)			     \
++		if (element->id == (_id))
++
++struct skw_tp_rate {
++	union {
++		struct {
++			u16 value;
++			u8 two_dec;
++			u8 unit;
++		} rate;
++
++		u32 ret;
++	};
++};
++
++struct skw_template {
++	u16 head_offset;
++	u16 head_len;
++	u16 tail_ofsset;
++	u16 tail_len;
++	struct ieee80211_mgmt mgmt[0];
++};
++
++struct skw_rate {
++	u8 flags;
++	u8 mcs_idx;
++	u16 legacy_rate;
++	u8 nss;
++	u8 bw;
++	u8 gi;
++	u8 he_ru;
++	u8 he_dcm;
++} __packed;
++
++struct skw_arphdr {
++	__be16          ar_hrd; /* format of hardware address */
++	__be16          ar_pro; /* format of protocol address */
++	unsigned char   ar_hln; /* length of hardware address */
++	unsigned char   ar_pln; /* length of protocol address */
++	__be16          ar_op;  /* ARP opcode (command) */
++
++	unsigned char   ar_sha[ETH_ALEN]; /* sender hardware address */
++	__be32          ar_sip;  /* sender IP address */
++	unsigned char   ar_tha[ETH_ALEN]; /* target hardware address */
++	__be32          ar_tip;  /* target IP address */
++} __packed;
++
++struct skw_element {
++	u8 id;
++	u8 datalen;
++	u8 data[];
++} __packed;
++
++struct skw_tlv {
++	u16 type;
++	u16 len;
++	char value[0];
++};
++
++struct skw_tlv_conf {
++	void *buff;
++	int buff_len, total_len;
++};
++
++static inline struct skw_arphdr *skw_arp_hdr(struct sk_buff *skb)
++{
++	if (!skb)
++		return NULL;
++
++	return (struct skw_arphdr *)(skb->data + 14);
++}
++
++static inline u64 skw_mac_to_u64(const u8 *addr)
++{
++	u64 u = 0;
++	int i;
++
++	for (i = 0; i < ETH_ALEN; i++)
++		u = u << 8 | addr[i];
++
++	return u;
++}
++
++static inline void skw_u64_to_mac(u64 u, u8 *addr)
++{
++	int i;
++
++	for (i = ETH_ALEN - 1; i >= 0; i--) {
++		addr[i] = u & 0xff;
++		u = u >> 8;
++	}
++}
++
++static inline void *skw_put_skb_data(struct sk_buff *skb, const void *data,
++				 unsigned int len)
++{
++	void *tmp = skb_put(skb, len);
++
++	memcpy(tmp, data, len);
++
++	return tmp;
++}
++
++static inline void *skw_put_skb_zero(struct sk_buff *skb, unsigned int len)
++{
++	void *tmp = skb_put(skb, len);
++
++	memset(tmp, 0, len);
++
++	return tmp;
++}
++
++static inline struct ethhdr *skw_eth_hdr(const struct sk_buff *skb)
++{
++	return (struct ethhdr *)skb->data;
++}
++
++static inline int skw_mac_offset(const struct sk_buff *skb)
++{
++	return skb_mac_header(skb) - skb->data;
++}
++
++static inline void skw_set_thread_priority(struct task_struct *thread,
++					   int policy, int priority)
++{
++#ifdef CONFIG_SWT6621S_HIGH_PRIORITY
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
++	sched_set_fifo_low(thread);
++#else
++	struct sched_param param = {
++		.sched_priority = priority,
++	};
++
++	sched_setscheduler(thread, policy, &param);
++#endif
++#endif
++}
++
++static inline const char *skw_iftype_name(enum nl80211_iftype iftype)
++{
++	static const char * const ifname[] = {"IFTYPE_NONE",
++					"ADHOC",
++					"STA",
++					"AP",
++					"AP_VLAN",
++					"WDS",
++					"MONITOR",
++					"MESH",
++					"P2P_GC",
++					"P2P_GO",
++					"P2P_DEVICE",
++					"OCB",
++					"NAN",
++					"IFTYPE_LAST"};
++
++	return ifname[iftype];
++}
++
++/**
++ * skw_ether_copy - Copy an Ethernet address
++ * @dst: Pointer to a six-byte array Ethernet address destination
++ * @src: Pointer to a six-byte array Ethernet address source
++ *
++ * Please note: dst & src must both be aligned to u16.
++ */
++static inline void skw_ether_copy(u8 *dst, const u8 *src)
++{
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
++	*(u32 *)dst = *(const u32 *)src;
++	*(u16 *)(dst + 4) = *(const u16 *)(src + 4);
++#else
++	u16 *a = (u16 *)dst;
++	const u16 *b = (const u16 *)src;
++
++	a[0] = b[0];
++	a[1] = b[1];
++	a[2] = b[2];
++#endif
++}
++
++#ifdef SKW_IMPORT_NS
++struct file *skw_file_open(const char *path, int flags, int mode);
++int skw_file_read(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset);
++int skw_file_write(struct file *fp, unsigned char *data,
++		size_t size, loff_t offset);
++int skw_file_sync(struct file *fp);
++void skw_file_close(struct file *fp);
++#endif
++
++u64 skw_local_clock(void);
++int skw_key_idx(u16 bitmap);
++char *skw_mgmt_name(u16 fc);
++int skw_freq_to_chn(int freq);
++u32 skw_calc_rate(u64 bytes, u32 delta_ms);
++int skw_build_deauth_frame(void *buf, int buf_len, u8 *da, u8 *sa,
++			   u8 *bssid, u16 reason_code);
++const u8 *skw_find_ie_match(u8 eid, const u8 *ies, int len, const u8 *match,
++			    int match_len, int match_offset);
++
++int skw_desc_get_rx_rate(struct skw_rate *rate, u8 bw, u8 mode, u8 gi,
++		    u8 nss, u8 dcm, u16 data_rate);
++void skw_tlv_free(struct skw_tlv_conf *conf);
++void *skw_tlv_reserve(struct skw_tlv_conf *conf, int len);
++int skw_tlv_alloc(struct skw_tlv_conf *conf, int len, gfp_t gfp);
++int skw_tlv_add(struct skw_tlv_conf *conf, int type, void *dat, int dat_len);
++bool skw_bss_check_vendor_name(struct cfg80211_bss *bss, const u8 *oui);
++int skw_util_set_mib_enable(struct wiphy *wiphy, int inst, int mib_id, bool enable);
++#endif
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_vendor.c b/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
+new file mode 100755
+index 0000000..5c43fbb
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_vendor.c
+@@ -0,0 +1,495 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <net/cfg80211.h>
++#include <net/genetlink.h>
++
++#include "skw_vendor.h"
++#include "skw_cfg80211.h"
++#include "skw_core.h"
++#include "skw_iface.h"
++#include "skw_util.h"
++#include "skw_regd.h"
++#include "version.h"
++
++const struct nla_policy
++skw_set_country_policy[SKW_SET_COUNTRY_RULES] = {
++	[SKW_ATTR_SET_COUNTRY] = {.type = NLA_STRING},
++};
++
++const struct nla_policy
++skw_get_valid_channels_policy[SKW_GET_VALID_CHANNELS_RULES] = {
++	[SKW_ATTR_GET_VALID_CHANNELS] = {.type = NLA_U32},
++};
++
++const struct nla_policy
++skw_get_version_policy[SKW_GET_VERSION_RULES] = {
++	[SKW_ATTR_VERSION_DRIVER] = {.type = NLA_U32},
++	[SKW_ATTR_VERSION_FIRMWARE] = {.type = NLA_U32},
++};
++
++#if 0
++static int skw_vendor_dbg_reset_logging(struct wiphy *wiphy,
++	struct wireless_dev *wdev, const void  *data, int len)
++{
++	int ret = SKW_OK;
++
++	skw_dbg("Enter\n");
++
++	return ret;
++}
++
++static int skw_vendor_set_p2p_rand_mac(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	int type;
++	//struct skw_iface *iface = netdev_priv(wdev->netdev);
++	u8 mac_addr[6] = {0};
++
++	skw_dbg("set skw mac addr\n");
++	type = nla_type(data);
++
++	if (type == SKW_ATTR_DRIVER_RAND_MAC) {
++		memcpy(mac_addr, nla_data(data), 6);
++		skw_dbg("mac:%pM\n", mac_addr);
++	}
++
++	return 0;
++}
++
++static int skw_vendor_set_rand_mac_oui(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	char *oui = nla_data(data);
++	struct skw_iface *iface = SKW_WDEV_TO_IFACE(wdev);
++
++	if (!oui || (nla_len(data) != DOT11_OUI_LEN))
++		return -EINVAL;
++
++	skw_dbg("%02x:%02x:%02x\n", oui[0], oui[1], oui[2]);
++
++	memcpy(iface->rand_mac_oui, oui, DOT11_OUI_LEN);
++
++	return 0;
++}
++#endif
++
++static int skw_vendor_cmd_reply(struct wiphy *wiphy, const void *data, int len)
++{
++	struct sk_buff *skb;
++	int err;
++
++	/* Alloc the SKB for vendor_event */
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, len);
++	if (unlikely(!skb)) {
++		skw_err("skb alloc failed");
++		return -ENOMEM;
++	}
++
++	/* Push the data to the skb */
++	err = nla_put_nohdr(skb, len, data);
++	if (err) {
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_start_logging(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_wake_reason_stats(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_apf_capabilities(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	struct sk_buff *skb;
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	if (nla_put_u32(skb, SKW_ATTR_APF_VERSION, 4) ||
++	    nla_put_u32(skb, SKW_ATTR_APF_MAX_LEN, 1024)) {
++		kfree_skb(skb);
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_ring_buffer_data(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_firmware_dump(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void  *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_select_tx_power_scenario(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_set_latency_mode(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	skw_dbg("inst: %d\n", SKW_WDEV_TO_IFACE(wdev)->id);
++
++	return 0;
++}
++
++static int skw_vendor_get_feature_set(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	u32 feature_set = 0;
++
++	/* Hardcoding these values for now, need to get
++	 * these values from FW, will change in a later check-in
++	 */
++	feature_set |= WIFI_FEATURE_INFRA;
++	feature_set |= WIFI_FEATURE_INFRA_5G;
++	feature_set |= WIFI_FEATURE_P2P;
++	feature_set |= WIFI_FEATURE_SOFT_AP;
++	feature_set |= WIFI_FEATURE_AP_STA;
++	//feature_set |= WIFI_FEATURE_TDLS;
++	//feature_set |= WIFI_FEATURE_TDLS_OFFCHANNEL;
++	//feature_set |= WIFI_FEATURE_NAN;
++	//feature_set |= WIFI_FEATURE_HOTSPOT;
++	//feature_set |= WIFI_FEATURE_LINK_LAYER_STATS; //TBC
++	//feature_set |= WIFI_FEATURE_RSSI_MONITOR; //TBC with roaming
++	//feature_set |= WIFI_FEATURE_MKEEP_ALIVE; //TBC compare with QUALCOM
++	//feature_set |= WIFI_FEATURE_CONFIG_NDO; //TBC
++	//feature_set |= WIFI_FEATURE_SCAN_RAND;
++	//feature_set |= WIFI_FEATURE_RAND_MAC;
++	//feature_set |= WIFI_FEATURE_P2P_RAND_MAC ;
++	//feature_set |= WIFI_FEATURE_CONTROL_ROAMING;
++
++	skw_dbg("feature: 0x%x\n", feature_set);
++
++	return skw_vendor_cmd_reply(wiphy, &feature_set, sizeof(u32));
++}
++
++static int skw_vendor_set_country(struct wiphy *wiphy, struct wireless_dev *wdev,
++				  const void *data, int data_len)
++{
++	char *country = nla_data(data);
++
++	if (nla_type(data) != SKW_ATTR_SET_COUNTRY)
++		skw_warn("attr mismatch, type: %d\n", nla_type(data));
++
++	if (!country || strlen(country) != 2) {
++		skw_err("invalid, country: %s\n", country ? country : "null");
++
++		return -EINVAL;
++	}
++
++	skw_dbg("country: %c%c\n", country[0], country[1]);
++
++	return skw_set_regdom(wiphy, country);
++}
++
++static int skw_vendor_get_version(struct wiphy *wiphy, struct wireless_dev *wdev,
++				const void *data, int len)
++{
++	char version[64] = {0};
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	switch (nla_type(data)) {
++	case SKW_ATTR_VERSION_DRIVER:
++		strncpy(version, SKW_VERSION, sizeof(version));
++		break;
++
++	case SKW_ATTR_VERSION_FIRMWARE:
++		snprintf(version, sizeof(version), "%s-%s",
++			 skw->fw.plat_ver, skw->fw.wifi_ver);
++		break;
++
++	default:
++		skw_err("invalid nla type\n");
++		strcpy(version, "invalid");
++		break;
++	}
++
++	return skw_vendor_cmd_reply(wiphy, version, sizeof(version));
++}
++
++static int skw_vendor_get_usable_channels(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void *data, int len)
++{
++	int i, nr, max;
++	struct sk_buff *skb;
++	enum nl80211_band band;
++	struct skw_usable_chan *chans;
++	struct skw_usable_chan_req *req = (struct skw_usable_chan_req *)data;
++
++	skw_dbg("band_mask: 0x%x\n", req->band_mask);
++
++	max = ieee80211_get_num_supported_channels(wiphy);
++
++	chans = SKW_ZALLOC(max * sizeof(*chans), GFP_KERNEL);
++	if (!chans)
++		return -ENOMEM;
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb) {
++		SKW_KFREE(chans);
++		return -ENOMEM;
++	}
++
++	for (nr = 0, band = 0; band < NUM_NL80211_BANDS; band++) {
++		if (!(req->band_mask & BIT(to_skw_band(band))) ||
++		    !wiphy->bands[band])
++			continue;
++
++		for (i = 0; i < wiphy->bands[band]->n_channels; i++) {
++			struct ieee80211_channel *chan;
++
++			chan = &wiphy->bands[band]->channels[i];
++
++			if (chan->flags & IEEE80211_CHAN_DISABLED)
++				continue;
++
++			chans[nr].center_freq = chan->center_freq;
++			chans[nr].band_width = SKW_CHAN_WIDTH_20;
++			chans[nr].iface_mode_mask = BIT(SKW_STA_MODE) |
++						    BIT(SKW_AP_MODE) |
++						    BIT(SKW_GC_MODE) |
++						    BIT(SKW_GO_MODE);
++			nr++;
++		}
++	}
++
++	if (nla_put_nohdr(skb, nr * sizeof(*chans), chans)) {
++		SKW_KFREE(chans);
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	SKW_KFREE(chans);
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_valid_channels(struct wiphy *wiphy,
++		struct wireless_dev *wdev, const void *data, int len)
++{
++	int channels[32], size;
++	int i, band, nr_channels;
++	struct sk_buff *skb;
++
++	if (nla_type(data) != SKW_ATTR_GET_VALID_CHANNELS)
++		skw_warn("attr mismatch, type: %d", nla_type(data));
++
++	band = nla_get_u32(data);
++	if (band > NL80211_BAND_5GHZ) {
++		skw_err("invalid band: %d\n", band);
++		return -EINVAL;
++	}
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	nr_channels = wiphy->bands[band]->n_channels;
++	size = nr_channels * sizeof(int);
++
++	for (i = 0; i < nr_channels; i++)
++		channels[i] = wiphy->bands[band]->channels[i].hw_value;
++
++	if (nla_put_u32(skb, SKW_ATTR_VALID_CHANNELS_COUNT, nr_channels) ||
++	    nla_put(skb, SKW_ATTR_VALID_CHANNELS_LIST, size, channels)) {
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_ring_buffers_status(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void  *data, int len)
++{
++	struct sk_buff *skb;
++	struct skw_ring_buff_status status = {
++		.name = "skw_drv",
++		.flags = 0,
++		.ring_id = 0,
++		.ring_buffer_byte_size = 1024,
++		.verbose_level = 0,
++		.written_bytes = 0,
++		.read_bytes = 0,
++		.written_records = 0,
++	};
++
++	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, NLMSG_DEFAULT_SIZE);
++	if (!skb)
++		return -ENOMEM;
++
++	if (nla_put_u32(skb, SKW_ATTR_RING_BUFFERS_COUNT, 1) ||
++	    nla_put(skb, SKW_ATTR_RING_BUFFERS_STATUS, sizeof(status), &status)) {
++		kfree_skb(skb);
++
++		return -ENOMEM;
++	}
++
++	return cfg80211_vendor_cmd_reply(skb);
++}
++
++static int skw_vendor_get_logger_feature(struct wiphy *wiphy,
++			struct wireless_dev *wdev, const void  *data, int len)
++{
++	u32 features = 0;
++
++	skw_dbg("features: 0x%x\n", features);
++
++	return skw_vendor_cmd_reply(wiphy, &features, sizeof(features));
++}
++
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0))
++#define SKW_VENDOR_CMD(oui, cmd, flag, func, nla_policy, max_attr)  \
++{                                                                   \
++	.info = {.vendor_id = oui, .subcmd = cmd},                  \
++	.flags = flag,                                              \
++	.doit = func,                                               \
++	.policy = nla_policy,                                       \
++	.maxattr = max_attr,                                        \
++}
++#else
++#define SKW_VENDOR_CMD(oui, cmd, flag, func, nla_policy, max_attr)  \
++{                                                                   \
++	.info = {.vendor_id = oui, .subcmd = cmd},                  \
++	.flags = flag,                                              \
++	.doit = func,                                               \
++}
++#endif
++
++#define SKW_VENDOR_DEFAULT_FLAGS (WIPHY_VENDOR_CMD_NEED_WDEV |      \
++				  WIPHY_VENDOR_CMD_NEED_NETDEV)
++
++static struct wiphy_vendor_command skw_vendor_cmds[] = {
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_VALID_CHANNELS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_valid_channels,
++			skw_get_valid_channels_policy,
++			SKW_GET_VALID_CHANNELS_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_FEATURE_SET,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_feature_set,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_VERSION,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_version,
++			skw_get_version_policy,
++			SKW_GET_VERSION_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_RING_BUFFERS_STATUS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_ring_buffers_status,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_LOGGER_FEATURE,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_logger_feature,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_APF_CAPABILITIES,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_apf_capabilities,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_USABLE_CHANS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_usable_channels,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SET_COUNTRY,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_set_country,
++			skw_set_country_policy, SKW_SET_COUNTRY_RULES),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_START_LOGGING,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_start_logging,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_FIRMWARE_DUMP,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_firmware_dump,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_RING_BUFFER_DATA,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_ring_buffer_data,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_GET_WAKE_REASON_STATS,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_get_wake_reason_stats,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SELECT_TX_POWER_SCENARIO,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_select_tx_power_scenario,
++			VENDOR_CMD_RAW_DATA, 0),
++	SKW_VENDOR_CMD(OUI_GOOGLE, SKW_VID_SET_LATENCY_MODE,
++			SKW_VENDOR_DEFAULT_FLAGS,
++			skw_vendor_set_latency_mode,
++			VENDOR_CMD_RAW_DATA, 0),
++};
++
++static struct nl80211_vendor_cmd_info skw_vendor_events[] = {
++	{
++		.vendor_id = 0,
++		.subcmd = 0,
++	},
++};
++
++void skw_vendor_init(struct wiphy *wiphy)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
++	wiphy->vendor_commands = skw_vendor_cmds;
++	wiphy->n_vendor_commands = ARRAY_SIZE(skw_vendor_cmds);
++	wiphy->vendor_events = skw_vendor_events;
++	wiphy->n_vendor_events = ARRAY_SIZE(skw_vendor_events);
++#else
++	skw_dbg("cmd: %d, event: %d\n", ARRAY_SIZE(skw_vendor_cmds),
++		ARRAY_SIZE(skw_vendor_events));
++#endif
++}
++
++void skw_vendor_deinit(struct wiphy *wiphy)
++{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
++	wiphy->vendor_commands = NULL;
++	wiphy->n_vendor_commands = 0;
++#endif
++}
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_vendor.h b/drivers/skw6621s/swt6621s_wifi/skw_vendor.h
+new file mode 100755
+index 0000000..b8a3de5
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_vendor.h
+@@ -0,0 +1,162 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_VENDOR_H__
++#define __SKW_VENDOR_H__
++
++#define OUI_GOOGLE	                         0x001A11
++
++/* Vendor Command ID */
++#define SKW_VID_GET_VALID_CHANNELS               0x1009
++#define SKW_VID_GET_FEATURE_SET                  0x100A
++#define SKW_VID_SET_COUNTRY                      0x100E
++#define SKW_VID_SET_LATENCY_MODE                 0x101B
++#define SKW_VID_START_LOGGING                    0x1400
++#define SKW_VID_GET_FIRMWARE_DUMP                0x1401
++#define SKW_VID_GET_VERSION                      0x1403
++#define SKW_VID_GET_RING_BUFFERS_STATUS          0x1404
++#define SKW_VID_GET_RING_BUFFER_DATA             0x1405
++#define SKW_VID_GET_LOGGER_FEATURE               0x1406
++#define SKW_VID_GET_WAKE_REASON_STATS            0x140D
++#define SKW_VID_GET_APF_CAPABILITIES             0x1800
++#define SKW_VID_SELECT_TX_POWER_SCENARIO         0x1900
++#define SKW_VID_GET_USABLE_CHANS                 0x2000
++
++/* ATTR IE Start */
++
++/* ATTR GET_VALID_CHANNELS */
++#define SKW_ATTR_GET_VALID_CHANNELS              20
++#define SKW_ATTR_VALID_CHANNELS_COUNT            36
++#define SKW_ATTR_VALID_CHANNELS_LIST             37
++#define SKW_GET_VALID_CHANNELS_RULES             38
++/* ATTR GET_VALID_CHANNELS */
++
++/* ATTR SET_COUNTRY */
++#define SKW_ATTR_SET_COUNTRY                     5
++#define SKW_SET_COUNTRY_RULES                    6
++/* ATTR SET_COUNTRY */
++
++/* ATTR GET_APF_CAPABILITIES */
++#define SKW_ATTR_APF_VERSION                     0
++#define SKW_ATTR_APF_MAX_LEN                     1
++/* ATTR GET_APF_CAPABILITIES */
++
++/* ATTR GET_VERSION */
++#define SKW_ATTR_VERSION_DRIVER                  1
++#define SKW_ATTR_VERSION_FIRMWARE                2
++#define SKW_GET_VERSION_RULES                    3
++/* ATTR GET_VERSION */
++
++/* ATTR RING_BUFFERS_STATUS */
++#define SKW_ATTR_RING_BUFFERS_STATUS             13
++#define SKW_ATTR_RING_BUFFERS_COUNT              14
++/* ATTR RING_BUFFERS_STATUS */
++
++/* END OF ATTR IE */
++
++/* Feature enums */
++#define WIFI_FEATURE_INFRA                       0x1      // Basic infrastructure mode
++#define WIFI_FEATURE_INFRA_5G                    0x2      // Support for 5 GHz Band
++#define WIFI_FEATURE_HOTSPOT                     0x4      // Support for GAS/ANQP
++#define WIFI_FEATURE_P2P                         0x8      // Wifi-Direct
++#define WIFI_FEATURE_SOFT_AP                     0x10      // Soft AP
++#define WIFI_FEATURE_GSCAN                       0x20      // Google-Scan APIs
++#define WIFI_FEATURE_NAN                         0x40      // Neighbor Awareness Networking
++#define WIFI_FEATURE_D2D_RTT                     0x80      // Device-to-device RTT
++#define WIFI_FEATURE_D2AP_RTT                    0x100      // Device-to-AP RTT
++#define WIFI_FEATURE_BATCH_SCAN                  0x200      // Batched Scan (legacy)
++#define WIFI_FEATURE_PNO                         0x400      // Preferred network offload
++#define WIFI_FEATURE_ADDITIONAL_STA              0x800      // Support for two STAs
++#define WIFI_FEATURE_TDLS                        0x1000      // Tunnel directed link setup
++#define WIFI_FEATURE_TDLS_OFFCHANNEL             0x2000      // Support for TDLS off channel
++#define WIFI_FEATURE_EPR                         0x4000      // Enhanced power reporting
++#define WIFI_FEATURE_AP_STA                      0x8000      // Support for AP STA Concurrency
++#define WIFI_FEATURE_LINK_LAYER_STATS            0x10000     // Link layer stats collection
++#define WIFI_FEATURE_LOGGER                      0x20000     // WiFi Logger
++#define WIFI_FEATURE_HAL_EPNO                    0x40000     // WiFi PNO enhanced
++#define WIFI_FEATURE_RSSI_MONITOR                0x80000     // RSSI Monitor
++#define WIFI_FEATURE_MKEEP_ALIVE                 0x100000    // WiFi mkeep_alive
++#define WIFI_FEATURE_CONFIG_NDO                  0x200000    // ND offload configure
++#define WIFI_FEATURE_TX_TRANSMIT_POWER           0x400000    // Capture Tx transmit power levels
++#define WIFI_FEATURE_CONTROL_ROAMING             0x800000    // Enable/Disable firmware roaming
++#define WIFI_FEATURE_IE_WHITELIST                0x1000000   // Support Probe IE white listing
++#define WIFI_FEATURE_SCAN_RAND                   0x2000000   // Support MAC & Probe Sequence Number randomization
++#define WIFI_FEATURE_SET_TX_POWER_LIMIT          0x4000000   // Support Tx Power Limit setting
++#define WIFI_FEATURE_USE_BODY_HEAD_SAR           0x8000000   // Support Using Body/Head Proximity for SAR
++#define WIFI_FEATURE_DYNAMIC_SET_MAC             0x10000000  // Support changing MAC address without iface reset(down and up)
++#define WIFI_FEATURE_SET_LATENCY_MODE            0x40000000  // Support Latency mode setting
++#define WIFI_FEATURE_P2P_RAND_MAC                0x80000000  // Support P2P MAC randomization
++#define WIFI_FEATURE_INFRA_60G                   0x100000000 // Support for 60GHz Band
++
++/* Vendor Event ID */
++#define SKW_NL80211_VENDOR_SUBCMD_MONITOR_RSSI   80
++#define EXT_VENDOR_EVENT_BUF_SIZE                4096
++enum skw_wlan_vendor_attr_rssi_monitoring {
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_INVALID = 0,
++	/* Takes valid value from the enum
++	 * skw_wlan_rssi_monitoring_control
++	 * Unsigned 32-bit value enum skw_wlan_rssi_monitoring_control
++	 */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CONTROL,
++	/* Unsigned 32-bit value */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_REQUEST_ID,
++	/* Signed 8-bit value in dBm */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MAX_RSSI,
++	/* Signed 8-bit value in dBm */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MIN_RSSI,
++	/* attributes to be used/received in callback */
++	/* 6-byte MAC address used to represent current BSSID MAC address */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CUR_BSSID,
++	/* Signed 8-bit value indicating the current RSSI */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_CUR_RSSI,
++	/* keep last */
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_AFTER_LAST,
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_MAX =
++	SKW_WLAN_VENDOR_ATTR_RSSI_MONITORING_AFTER_LAST - 1,
++};
++
++struct skw_ring_buff_status {
++	u8 name[32];
++	u32 flags;
++	int ring_id;                  // unique integer representing the ring
++	u32 ring_buffer_byte_size;    // total memory size allocated for the buffer
++	u32 verbose_level;            // verbose level for ring buffer
++	u32 written_bytes;            // number of bytes that was written to the buffer by driver
++	u32 read_bytes;               // number of bytes that was read from the buffer by user land
++	u32 written_records;          // number of records that was written to the buffer by driver
++};
++
++struct skw_usable_chan {
++	u16 center_freq;
++	u16 band_width;
++	u16 iface_mode_mask;
++	u16 flags;
++	u32 resvd;
++};
++
++struct skw_usable_chan_req {
++	u32 band_mask;
++	u32 filter_mask;
++	u32 iface_mode_mask;
++	u32 flags;
++	u32 resvd;
++};
++
++void skw_vendor_init(struct wiphy *wiphy);
++void skw_vendor_deinit(struct wiphy *wiphy);
++
++#endif
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_work.c b/drivers/skw6621s/swt6621s_wifi/skw_work.c
+new file mode 100755
+index 0000000..dd75905
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_work.c
+@@ -0,0 +1,420 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/skbuff.h>
++
++#include "skw_core.h"
++#include "skw_cfg80211.h"
++#include "skw_iface.h"
++#include "skw_mlme.h"
++#include "skw_msg.h"
++#include "skw_work.h"
++#include "skw_timer.h"
++#include "skw_recovery.h"
++#include "skw_tx.h"
++#include "skw_dfs.h"
++
++#define SKW_WORK_FLAG_ASSERT        0
++#define SKW_WORK_FLAG_RCU_FREE      1
++#define SKW_WORK_FLAG_UNLOCK        2
++#define SKW_WORK_FLAG_RESUME        3
++
++static void skw_ap_acl_check(struct wiphy *wiphy, struct skw_iface *iface)
++{
++	int idx;
++	struct skw_peer_ctx *ctx = NULL;
++	u32 peer_idx_map = atomic_read(&iface->peer_map);
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	if (peer_idx_map == 0)
++		return;
++
++	while (peer_idx_map) {
++		idx = ffs(peer_idx_map) - 1;
++
++		SKW_CLEAR(peer_idx_map, BIT(idx));
++
++		ctx = &skw->hw.lmac[iface->lmac_id].peer_ctx[idx];
++		if (!ctx)
++			continue;
++
++		if (ctx->peer && !skw_acl_allowed(iface, ctx->peer->addr))
++			skw_mlme_ap_del_sta(wiphy, iface->ndev,
++					ctx->peer->addr, false);
++	}
++}
++
++static void skw_work_async_adma_tx_free(struct skw_core *skw,
++				struct scatterlist *sglist, int nents)
++{
++	int idx;
++	struct scatterlist *sg;
++	struct sk_buff *skb;
++	unsigned long *skb_addr, *sg_addr;
++
++	for_each_sg(sglist, sg, nents, idx) {
++		sg_addr = (unsigned long *)sg_virt(sg);
++
++		skb_addr = sg_addr - 1;
++		skb = (struct sk_buff *)*skb_addr;
++		if (!virt_addr_valid(skb)) {
++			/* Invalid skb pointer */
++			skw_dbg("wrong address p_data:0x%lx from FW\n", (unsigned long)sg_addr);
++			continue;
++		}
++
++		skb->dev->stats.tx_packets++;
++		skb->dev->stats.tx_bytes += SKW_SKB_TXCB(skb)->skb_native_len;
++		//kfree_skb(skb);
++		skw_skb_kfree(skw, skb);
++		atomic_dec(&skw->txqlen_pending);
++	}
++
++	SKW_KFREE(sglist);
++}
++
++#ifdef CONFIG_RPS
++int skw_init_rps_map(struct skw_iface *iface)
++{
++	int i, cpu;
++	struct rps_map *map, *old_map;
++	static DEFINE_SPINLOCK(rps_map_lock);
++	struct netdev_rx_queue *queue = iface->ndev->_rx;
++
++	map = kzalloc(max_t(unsigned int,
++			    RPS_MAP_SIZE(cpumask_weight(cpu_online_mask)), L1_CACHE_BYTES),
++		      GFP_KERNEL);
++	if (!map)
++		return -ENOMEM;
++
++	i = 0;
++	for_each_cpu(cpu, cpu_online_mask)
++		if (cpu != iface->cpu_id)
++			map->cpus[i++] = cpu;
++
++	if (i) {
++		map->len = i;
++	} else {
++		kfree(map);
++		map = NULL;
++	}
++
++	spin_lock(&rps_map_lock);
++	old_map = rcu_dereference_protected(queue->rps_map,
++					    lockdep_is_held(&rps_map_lock));
++	rcu_assign_pointer(queue->rps_map, map);
++	spin_unlock(&rps_map_lock);
++
++	if (map) {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
++		static_key_slow_inc(&rps_needed.key);
++#else
++		static_key_slow_inc(&rps_needed);
++#endif
++	}
++
++	if (old_map) {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0))
++		static_key_slow_dec(&rps_needed.key);
++#else
++		static_key_slow_dec(&rps_needed);
++#endif
++		kfree_rcu(old_map, rcu);
++	}
++
++	return 0;
++}
++#endif
++
++static int skw_work_process(struct wiphy *wiphy, struct skw_iface *iface,
++			int work_id, void *data, int data_len, const u8 *name)
++{
++	int ret = 0;
++	struct skw_sg_node *node;
++	struct skw_ba_action *ba;
++	struct skw_core *skw = wiphy_priv(wiphy);
++//	int *umask;
++	struct skw_mgmt_status *status;
++
++	if (!iface) {
++		ret = -ENOENT;
++		goto exit;
++	}
++
++	skw_log(SKW_WORK, "[%s]: iface: %d, %s (id: %d)\n",
++		SKW_TAG_WORK, iface ? iface->id : -1, name, work_id);
++
++	switch (work_id) {
++	case SKW_WORK_BA_ACTION:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_BA_ACTION,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_SCAN_TIMEOUT:
++		skw_scan_done(skw, iface, true);
++		break;
++
++	case SKW_WORK_ACL_CHECK:
++		skw_ap_acl_check(wiphy, iface);
++		break;
++
++	case SKW_WORK_SET_MC_ADDR:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_SET_MC_ADDR,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_SET_IP:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_SET_IP,
++				data, data_len, NULL, 0);
++		break;
++
++	case SKW_WORK_TX_FREE:
++		node = data;
++		skw_work_async_adma_tx_free(skw, node->sg, node->nents);
++
++		break;
++
++	case SKW_WORK_SETUP_TXBA:
++		ba = data;
++
++		skw_dbg("%s, iface: %d, peer: %d, tid: %d\n",
++			name, iface->id, ba->peer_idx, ba->tid);
++
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_BA_ACTION,
++				data, data_len, NULL, 0);
++		if (ret) {
++			struct skw_peer_ctx *ctx;
++
++			skw_err("setup TXBA failed, ret: %d\n", ret);
++
++			ctx = skw_get_ctx(skw, iface->lmac_id, ba->peer_idx);
++
++			skw_peer_ctx_lock(ctx);
++
++			if (ctx->peer)
++				SKW_CLEAR(ctx->peer->txba.bitmap, BIT(ba->tid));
++
++			skw_peer_ctx_unlock(ctx);
++		}
++
++		break;
++
++	case SKW_WORK_TX_ETHER_DATA:
++		ret = skw_send_msg(wiphy, iface->ndev, SKW_CMD_TX_DATA_FRAME,
++				data, data_len, NULL, 0);
++		break;
++#if 0
++	case SKW_WORK_RADAR_PULSE:
++		skw_dfs_radar_pulse_event(wiphy, iface, data, data_len);
++		break;
++#endif
++
++	case SKW_WORK_IFACE_RPS_INIT:
++#if 0
++#ifdef CONFIG_RPS
++		umask = (int *)data;
++		skw_init_rps_map(iface, *umask);
++#endif
++#endif
++		break;
++
++	case SKW_WORK_SPLIT_MGMT_TX_STATUS:
++		status = data;
++		skw_mgmt_tx_status(iface, status->mgmt_status_cookie,
++			status->mgmt_status_data, status->mgmt_status_data_len, true);
++
++		skw_dbg("split ack cookie:0x%llx\n", status->mgmt_status_cookie);
++
++		SKW_KFREE(status->mgmt_status_data);
++		break;
++
++	default:
++		skw_info("invalid work: %d\n", work_id);
++		break;
++	}
++
++exit:
++	return ret;
++}
++
++//workaround for bug3384
++static void skw_work_unlock(struct work_struct *work)
++{
++	struct skw_core *skw = container_of(work, struct skw_core, work_unlock);
++
++	skw_del_timer_work(skw, skw->cmd.data);
++	__pm_relax(skw->cmd.ws);
++	up(&skw->cmd.lock);
++}
++
++static void skw_work(struct work_struct *work)
++{
++	struct sk_buff *skb;
++	struct skw_work_cb *cb;
++	struct skw_core *skw = container_of(work, struct skw_core, work);
++	struct wiphy *wiphy = priv_to_wiphy(skw);
++
++	while (READ_ONCE(skw->work_data.flags) || skb_queue_len(&skw->work_data.work_list)) {
++
++		if (test_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags)) {
++			struct rcu_head *head;
++
++			spin_lock_bh(&skw->work_data.rcu_lock);
++
++			head = skw->work_data.rcu_hdr;
++			if (head)
++				skw->work_data.rcu_hdr = head->next;
++
++			spin_unlock_bh(&skw->work_data.rcu_lock);
++
++			if (head) {
++				synchronize_rcu();
++				head->func(head);
++			} else {
++				skw->work_data.rcu_tail = &skw->work_data.rcu_hdr;
++				clear_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags);
++			}
++		}
++
++		if (test_and_clear_bit(SKW_WORK_FLAG_ASSERT, &skw->work_data.flags))
++			skw_hw_assert(skw, false);
++
++		if (test_and_clear_bit(SKW_WORK_FLAG_RESUME, &skw->work_data.flags))
++			skw_resume(wiphy);
++
++		if (!skb_queue_len(&skw->work_data.work_list))
++			continue;
++
++		skb = skb_dequeue(&skw->work_data.work_list);
++		cb = SKW_WORK_CB(skb);
++		if (skb && cb)
++			skw_work_process(wiphy, cb->iface, cb->id,
++				skb->data, skb->len, cb->name);
++
++		kfree_skb(skb);
++	}
++}
++
++void skw_assert_schedule(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	set_bit(SKW_WORK_FLAG_ASSERT, &skw->work_data.flags);
++	schedule_work(&skw->work);
++}
++
++void skw_work_resume(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	set_bit(SKW_WORK_FLAG_RESUME, &skw->work_data.flags);
++	schedule_work(&skw->work);
++}
++
++void skw_unlock_schedule(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	//set_bit(SKW_WORK_FLAG_UNLOCK, &skw_work_flags);
++	schedule_work(&skw->work_unlock);
++	//schedule_work(&skw->work);
++}
++
++#ifdef CONFIG_SWT6621S_GKI_DRV
++void skw_call_rcu(void *core, struct rcu_head *head, rcu_callback_t func)
++{
++	struct skw_core *skw = core;
++
++	spin_lock_bh(&skw->work_data.rcu_lock);
++
++	head->func = func;
++	head->next = NULL;
++
++	*skw->work_data.rcu_tail = head;
++	skw->work_data.rcu_tail = &head->next;
++
++	spin_unlock_bh(&skw->work_data.rcu_lock);
++
++	set_bit(SKW_WORK_FLAG_RCU_FREE, &skw->work_data.flags);
++
++	schedule_work(&skw->work);
++}
++#endif
++
++int __skw_queue_work(struct wiphy *wiphy, struct skw_iface *iface,
++		     enum SKW_WORK_ID id, void *data,
++		     int dat_len, const u8 *name)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++	struct skw_work_cb *wcb;
++	struct sk_buff *skb;
++
++	skb = dev_alloc_skb(dat_len);
++	if (!skb)
++		return -ENOMEM;
++
++	if (data)
++		skw_put_skb_data(skb, data, dat_len);
++
++	wcb = SKW_WORK_CB(skb);
++	wcb->iface = iface;
++	wcb->id = id;
++	wcb->name = name;
++
++	skb_queue_tail(&skw->work_data.work_list, skb);
++	schedule_work(&skw->work);
++
++	return 0;
++}
++
++int skw_queue_event_work(struct wiphy *wiphy, struct skw_event_work *work,
++			 struct sk_buff *skb)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	if (!atomic_read(&work->enabled))
++		return -EINVAL;
++
++	skb_queue_tail(&work->qlist, skb);
++
++	if (!work_pending(&work->work))
++		queue_work(skw->event_wq, &work->work);
++
++	return 0;
++}
++
++void skw_work_init(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	skw->work_data.rcu_hdr = NULL;
++	skw->work_data.rcu_tail = &skw->work_data.rcu_hdr;
++
++	spin_lock_init(&skw->work_data.rcu_lock);
++	skb_queue_head_init(&skw->work_data.work_list);
++	INIT_WORK(&skw->work, skw_work);
++	INIT_WORK(&skw->work_unlock, skw_work_unlock);
++}
++
++void skw_work_deinit(struct wiphy *wiphy)
++{
++	struct skw_core *skw = wiphy_priv(wiphy);
++
++	flush_work(&skw->work_unlock);
++	flush_work(&skw->work);
++	skb_queue_purge(&skw->work_data.work_list);
++}
+diff --git a/drivers/skw6621s/swt6621s_wifi/skw_work.h b/drivers/skw6621s/swt6621s_wifi/skw_work.h
+new file mode 100755
+index 0000000..dbda393
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/skw_work.h
+@@ -0,0 +1,105 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#ifndef __SKW_WORK_MSG_H__
++#define __SKW_WORK_MSG_H__
++
++struct skw_sg_node {
++	struct scatterlist *sg;
++	int nents;
++	int status;
++	int lmac_id;
++	void *data;
++};
++
++enum SKW_WORK_ID {
++	SKW_WORK_BA_ACTION,
++	SKW_WORK_SCAN_TIMEOUT,
++	SKW_WORK_ACL_CHECK,
++	SKW_WORK_SET_MC_ADDR,
++	SKW_WORK_SET_IP,
++	SKW_WORK_TX_FREE,
++	SKW_WORK_SETUP_TXBA,
++	SKW_WORK_TX_ETHER_DATA,
++	SKW_WORK_RADAR_PULSE,
++	SKW_WORK_RADAR_CAC,
++	SKW_WORK_RADAR_CAC_END,
++	SKW_WORK_IFACE_RPS_INIT,
++	SKW_WORK_SPLIT_MGMT_TX_STATUS,
++};
++
++struct skw_work_cb {
++	struct skw_iface *iface;
++	const u8 *name;
++	u32 id;
++};
++
++struct skw_event_work {
++	atomic_t enabled;
++	struct work_struct work;
++	struct sk_buff_head qlist;
++};
++
++struct skw_mgmt_status {
++	void *mgmt_status_data;
++	int mgmt_status_data_len;
++	u64 mgmt_status_cookie;
++} __packed;
++
++static inline struct skw_work_cb *SKW_WORK_CB(struct sk_buff *skb)
++{
++	return (struct skw_work_cb *)skb->cb;
++}
++
++static inline void skw_event_work_init(struct skw_event_work *work,
++					work_func_t func)
++{
++	atomic_set(&work->enabled, 0);
++	skb_queue_head_init(&work->qlist);
++	INIT_WORK(&work->work, func);
++	atomic_set(&work->enabled, 1);
++}
++
++static inline void skw_event_work_deinit(struct skw_event_work *work)
++{
++	atomic_set(&work->enabled, 0);
++	cancel_work_sync(&work->work);
++	skb_queue_purge(&work->qlist);
++}
++
++int __skw_queue_work(struct wiphy *wiphy, struct skw_iface *iface,
++		     enum SKW_WORK_ID id, void *data,
++		     int dat_len, const u8 *name);
++
++#define skw_queue_work(wiphy, iface, id, data, len) \
++	__skw_queue_work(wiphy, iface, id, data, len, #id)
++
++int skw_queue_event_work(struct wiphy *wiphy, struct skw_event_work *work,
++			 struct sk_buff *skb);
++
++void skw_assert_schedule(struct wiphy *wiphy);
++void skw_unlock_schedule(struct wiphy *wiphy);
++void skw_work_init(struct wiphy *wiphy);
++void skw_work_deinit(struct wiphy *wiphy);
++int skw_init_rps_map(struct skw_iface *iface);
++void skw_work_resume(struct wiphy *wiphy);
++
++#ifdef CONFIG_SWT6621S_GKI_DRV
++void skw_call_rcu(void *skw, struct rcu_head *head, rcu_callback_t func);
++#endif
++
++#endif
+diff --git a/drivers/skw6621s/swt6621s_wifi/trace.c b/drivers/skw6621s/swt6621s_wifi/trace.c
+new file mode 100755
+index 0000000..a460494
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/trace.c
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: GPL-2.0
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#include <linux/module.h>
++
++#ifndef __CHECKER__
++#include <linux/ieee80211.h>
++#include <linux/nl80211.h>
++#include <net/cfg80211.h>
++
++#define CREATE_TRACE_POINTS
++#include "trace.h"
++
++#endif
+diff --git a/drivers/skw6621s/swt6621s_wifi/trace.h b/drivers/skw6621s/swt6621s_wifi/trace.h
+new file mode 100755
+index 0000000..21ecd8a
+--- /dev/null
++++ b/drivers/skw6621s/swt6621s_wifi/trace.h
+@@ -0,0 +1,684 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/******************************************************************************
++ *
++ * Copyright (C) 2020 SeekWave Technology Co.,Ltd.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ ******************************************************************************/
++
++#if !defined(__SKW_TRACE_H__) || defined(TRACE_HEADER_MULTI_READ)
++#define __SKW_TRACE_H__
++
++#include <linux/tracepoint.h>
++#include <linux/etherdevice.h>
++#include <linux/version.h>
++
++#include "skw_rx.h"
++#include "skw_msg.h"
++
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM skwifi
++
++TRACE_EVENT(skw_tx_add_credit,
++	    TP_PROTO(int mac, int cred),
++	    TP_ARGS(mac, cred),
++
++	    TP_STRUCT__entry(
++	    __field(int, mac)
++	    __field(int, cred)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->mac = mac;
++	    __entry->cred = cred;
++	    ),
++
++	    TP_printk("mac: %d, credit: %d", __entry->mac, __entry->cred)
++);
++
++TRACE_EVENT(skw_tx_xmit,
++	    TP_PROTO(u8 *mac, int peer_idx, int ip_prot, int fix_rate,
++		     int do_csum, int tid, int qlen),
++	    TP_ARGS(mac, peer_idx, ip_prot, fix_rate, do_csum, tid, qlen),
++	    TP_STRUCT__entry(
++	    __array(u8, dest, ETH_ALEN)
++	    __field(int, peer_idx)
++	    __field(int, ip_prot)
++	    __field(int, fix_rate)
++	    __field(int, do_csum)
++	    __field(int, tid)
++	    __field(int, qlen)
++	    ),
++
++	    TP_fast_assign(
++	    memcpy(__entry->dest, mac, ETH_ALEN);
++	    __entry->peer_idx = peer_idx;
++	    __entry->ip_prot = ip_prot;
++	    __entry->fix_rate = fix_rate;
++	    __entry->do_csum = do_csum;
++	    __entry->tid = tid;
++	    __entry->qlen = qlen;
++	    ),
++
++	    TP_printk("dest: %pM, peer: %d, ip_prot: %d, fix rate: %d, csum: %d, queue[%d]: %d",
++		      __entry->dest, __entry->peer_idx, __entry->ip_prot,
++		      __entry->fix_rate, __entry->do_csum,
++		      __entry->tid, __entry->qlen)
++);
++
++TRACE_EVENT(skw_tx_info,
++	    TP_PROTO(int mac, int ac, int cred, int tx_count, int qlen, int pending_qlen),
++	    TP_ARGS(mac, ac, cred, tx_count, qlen, pending_qlen),
++
++	    TP_STRUCT__entry(
++	    __field(int, mac)
++	    __field(int, ac)
++	    __field(int, cred)
++	    __field(int, tx_count)
++	    __field(int, qlen)
++		__field(int, pending_qlen)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->mac = mac;
++	    __entry->ac = ac;
++	    __entry->cred = cred;
++	    __entry->tx_count = tx_count;
++	    __entry->qlen = qlen;
++		__entry->pending_qlen = pending_qlen;
++	    ),
++
++	    TP_printk("mac: %d, ac: %d, credit: %d, qlen: %d, tx count: %d pending_qlen:%d",
++		      __entry->mac, __entry->ac, __entry->cred,
++		      __entry->qlen, __entry->tx_count, __entry->pending_qlen)
++);
++
++TRACE_EVENT(skw_tx_exit_check,
++	TP_PROTO(int mac, int credit, int pending_qlen),
++	TP_ARGS(mac, credit, pending_qlen),
++
++	TP_STRUCT__entry(
++	__field(int, mac)
++	__field(int, credit)
++	__field(int, pending_qlen)
++	),
++
++	TP_fast_assign(
++	__entry->mac = mac;
++	__entry->credit = credit;
++	__entry->pending_qlen = pending_qlen;
++	),
++
++	TP_printk("mac: %d, credit: %d pending_qlen:%d",
++		  __entry->mac, __entry->credit, __entry->pending_qlen)
++);
++
++TRACE_EVENT(skw_txlp_tx_list,
++	    TP_PROTO(s8 *name, int id),
++	    TP_ARGS(name, id),
++
++	    TP_STRUCT__entry(
++	    __field(s8 *, name)
++		__field(int, id)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->name = name;
++		__entry->id = id;
++	    ),
++
++	    TP_printk("name: %s, iface id:%d",
++		      __entry->name, __entry->id)
++);
++
++TRACE_EVENT(skw_txlp_mac,
++	    TP_PROTO(int mac, int cred, int current_qlen, int base),
++	    TP_ARGS(mac, cred, current_qlen, base),
++
++	    TP_STRUCT__entry(
++		__field(int, mac)
++		__field(int, cred)
++		__field(int, current_qlen)
++		__field(int, base)
++	    ),
++
++	    TP_fast_assign(
++		__entry->mac = mac;
++		__entry->cred = cred;
++		__entry->current_qlen = current_qlen;
++		__entry->base = base;
++	    ),
++
++	    TP_printk("mac:%d, cred:%d, current_qlen:%d, base:%d",
++			  __entry->mac,
++			  __entry->cred,
++			  __entry->current_qlen,
++			  __entry->base)
++);
++
++TRACE_EVENT(skw_txq_prepare,
++	    TP_PROTO(s8 *name, int qlen),
++	    TP_ARGS(name, qlen),
++
++	    TP_STRUCT__entry(
++	    __field(s8 *, name)
++		__field(int, qlen)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->name = name;
++		__entry->qlen = qlen;
++	    ),
++
++	    TP_printk("name: %s, qlen:%d",
++		      __entry->name, __entry->qlen)
++);
++
++TRACE_EVENT(skw_get_credit,
++	    TP_PROTO(int credit, int mac),
++	    TP_ARGS(credit, mac),
++
++	    TP_STRUCT__entry(
++		__field(int, credit)
++		__field(int, mac)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->credit = credit;
++		__entry->mac = mac;
++	    ),
++
++	    TP_printk("credit: %d, mac:%d",
++		      __entry->credit, __entry->mac)
++);
++
++#if 0
++TRACE_EVENT(skw_tx_thread,
++	    TP_PROTO(u32 cred, u32 nents, u32 tx_data_len, u32 tx_buff_len, u8 *tx_ac, u32 *cached),
++	    TP_ARGS(cred, nents, tx_data_len, tx_buff_len, tx_ac, cached),
++
++	    TP_STRUCT__entry(
++	    __field(u32, cred)
++	    __field(u32, nents)
++	    __field(u32, tx_data_len)
++	    __field(u32, tx_buff_len)
++	    __array(u8, tx_ac, SKW_WMM_AC_MAX)
++	    __array(u32, cached, SKW_WMM_AC_MAX)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->cred = cred;
++	    __entry->nents = nents;
++	    __entry->tx_data_len = tx_data_len;
++	    __entry->tx_buff_len = tx_buff_len;
++	    memcpy(__entry->tx_ac, tx_ac, sizeof(u32) * SKW_WMM_AC_MAX);
++	    memcpy(__entry->cached, cached, sizeof(u32) * SKW_WMM_AC_MAX);
++	    ),
++
++	    TP_printk("creds: %d, tx: %d, len: %d/%d, VO[%d:%d] VI[%d:%d] BE[%d:%d] BK[%d:%d]",
++		      __entry->cred, __entry->nents,
++		      __entry->tx_data_len,
++		      __entry->tx_buff_len,
++
++		      __entry->tx_ac[SKW_WMM_AC_VO],
++		      __entry->cached[SKW_WMM_AC_VO],
++
++		      __entry->tx_ac[SKW_WMM_AC_VI],
++		      __entry->cached[SKW_WMM_AC_VI],
++
++		      __entry->tx_ac[SKW_WMM_AC_BE],
++		      __entry->cached[SKW_WMM_AC_BE],
++
++		      __entry->tx_ac[SKW_WMM_AC_BK],
++		      __entry->cached[SKW_WMM_AC_BK])
++);
++
++TRACE_EVENT(skw_tx_thread_ret,
++	    TP_PROTO(int ret, u32 pending_qlen, u32 ac_reset),
++	    TP_ARGS(ret, pending_qlen, ac_reset),
++
++	    TP_STRUCT__entry(
++	    __field(int, ret)
++	    __field(u32, pending_qlen)
++	    __field(u32, ac_reset)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->ret = ret;
++	    __entry->pending_qlen = pending_qlen;
++	    __entry->ac_reset = ac_reset;
++	    ),
++
++	    TP_printk("ret: %d, pending: %d, ac_reset: 0x%x",
++		      __entry->ret, __entry->pending_qlen, __entry->ac_reset)
++);
++
++#endif
++
++TRACE_EVENT(skw_tx_runing,
++	    TP_PROTO(int tx, int pending_qlen, long timeout, int keep_running),
++	    TP_ARGS(tx, pending_qlen, timeout, keep_running),
++
++	    TP_STRUCT__entry(
++	    __field(int, tx)
++	    __field(int, pending_qlen)
++	    __field(long, timeout)
++	    __field(int, keep_running)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->tx = tx;
++	    __entry->pending_qlen = pending_qlen;
++	    __entry->timeout = timeout;
++	    __entry->keep_running = keep_running;
++	    ),
++
++	    TP_printk("tx: %d, pending_qlen: %d, timeout: %ld, pending_qlen: %d",
++		      __entry->tx, __entry->pending_qlen,
++		      __entry->timeout, __entry->keep_running)
++);
++
++TRACE_EVENT(skw_tx_pcie_edma_free,
++	    TP_PROTO(u16 count),
++	    TP_ARGS(count),
++
++	    TP_STRUCT__entry(
++	    __field(u16, count)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->count = count;
++	    ),
++
++	    TP_printk("count: %u",
++		      __entry->count)
++);
++
++TRACE_EVENT(skw_rx_set_reorder_timer,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 seq, unsigned long rx_time, unsigned long timeout),
++	    TP_ARGS(inst, pid, tid, seq, rx_time, timeout),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, seq)
++	    __field(unsigned long, rx_time)
++	    __field(unsigned long, timeout)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->seq = seq;
++	    __entry->rx_time = rx_time;
++	    __entry->timeout = timeout;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, seq: %d, rx_time: %ld, timeout: %ld",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->seq,
++		      __entry->rx_time, __entry->timeout)
++);
++
++TRACE_EVENT(skw_rx_reorder_timeout,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 expired_sn),
++	    TP_ARGS(inst, pid, tid, expired_sn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, expired_sn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->expired_sn = expired_sn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, expired_sn: %d",
++		    __entry->inst, __entry->pid,
++		    __entry->tid, __entry->expired_sn)
++);
++
++TRACE_EVENT(skw_rx_expired_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 expired_sn),
++	    TP_ARGS(inst, pid, tid, expired_sn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, expired_sn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->expired_sn = expired_sn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, expired_sn: %d",
++		    __entry->inst, __entry->pid,
++		    __entry->tid, __entry->expired_sn)
++);
++
++TRACE_EVENT(skw_rx_data,
++	    TP_PROTO(u8 inst, u8 pid, u8 tid, u8 filter, u16 seq, u8 qos,
++		     u8 retry, u8 amsdu, u8 idx, u8 first, u8 last, bool fake_ack),
++	    TP_ARGS(inst, pid, tid, filter, seq, qos, retry, amsdu,
++		    idx, first, last, fake_ack),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u8, tid)
++	    __field(u8, filter)
++	    __field(u16, seq)
++	    __field(u8, qos)
++	    __field(u8, retry)
++	    __field(u8, amsdu)
++	    __field(u8, idx)
++	    __field(u8, first)
++	    __field(u8, last)
++	    __field(bool, fake_ack)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->filter = filter;
++	    __entry->seq = seq;
++	    __entry->qos = qos;
++	    __entry->retry = retry;
++	    __entry->amsdu = amsdu;
++	    __entry->idx = idx;
++	    __entry->first = first;
++	    __entry->last = last;
++	    __entry->fake_ack = fake_ack;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, filter: %d, seq: %d, qos: %d, "
++		      "retry: %d, amsdu: %d, idx: %d(F: %d, L: %d), fake ack: %d",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->filter,
++		      __entry->seq, __entry->qos,
++		      __entry->retry, __entry->amsdu,
++		      __entry->idx, __entry->first,
++		      __entry->last, __entry->fake_ack)
++);
++
++TRACE_EVENT(skw_rx_reorder,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 sn, u8 is_amsdu, u8 amsdu_idx,
++		     u16 win_size, u16 win_start, u32 stored_num,
++		     bool release, bool drop),
++	    TP_ARGS(inst, pid, tid, sn, is_amsdu, amsdu_idx, win_size,
++		    win_start, stored_num, release, drop),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, sn)
++	    __field(u8, is_amsdu)
++	    __field(u8, amsdu_idx)
++	    __field(u16, win_size)
++	    __field(u16, win_start)
++	    __field(u32, stored_num)
++	    __field(bool, release)
++	    __field(bool, drop)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->sn = sn;
++	    __entry->is_amsdu = is_amsdu;
++	    __entry->amsdu_idx = amsdu_idx;
++	    __entry->win_size = win_size;
++	    __entry->win_start = win_start;
++	    __entry->stored_num = stored_num;
++	    __entry->release = release;
++	    __entry->drop = drop;
++	    ),
++
++	    TP_printk("ssn: %d, sn: %d (%d, %d), release: %d, drop: %d, stored: %d, "
++		      "I: %d, P: %d, T: %d, win_sz: %d, amsdu: %d, idx: %d",
++		      __entry->win_start, __entry->sn,
++		      __entry->win_start % __entry->win_size,
++		      __entry->sn % __entry->win_size,
++		      __entry->release, __entry->drop,
++		      __entry->stored_num,
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->win_size,
++		      __entry->is_amsdu, __entry->amsdu_idx)
++);
++
++TRACE_EVENT(skw_rx_reorder_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 win_start, u16 seq, u16 index, u16 ssn, u16 left),
++	    TP_ARGS(inst, pid, tid, win_start, seq, index, ssn, left),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, win_start)
++	    __field(u16, seq)
++	    __field(u16, index)
++	    __field(u16, ssn)
++	    __field(u16, left)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->win_start = win_start;
++	    __entry->seq = seq;
++	    __entry->index = index;
++	    __entry->ssn = ssn;
++	    __entry->left = left;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, win start: %d, seq: %d (index: %d), ssn: %d, left: %d",
++		      __entry->inst, __entry->pid, __entry->tid, __entry->win_start,
++		      __entry->seq, __entry->index, __entry->ssn, __entry->left)
++);
++
++TRACE_EVENT(skw_rx_force_release,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 index, u16 ssn, u16 target, u16 left, int reason),
++	    TP_ARGS(inst, pid, tid, index, ssn, target, left, reason),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, index)
++	    __field(u16, ssn)
++	    __field(u16, target)
++	    __field(u16, left)
++	    __field(int, reason)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->index = index;
++	    __entry->ssn = ssn;
++	    __entry->target = target;
++	    __entry->left = left;
++	    __entry->reason = reason;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, seq: %d(index: %d), target: %d, left: %d, reason: %d",
++		    __entry->inst, __entry->pid, __entry->tid,
++		    __entry->ssn, __entry->index, __entry->target,
++		    __entry->left, __entry->reason)
++);
++
++TRACE_EVENT(skw_rx_handler_seq,
++	    TP_PROTO(u16 sn, u8 msdu_filter),
++	    TP_ARGS(sn, msdu_filter),
++
++	    TP_STRUCT__entry(
++	    __field(u16, sn)
++	    __field(u8, msdu_filter)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->sn = sn;
++	    __entry->msdu_filter = msdu_filter;
++	    ),
++
++	    TP_printk("seq: %d msdu_filter: %u",
++		    __entry->sn, __entry->msdu_filter)
++);
++
++TRACE_EVENT(skw_rx_add_ba,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 ssn, u16 buf_size),
++	    TP_ARGS(inst, pid, tid, ssn, buf_size),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, ssn)
++	    __field(u16, buf_size)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->ssn = ssn;
++	    __entry->buf_size = buf_size;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d,  ssn: %d, buf_size: %d",
++		      __entry->inst, __entry->pid, __entry->tid,
++		      __entry->ssn, __entry->buf_size)
++);
++
++TRACE_EVENT(skw_rx_update_ba,
++	    TP_PROTO(u8 inst, u8 pid, u16 tid, u16 ssn),
++	    TP_ARGS(inst, pid, tid, ssn),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, pid)
++	    __field(u16, tid)
++	    __field(u16, ssn)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->pid = pid;
++	    __entry->tid = tid;
++	    __entry->ssn = ssn;
++	    ),
++
++	    TP_printk("I: %d, P: %d, T: %d, ssn: %d",
++		      __entry->inst, __entry->pid,
++		      __entry->tid, __entry->ssn)
++);
++
++TRACE_EVENT(skw_rx_del_ba,
++	    TP_PROTO(u16 tid),
++	    TP_ARGS(tid),
++
++	    TP_STRUCT__entry(
++	    __field(u16, tid)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->tid = tid;
++	    ),
++
++	    TP_printk("del ba, tid: %d", __entry->tid)
++);
++
++TRACE_EVENT(skw_rx_irq,
++	    TP_PROTO(int nents, int idx,  int port, int len),
++	    TP_ARGS(nents, idx, port, len),
++
++	    TP_STRUCT__entry(
++	    __field(int, nents)
++	    __field(int, idx)
++	    __field(int, port)
++	    __field(int, len)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->nents = nents;
++	    __entry->idx = idx;
++	    __entry->port = port;
++	    __entry->len = len;
++	    ),
++
++	    TP_printk("nents: %d, idx: %d, port: %d, len: %d",
++		      __entry->nents, __entry->idx,
++		      __entry->port, __entry->len)
++);
++
++TRACE_EVENT(skw_msg_rx,
++	    TP_PROTO(u8 inst, u8 type, u16 id, u16 seq, u16 len),
++	    TP_ARGS(inst, type, id, seq, len),
++
++	    TP_STRUCT__entry(
++	    __field(u8, inst)
++	    __field(u8, type)
++	    __field(u16, id)
++	    __field(u16, seq)
++	    __field(u16, len)
++	    ),
++
++	    TP_fast_assign(
++	    __entry->inst = inst;
++	    __entry->type = type;
++	    __entry->id = id;
++	    __entry->seq = seq;
++	    __entry->len = len;
++	    ),
++
++	    TP_printk("inst: %d, type: %d, id: %d, seq: %d, len: %d",
++		      __entry->inst, __entry->type, __entry->id,
++		      __entry->seq, __entry->len)
++);
++
++TRACE_EVENT(skw_hw_adma_tx_done,
++	TP_PROTO(u8 num),
++	TP_ARGS(num),
++
++	TP_STRUCT__entry(__field(u8, num)),
++
++	TP_fast_assign(__entry->num = num;),
++
++	TP_printk("num:%d", __entry->num)
++);
++
++#endif
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH .
++
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE trace
++
++#include <trace/define_trace.h>
+-- 
+2.34.1
+

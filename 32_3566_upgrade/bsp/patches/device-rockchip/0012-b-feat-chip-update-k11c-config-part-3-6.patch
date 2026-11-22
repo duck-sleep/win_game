@@ -1,0 +1,79 @@
+From da8e57cb467508dba5e787de48e533f6ef4be075 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 13:46:27 +0800
+Subject: [PATCH 04/34] feat(chip): update k11c config (part 3/6)
+
+Origin: kickpi 12e04b12f67bb7c14389ec10cbbd77e0f22879c6
+---
+ .chips/rk3399/parameter.txt                         | 13 -------------
+ .chips/rk3399/rockchip_defconfig                    |  1 -
+ .../rk3399/rockchip_rk3399_evb_ind_lpddr4_defconfig |  1 -
+ .chips/rk3399/rockchip_rk3399_firefly_defconfig     |  1 -
+ .../rockchip_rk3399_sapphire_excavator_defconfig    |  1 -
+ ...rockchip_rk3399_sapphire_excavator_lp4_defconfig |  1 -
+ 6 files changed, 18 deletions(-)
+ delete mode 100644 device/rockchip/.chips/rk3399/parameter.txt
+ delete mode 120000 device/rockchip/.chips/rk3399/rockchip_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3399/rockchip_rk3399_evb_ind_lpddr4_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3399/rockchip_rk3399_firefly_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3399/rockchip_rk3399_sapphire_excavator_defconfig
+ delete mode 100644 device/rockchip/.chips/rk3399/rockchip_rk3399_sapphire_excavator_lp4_defconfig
+
+diff --git a/.chips/rk3399/parameter.txt b/.chips/rk3399/parameter.txt
+deleted file mode 100644
+index b34e81e..0000000
+--- a/.chips/rk3399/parameter.txt
++++ /dev/null
+@@ -1,13 +0,0 @@
+-FIRMWARE_VER: 1.0
+-MACHINE_MODEL: RK3399
+-MACHINE_ID: 007
+-MANUFACTURER: RK3399
+-MAGIC: 0x5041524B
+-ATAG: 0x00200800
+-MACHINE: 0xffffffff
+-CHECK_MASK: 0x80
+-PWR_HLD: 0,0,A,0,1
+-TYPE: GPT
+-GROW_ALIGN: 0
+-CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(trust),0x00002000@0x00008000(misc),0x00020000@0x0000a000(boot),0x00040000@0x0002a000(recovery),0x00010000@0x0006a000(backup),0x00c00000@0x0007a000(rootfs),0x00040000@0x00c7a000(oem),-@0x00d1a000(userdata:grow)
+-uuid:rootfs=614e0000-0000-4b53-8000-1d28000054a9
+diff --git a/.chips/rk3399/rockchip_defconfig b/.chips/rk3399/rockchip_defconfig
+deleted file mode 120000
+index ab2006e..0000000
+--- a/.chips/rk3399/rockchip_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-rockchip_rk3399_evb_ind_lpddr4_defconfig
+\ No newline at end of file
+diff --git a/.chips/rk3399/rockchip_rk3399_evb_ind_lpddr4_defconfig b/.chips/rk3399/rockchip_rk3399_evb_ind_lpddr4_defconfig
+deleted file mode 100644
+index be556f4..0000000
+--- a/.chips/rk3399/rockchip_rk3399_evb_ind_lpddr4_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-RK_KERNEL_DTS_NAME="rk3399-evb-ind-lpddr4-linux"
+diff --git a/.chips/rk3399/rockchip_rk3399_firefly_defconfig b/.chips/rk3399/rockchip_rk3399_firefly_defconfig
+deleted file mode 100644
+index fbef1e3..0000000
+--- a/.chips/rk3399/rockchip_rk3399_firefly_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-RK_KERNEL_DTS_NAME="rk3399-firefly-linux"
+diff --git a/.chips/rk3399/rockchip_rk3399_sapphire_excavator_defconfig b/.chips/rk3399/rockchip_rk3399_sapphire_excavator_defconfig
+deleted file mode 100644
+index f670a0d..0000000
+--- a/.chips/rk3399/rockchip_rk3399_sapphire_excavator_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-RK_KERNEL_DTS_NAME="rk3399-sapphire-excavator-linux"
+diff --git a/.chips/rk3399/rockchip_rk3399_sapphire_excavator_lp4_defconfig b/.chips/rk3399/rockchip_rk3399_sapphire_excavator_lp4_defconfig
+deleted file mode 100644
+index e1661b5..0000000
+--- a/.chips/rk3399/rockchip_rk3399_sapphire_excavator_lp4_defconfig
++++ /dev/null
+@@ -1 +0,0 @@
+-RK_KERNEL_DTS_NAME="rk3399-sapphire-excavator-lp4-linux"
+-- 
+2.34.1
+

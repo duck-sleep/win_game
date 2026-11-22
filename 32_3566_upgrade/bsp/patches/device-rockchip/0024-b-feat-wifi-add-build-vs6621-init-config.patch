@@ -1,0 +1,91 @@
+From d740b1261f1547244c523fbb4f1d41dc3bb57231 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:51:47 +0800
+Subject: [PATCH 16/34] feat(wifi): add build vs6621 & init config
+
+Origin: kickpi 337e1aca7003f7ca91a0caad0a09e96c587597bd
+---
+ common/scripts/post-wifibt.sh | 46 +++++++++++++++++++++++++++++------
+ 1 file changed, 38 insertions(+), 8 deletions(-)
+
+diff --git a/common/scripts/post-wifibt.sh b/common/scripts/post-wifibt.sh
+index 697f4e6..df72174 100755
+--- a/common/scripts/post-wifibt.sh
++++ b/common/scripts/post-wifibt.sh
+@@ -102,6 +102,11 @@ build_wifibt()
+ 				$KMAKE M=$RKWIFIBT_DIR/drivers/rtl8852be modules \
+ 					DRV_PATH=$RKWIFIBT_DIR/drivers/rtl8852be
+ 			fi
++		else
++			echo "building rtl8822cs sdio"
++			$KMAKE M=$RKWIFIBT_DIR/drivers/rtl88x2CS modules CONFIG_RTL8822CS=m
++			echo "building skw6621s sdio"
++			$KMAKE M=$RKWIFIBT_DIR/drivers/skw6621s modules CONFIG_SKW6621S=y
+ 		fi
+ 	fi
+ 
+@@ -289,10 +294,18 @@ build_wifibt()
+ 		$KMAKE M=$RKWIFIBT_DIR/drivers/rtl8852be modules
+ 	fi
+ 
+-	echo "building realtek bt drivers"
+-	$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_uart_driver
+-	if [ -n "$WIFI_USB" ]; then
+-		$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_usb_driver
++	if ! [[ "$RK_KERNEL_VERSION_RAW" = "6.1" ]];then
++		echo "building realtek bt drivers"
++		$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_uart_driver
++		if [ -n "$WIFI_USB" ]; then
++			$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_usb_driver
++		fi
++	else
++		echo "building kernel 6.1 realtek bt drivers"
++		$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_uart_driver_6.1
++		if [ -n "$WIFI_USB" ]; then
++			$KMAKE M=$RKWIFIBT_DIR/drivers/bluetooth_usb_driver
++		fi
+ 	fi
+ 
+ 	mkdir -p $TARGET_DIR/etc/ $TARGET_DIR/usr/bin/ \
+@@ -363,10 +376,13 @@ build_wifibt()
+ 	if [[ "$RK_WIFIBT_MODULES" = "ALL_AP" ]];then
+ 		echo "copy ap6xxx firmware/nvram to rootfs"
+ 		cp $RKWIFIBT_DIR/drivers/bcmdhd/*.ko $TARGET_DIR/lib/modules/
+-		cp $RKWIFIBT_DIR/firmware/broadcom/*/wifi/* \
+-			$TARGET_DIR/lib/firmware/ || true
+-		cp $RKWIFIBT_DIR/firmware/broadcom/*/bt/* \
+-			$TARGET_DIR/lib/firmware/ || true
++		# cp $RKWIFIBT_DIR/firmware/broadcom/*/wifi/* \
++		# 	$TARGET_DIR/lib/firmware/ || true
++		# cp $RKWIFIBT_DIR/firmware/broadcom/*/bt/* \
++		# 	$TARGET_DIR/lib/firmware/ || true
++
++		find $RKWIFIBT_DIR/firmware/broadcom -path "*/wifi/*" -type f -exec cp -f {} $TARGET_DIR/lib/firmware/ \;
++		find $RKWIFIBT_DIR/firmware/broadcom -path "*/bt/*" -type f -exec cp -f {} $TARGET_DIR/lib/firmware/ \;
+ 
+ 		#reatek
+ 		if ! [[ "$RK_KERNEL_VERSION_RAW" = "6.1" ]];then
+@@ -381,6 +397,20 @@ build_wifibt()
+ 				cp $RKWIFIBT_DIR/drivers/bluetooth_usb_driver/rtk_btusb.ko \
+ 					$TARGET_DIR/lib/modules/
+ 			fi
++		else
++			echo "kernel 6.1 copy realtek firmware/nvram to rootfs"
++			cp $RKWIFIBT_DIR/drivers/rtl*/*.ko $TARGET_DIR/lib/modules/
++			cp $RKWIFIBT_DIR/drivers/skw6621s/*/*.ko $TARGET_DIR/lib/modules/
++			cp -rf $RKWIFIBT_DIR/firmware/realtek/*/* $TARGET_DIR/lib/firmware/
++			cp -rf $RKWIFIBT_DIR/firmware/seekwave/*/* $TARGET_DIR/lib/firmware/
++			cp -rf $RKWIFIBT_DIR/firmware/realtek/*/* \
++				$TARGET_DIR/lib/firmware/rtlbt/
++			cp -f $RKWIFIBT_DIR/drivers/bluetooth_uart_driver_6.1/hci_uart.ko \
++				$TARGET_DIR/lib/modules/
++			if [ -n "$WIFI_USB" ]; then
++				cp $RKWIFIBT_DIR/drivers/bluetooth_usb_driver/rtk_btusb.ko \
++					$TARGET_DIR/lib/modules/
++			fi
+ 		fi
+ 	fi
+ 
+-- 
+2.34.1
+

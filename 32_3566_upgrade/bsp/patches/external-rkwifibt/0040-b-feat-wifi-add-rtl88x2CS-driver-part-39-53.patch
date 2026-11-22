@@ -1,0 +1,66 @@
+From 0ecc0f20d0a07781ec126381491667ba98dcc769 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Wed, 25 Mar 2026 17:48:01 +0800
+Subject: [PATCH 39/73] feat(wifi): add rtl88x2CS driver (part 39/53)
+
+Origin: kickpi e2b0eaf92399e18f9e8cc09fc9030cf390ed7a41
+---
+ drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.h | 46 ++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+ create mode 100755 external/rkwifibt/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.h
+
+diff --git a/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.h b/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.h
+new file mode 100755
+index 0000000..013a9a4
+--- /dev/null
++++ b/drivers/rtl88x2CS/hal/rtl8822c/hal8822c_fw.h
+@@ -0,0 +1,46 @@
++/******************************************************************************
++*
++* Copyright(c) 2012 - 2017 Realtek Corporation.
++*
++* This program is free software; you can redistribute it and/or modify it
++* under the terms of version 2 of the GNU General Public License as
++* published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful, but WITHOUT
++* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
++* more details.
++*
++******************************************************************************/
++
++#ifdef CONFIG_RTL8822C
++
++#ifndef _FW_HEADER_8822C_H
++#define _FW_HEADER_8822C_H
++
++#ifdef LOAD_FW_HEADER_FROM_DRIVER
++#if (defined(CONFIG_AP_WOWLAN) || (DM_ODM_SUPPORT_TYPE & (ODM_AP)))
++extern u8 array_mp_8822c_fw_ap[130696];
++extern u32 array_length_mp_8822c_fw_ap;
++#endif
++
++#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN)) || (DM_ODM_SUPPORT_TYPE & (ODM_CE))
++extern u8 array_mp_8822c_fw_nic[200696];
++extern u32 array_length_mp_8822c_fw_nic;
++
++#if !(DM_ODM_SUPPORT_TYPE & (ODM_CE))
++extern u8 array_mp_8822c_fw_spic[115208];
++extern u32 array_length_mp_8822c_fw_spic;
++#endif /*!(DM_ODM_SUPPORT_TYPE & (ODM_CE))*/
++
++#ifdef CONFIG_WOWLAN
++extern u8 array_mp_8822c_fw_wowlan[157112];
++extern u32 array_length_mp_8822c_fw_wowlan;
++#endif /*CONFIG_WOWLAN*/
++#endif
++#endif /* end of LOAD_FW_HEADER_FROM_DRIVER */
++
++#endif
++
++#endif
++
+-- 
+2.34.1
+

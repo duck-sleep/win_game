@@ -1,0 +1,29 @@
+From 99ba470a4766a6042a45f7edf4731d8e3a39383a Mon Sep 17 00:00:00 2001
+From: bsp-split <bsp-split@local>
+Date: Thu, 19 Nov 2026 14:33:29 -0500
+Subject: [PATCH] rkbin: rkbin
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Origin: rockchip sdk import 1f9d3a8 vs https://github.com/rockchip-linux/rkbin@8adadbca3201db2989a224cfd4953ef6b5eb4252, path rkbin (subset: RK3566 用到的 2 ini + 5 bin + tools/boot_merger + tools/mkimage)
+---
+ RKBOOT/RK3566MINIALL.ini | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/RKBOOT/RK3566MINIALL.ini b/RKBOOT/RK3566MINIALL.ini
+index 842559c..0c05617 100644
+--- a/RKBOOT/RK3566MINIALL.ini
++++ b/RKBOOT/RK3566MINIALL.ini
+@@ -17,7 +17,7 @@ LOADER2=FlashBoot
+ FlashData=bin/rk35/rk3566_ddr_1056MHz_v1.25.bin
+ FlashBoot=bin/rk35/rk356x_spl_v1.14.bin
+ [OUTPUT]
+-PATH=rk356x_loader_v1.25.114.bin
++PATH=rk356x_spl_loader_v1.25.114.bin
+ [SYSTEM]
+ NEWIDB=true
+ [FLAG]
+-- 
+2.34.1
+

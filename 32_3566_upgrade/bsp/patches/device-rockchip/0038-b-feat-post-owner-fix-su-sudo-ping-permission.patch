@@ -1,0 +1,25 @@
+From 73f3fc820a3109d773a22fcc66a90395f83bcc77 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Thu, 21 May 2026 09:20:42 +0800
+Subject: [PATCH 30/34] feat(post-owner): fix su sudo ping permission
+
+Origin: kickpi 092cddc7b22dbb1a1f1598b0c328484ccf0f4dd2
+---
+ common/scripts/post-owner.sh | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/common/scripts/post-owner.sh b/common/scripts/post-owner.sh
+index bd9f1cb..fd1953b 100755
+--- a/common/scripts/post-owner.sh
++++ b/common/scripts/post-owner.sh
+@@ -28,3 +28,7 @@ if [ -d home ]; then
+ 		chown -ch -R $ID:$ID home/$u
+ 	done
+ fi
++
++chmod 4755 usr/bin/su
++chmod 4755 usr/bin/sudo
++chmod 4755 usr/bin/ping
+-- 
+2.34.1
+

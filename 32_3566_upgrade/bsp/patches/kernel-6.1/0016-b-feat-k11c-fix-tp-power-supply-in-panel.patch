@@ -1,0 +1,104 @@
+From 5cf51699df41267cdbc6f6ed11b7afb6310acdb3 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Sat, 28 Mar 2026 10:28:26 +0800
+Subject: [PATCH 15/50] feat(k11c): fix tp power supply in panel
+
+Origin: kickpi 53d98bffc2047259d8d34bd00b484241c3fb9588
+---
+ .../boot/dts/rockchip/rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi | 4 ++++
+ .../rk3566-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi     | 4 ++++
+ .../rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi    | 4 ++++
+ .../rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi        | 4 ++++
+ 4 files changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi
+index a4e12bf..642d70b 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-lvds0-7-1024-600.dtsi
+@@ -58,6 +58,8 @@ lvds0_panel: lvds0-panel {
+ 		backlight = <&backlight_lvds0>;
+ 		reset-gpios = <&gpio3 RK_PA1 GPIO_ACTIVE_LOW>;
+ 
++		panel-name = "lvds0_panel";
++
+ 		reset-delay-ms = <20>;
+ 		enable-delay-ms = <20>;
+ 		prepare-delay-ms = <20>;
+@@ -159,6 +161,8 @@ gt9xx:gt9xx@5d {
+ 		status = "okay";
+ 		reg = <0x5d>;
+ 
++		panel-name = "lvds0_panel";
++
+ 		gtp_resolution_x = <1024>;
+ 		gtp_resolution_y = <600>;
+ 		gtp_int_tarigger = <1>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+index 2a6adb1..ff82f72 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-AT101DS40I.dtsi
+@@ -65,6 +65,8 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++		
+ 		backlight = <&backlight>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -364,6 +366,8 @@ gt9xx:gt9xx@5d {
+ 		status = "okay";
+ 		reg = <0x5d>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+ 		gtp_int_tarigger = <1>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+index 5d34a91..46875cd 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-10.1-800-1280-MX101BA1340.dtsi
+@@ -65,6 +65,8 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -359,6 +361,8 @@ gt9xx:gt9xx@5d {
+ 		status = "okay";
+ 		reg = <0x5d>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+ 		gtp_int_tarigger = <1>;
+diff --git a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+index 0fc318d..c0b3eb2 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3566-kickpi-lcd-mipi0-8-800-1280-MX080B2140.dtsi
+@@ -65,6 +65,8 @@ dsi0_panel: panel@0 {
+ 		compatible = "simple-panel-dsi";
+ 		reg = <0>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		backlight = <&backlight>;
+ 		power-supply = <&vcc3v3_lcd0_n>;
+ 
+@@ -357,6 +359,8 @@ gt9xx:gt9xx@5d {
+ 		status = "okay";
+ 		reg = <0x5d>;
+ 
++		panel-name = "dsi0_panel";
++
+ 		gtp_resolution_x = <800>;
+ 		gtp_resolution_y = <1280>;
+ 		gtp_int_tarigger = <1>;
+-- 
+2.34.1
+

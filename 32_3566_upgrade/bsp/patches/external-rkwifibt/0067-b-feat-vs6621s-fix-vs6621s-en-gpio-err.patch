@@ -1,0 +1,45 @@
+From fac2a96f8b7c31f89bec72474a728ac91a993aa9 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Tue, 28 Apr 2026 16:03:49 +0800
+Subject: [PATCH 66/73] feat(vs6621s): fix vs6621s en gpio err
+
+Origin: kickpi e6d91bb5111a9936bc58e104fba8478bd2157a80
+---
+ .../skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c    | 7 ++-----
+ .../skw6621s/seekwaveplatform_lite/skwutil/boot_config.h   | 2 +-
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c b/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
+index 5f293ac..8e5fb76 100755
+--- a/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
++++ b/drivers/skw6621s/seekwaveplatform_lite/sdio/skw_sdio_main.c
+@@ -1244,11 +1244,8 @@ static int skw_sdio_boot_cp(int boot_mode)
+ 
+ #if !defined(SKW_BOOT_MEMPOWERON)
+ 	if(!ret&&boot_mode==SKW_FIRST_BOOT) {
+-		if(skw_sdio->chip_en < 0){
+-			skw_sdio_err("chip_en:%d Invalid Pls check HW !!\n", skw_sdio->chip_en);
+-			ret = -1;
+-			goto FAIL;
+-		}
++		if(skw_sdio->chip_en < 0)
++			skw_sdio_warn("chip_en:%d Invalid Pls check HW !!\n", skw_sdio->chip_en);
+ 		ret = skw_sdio_host_check(skw_sdio);
+ 		ret |= skw_sdio_chk_cp_gpio_cfg();//check the cp gpio cfg
+ 		if (ret < 0)
+diff --git a/drivers/skw6621s/seekwaveplatform_lite/skwutil/boot_config.h b/drivers/skw6621s/seekwaveplatform_lite/skwutil/boot_config.h
+index 807efeb..45cb7d0 100755
+--- a/drivers/skw6621s/seekwaveplatform_lite/skwutil/boot_config.h
++++ b/drivers/skw6621s/seekwaveplatform_lite/skwutil/boot_config.h
+@@ -14,7 +14,7 @@
+ #define  HOST_WAKEUP_GPIO_IN 	10
+ #define  MODEM_WAKEUP_GPIO_OUT  3
+ #else
+-#define  MODEM_ENABLE_GPIO   	54
++#define  MODEM_ENABLE_GPIO   	-1
+ // #error "WIFI CHIP_EN Is Not Configured Pls Check The Config!!!"
+ #define  HOST_WAKEUP_GPIO_IN 	-1
+ #define  MODEM_WAKEUP_GPIO_OUT  -1
+-- 
+2.34.1
+

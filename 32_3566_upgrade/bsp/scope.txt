@@ -1,0 +1,65 @@
+# bsp 范围清单（scope.txt）
+# 参考树 = SDK HEAD a11afccc2 + 32_3566_upgrade C 层（k11c-target）。
+# 本清单定义「重建树」包含哪些目录；验收时重建树只含这些内容，
+# 编译产物与参考树做 L2 对比（parameter/.config/dtb/包列表/target 清单/分区表）。
+# 状态：analytical = 已用脚本引用+配置交叉核对；L2 = 待重建编译最终证明。
+
+## 包含（included）
+
+kernel-6.1/                    # 内核源码（analytical：build.sh kernel 目标）
+u-boot/                        # bootloader（analytical：build.sh uboot 目标）
+buildroot/                     # rootfs 构建系统（analytical：RK_ROOTFS_SYSTEM=buildroot）
+                               #   注意：dl/ 不进 patch（体积+上游可下载），编译时按 .config 的 URL 正常下载
+device/rockchip/               # 芯片/板级配置、build-hooks、打包脚本（analytical）
+external/mpp/                  # BR2_PACKAGE_ROCKCHIP_MPP=y，SITE=local（analytical）
+external/linux-rga/            # BR2_PACKAGE_ROCKCHIP_RGA=y，SITE=local（analytical）
+external/gstreamer-rockchip/   # BR2_PACKAGE_GSTREAMER1_ROCKCHIP=y，SITE=local（analytical）
+external/rktoolkit/            # BR2_PACKAGE_RKTOOLKIT=y，SITE=local（analytical）
+external/rkwifibt/             # post-wifibt.sh 编 WiFi/BT 驱动进 rootfs（analytical）
+external/recovery/             # RK_RECOVERY=y，recovery rootfs 的 RECOVERY_SITE=local（analytical）
+external/rkupdate/             # recovery 流程 RKUPDATE_SITE=local（analytical）
+rkbin/（子集，见下）            # DDR/BL31/BL32/loader 二进制 + ini + mkimage（analytical）
+tools/linux/Linux_Pack_Firmware/   # afptool、rkImageMaker 打包工具整目录（含 Image 软链）（analytical）
+prebuilts/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/   # 唯一用到的交叉工具链（analytical）
+
+### sdk-top（SDK 根目录散文件）
+.gitignore  Makefile  build.sh  rkflash.sh  kernel(软链→kernel-6.1)  Copyright_Statement.md
+common(软链，B 层加入)
+
+### rkbin 子集（RK3566 实际用到的文件，L1 只对这些比）
+RKBOOT/RK3566MINIALL.ini
+RKTRUST/RK3568TRUST.ini
+bin/rk35/rk3566_ddr_1056MHz_v1.25.bin
+bin/rk35/rk356x_usbplug_v1.17.bin
+bin/rk35/rk356x_spl_v1.14.bin
+bin/rk35/rk3568_bl31_v1.46.elf
+bin/rk35/rk3568_bl32_v2.16.bin
+tools/boot_merger
+tools/mkimage
+# 依据：RK3566MINIALL.ini 引用前 3 个 bin；RK3568TRUST.ini 引用 bl31/bl32；
+# mk-fitimage.sh 调 rkbin/tools/mkimage（RK_USE_FIT_IMG=y，编 kernel/boot.img）；
+# u-boot/make.sh pack_loader_image() 先 cd ${RKBIN} 再调 scripts/loader.sh，
+# loader.sh 的 ./tools/boot_merger 即 rkbin/tools/boot_merger（打 MiniLoaderAll.bin）。
+# 参考编译四个目标的日志里 rkbin/tools 只被执行了这两个（resource.img 用的是
+# kernel 自带 scripts/resource_tool；trust_merger/loaderimage 只在非 FIT 流程用，
+# 本配置 CONFIG_ROCKCHIP_FIT_IMAGE_PACK=y 不走）。
+# rk_sign_tool/setting.ini 只在 security 流程用（RK_SECURITY 未开），不含。
+
+## 排除（excluded）及理由
+
+debian/ ubuntu/ yocto/ rtos/     # 其它 rootfs 路线，RK_ROOTFS_SYSTEM=buildroot 用不到
+docs/ app/ hal/                  # 文档/示例应用/MCU HAL，不在 build.sh uboot/rootfs/firmware/updateimg 流程
+batch_build.sh                   # 批量编译入口，单板编译不用
+external/ 其余目录                # 对应 buildroot 包未启用（如 libmali：BR2_PACKAGE_ROCKCHIP_MALI is not set；
+                               #   camera_engine_rkaiq/rknpu2/rockit/uvc_app 等均未启用）；
+                               #   rkwifibt-app 未启用；rkscript 源码在 buildroot/package 内自带，不依赖 external/rkscript
+external/rkscript/             # 同上：rkscript.mk 无 external SITE，源码随 buildroot 包
+prebuilts/ 其余工具链            # 只用到 gcc-arm-10.3-2021.07 aarch64-none-linux-gnu（kernel/uboot 交叉编译）
+tools/ 其余目录                 # 只有 Linux_Pack_Firmware 的 afptool/rkImageMaker 被 mk-updateimg.sh/90-updateimg.sh 引用
+rkbin/ 其余文件                 # 其它芯片的 bin/ini 不被 RK3566 流程引用
+buildroot/dl/                  # 上游源码包，编译时按 .config URL 下载（不进 patch，不算秘密但体积大）
+编译产物                        # rockdev/ output/ 等一律不进 bsp（README 的 8 行分区表除外，那是配置）
+
+## 备注
+- yocto 专属的 external 目录存在性检查（30-rootfs.sh build_yocto_conf）不影响 buildroot 路线。
+- 本清单的最终证明 = 第7步验收：按此范围重建的树编出的固件与参考树 L2 全项一致。

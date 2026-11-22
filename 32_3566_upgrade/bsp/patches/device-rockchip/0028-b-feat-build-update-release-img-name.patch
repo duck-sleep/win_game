@@ -1,0 +1,44 @@
+From 6068fe15513362ab45a219a37883ccfa35f096b3 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 10 Apr 2026 10:02:46 +0800
+Subject: [PATCH 20/34] feat(build): update release img name
+
+Origin: kickpi 2c33c168953de21389a6898cf5fc714acf87252f
+---
+ common/scripts/mk-updateimg.sh | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/common/scripts/mk-updateimg.sh b/common/scripts/mk-updateimg.sh
+index e260bed..893d934 100755
+--- a/common/scripts/mk-updateimg.sh
++++ b/common/scripts/mk-updateimg.sh
+@@ -135,13 +135,23 @@ do_build_updateimg()
+     #DTS_DIR="kernel-6.1/arch/arm64/boot/dts/rockchip/${RK_KERNEL_DTS_NAME}.dtsi"
+     #LCD_NAME=`grep '^#include.*kickpi.*lcd-[^g][^p]' $DTS_DIR | grep -Ev "hdmi|typec" |  sed 's/^#include.*-lcd-//g' | sed 's/.dts.*//g'`
+     DATE=`date +%Y%m%d-%H%M%S`
+-    echo "${RK_FIRMWARE_DIR}/update-${RK_KERNEL_DTS_NAME/\//-}-$RK_ROOTFS_SYSTEM-$DATE.img"
+     rm -rf "${RK_FIRMWARE_DIR}"/update-*.img
++
++	if [ "$RK_ROOTFS_SYSTEM" = "debian" ] && [ "$RK_DEBIAN_VERSION" = "bookworm" ]; then
++		KICKPI_ROOTS="${RK_ROOTFS_SYSTEM}12"
++	elif [ "$RK_ROOTFS_SYSTEM" = "ubuntu" ] && [ "$RK_UBUNTU_VERSION" = "noble" ]; then
++		KICKPI_ROOTS="${RK_ROOTFS_SYSTEM}2404"
++	else
++		KICKPI_ROOTS="$RK_ROOTFS_SYSTEM"
++	fi
++
+     if [ "$MULTI_DTB" = "true" ]; then
+-    	ln -rsf "$IMAGE_DIR/update.img" "${RK_FIRMWARE_DIR}/update-${RK_KERNEL_DTS_NAME/\//-}-$RK_ROOTFS_SYSTEM-multi-$DATE.img"
++		KICKPI_IMG=update-${RK_KERNEL_DTS_NAME/\//-}-$KICKPI_ROOTS-multi-$DATE.img
+     else
+-    	ln -rsf "$IMAGE_DIR/update.img" "${RK_FIRMWARE_DIR}/update-${RK_KERNEL_DTS_NAME/\//-}-$RK_ROOTFS_SYSTEM-$DATE.img"
++		KICKPI_IMG=update-${RK_KERNEL_DTS_NAME/\//-}-$KICKPI_ROOTS-$DATE.img
+     fi
++	echo "${RK_FIRMWARE_DIR}/$KICKPI_IMG"
++	ln -rsf "$IMAGE_DIR/update.img" "${RK_FIRMWARE_DIR}/$KICKPI_IMG"
+ 
+ 	notice "\nRun 'make $EDIT_CMD' if you want to change the package-file.\n"
+ }
+-- 
+2.34.1
+

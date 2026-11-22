@@ -1,0 +1,55 @@
+From 88e55a16a1b8c9b7ada23a8d3869cf64d3681461 Mon Sep 17 00:00:00 2001
+From: huangcm <cmhuang@kickpi.com>
+Date: Fri, 15 May 2026 14:45:42 +0800
+Subject: [PATCH 27/34] feat(build): fix build wifibt & mk-image.sh err
+
+Origin: kickpi ddd7ca1854f001180ef1d04b01530d3bfba500a9
+---
+ common/scripts/post-debian.sh |  7 +++++++
+ common/scripts/post-wifibt.sh | 12 ++++++------
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/common/scripts/post-debian.sh b/common/scripts/post-debian.sh
+index 0937af0..d0c9acd 100755
+--- a/common/scripts/post-debian.sh
++++ b/common/scripts/post-debian.sh
+@@ -2,6 +2,13 @@
+ 
+ cd "$TARGET_DIR"
+ 
++if [ -f "usr/local/first_boot_flag" ]; then
++    echo "first_boot_flag skip run !"
++    exit 0
++else
++	echo "run post-debian.sh"
++fi
++
+ rm -rfv sha256sum*
+ 
+ if [ "$RK_DEBIAN_USER" != linaro ]; then
+diff --git a/common/scripts/post-wifibt.sh b/common/scripts/post-wifibt.sh
+index d120f99..bfeb25b 100755
+--- a/common/scripts/post-wifibt.sh
++++ b/common/scripts/post-wifibt.sh
+@@ -335,12 +335,12 @@ build_wifibt()
+ 	fi
+ 
+ 	if check_bt; then
+-		if ! grep -wq wireless-bluetooth "$RK_KERNEL_DTB"; then
+-			echo -e "\e[35m"
+-			echo "Missing wireless-bluetooth in $RK_KERNEL_DTS!"
+-			echo -e "\e[0m"
+-			exit 1
+-		fi
++		# if ! grep -wq wireless-bluetooth "$RK_KERNEL_DTB"; then
++		# 	echo -e "\e[35m"
++		# 	echo "Missing wireless-bluetooth in $RK_KERNEL_DTS!"
++		# 	echo -e "\e[0m"
++		# 	exit 1
++		# fi
+ 
+ 		echo "installing BT daemons"
+ 		ensure_tools "$TARGET_DIR/usr/bin/brcm_patchram_plus1" \
+-- 
+2.34.1
+
