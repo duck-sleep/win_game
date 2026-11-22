@@ -206,6 +206,17 @@ shadow-salt=1、elf-timestamp=4（busybox、libpython、libcrypto、python.o—�
 只剩哈希内容差，大小/.text 全同）、elf-build-id=3（88x2cs.ko、bcmdhd.ko、bcmdhd_pcie.ko）；
 **无法解释=0，L2_PASS**。chronyc/chronyd/System.map 三项与参考逐字节相同（消除，非豁免）。
 
+**Clean-room 复现（11-22，参考树已按用户指令清理后）**：VM 全新目录 `git clone`（GitHub）→ `fetch.sh`
+（真联网拉公开基线，11 分钟）→ `apply.sh`（2 分钟）→ select/uboot/rootfs/chrony 锚定/rootfs2/firmware/
+updateimg 全 rc=0（约 1h43m，零手改）。对第 8 轮 target 基线（3406 个普通文件 sha256 清单，
+`repro-baseline/target-sha-round8.txt`）做 `sha256sum -c`：2791 一致 + 615 不一致，逐类归因全为已知：
+567 = 每次编译必然变化的时间戳/哈希/盐/build-id 类（即上面的规则命中集）；43 = **绝对路径内嵌类**
+（40 个正是第 6 轮 bin-strings/bin-strseq 名单：__FILE__/调试串/patchelf 区随构建路径而变，
++ libstdc++-gdb.py 与 python config Makefile 两文本 + shadow 盐计数重叠）——本次复现故意用了不同目录
+（`repro-work` vs `bsp-work`），差异按预期回归。**System.map-6.1、chronyc、chronyd 三个锚定文件逐字节一致**。
+结论：同事在新机器全流程可复现出可烧写固件（L3 已验板）；若要产物与参考逐字节对照，须按 §5 口径
+同绝对路径重编（路径内嵌类差异无法用规则外的手段消除，也不该为此改源码）。
+
 ## 6. 体积
 
 check-l0 口径 bsp/ 总体积 **79 MB**（VM `du -sh` = 77 MiB），满足任务书「几十 MB」目标。

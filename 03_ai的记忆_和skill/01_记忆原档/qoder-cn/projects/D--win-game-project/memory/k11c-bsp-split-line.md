@@ -1,6 +1,6 @@
 ---
 name: k11c-bsp-split-line
-description: K11C BSP patch 拆分（32_3566_upgrade）：220 patch+25 blob 79MB；L0 白名单 2/2 PASS；第8轮=用户拍板三组处置（abbrev=9+SDK原署名/chrony SOURCE_DATE_EPOCH 锚定/build-id 窄规则），重编验收进行中
+description: K11C BSP patch 拆分（32_3566_upgrade）：三关全绿(L2无法解释=0)+已推GitHub+L3验板过(11-22)；VM已清(留sha256基线)，全新克隆重现验证进行中
 metadata:
   type: project
 ---
@@ -106,8 +106,21 @@ metadata:
 - **坑：apply 幂等重跑 rm -rf 撞 git auto-gc**（11-20 APPLY2_FAIL："Directory not empty"）——commit 触发的后台 repack
   与 rm -rf 抢 .git/objects。修：apply.sh 加 `git config gc.auto 0`（不改树内容/L1 判据）。
 - **待问用户**：（已解决，见上 11-21 拍板条）内核模块 .note.gnu.build-id → 批准了窄规则；git 元数据 → 消；chrony 常数 → 消成功。
-- VM 工作目录布局（第 8 轮收尾后）：bsp-work/{ref(=第8轮验收树),ref-orig(=原参考树,勿动),ref-clean,ref-out,
-  samepath,samepath2(全日志留档),bsp-final,deliver-scripts,test-settled,l0-final.log,l2-round8.log,
-  classify-l2.py 探针脚本}；bsp-accept=全新目录验收树。ref-r7/chrony-proof//tmp 探针/**/tmp/.sudoexec 已删**
-  （口令助手别留；下次要 sudo-over-ssh 按 skill vm-ssh-sudo-exec 重建）。
-- **剩余**：本地提交（bsp/ 全套 + 记忆镜像）→ **推 GitHub 前问用户** → L3 上板由用户做。
+- **Clean-room 复现完成（11-22，参考树已删后）**：GitHub clone→fetch(11m)→apply(2m)→四目标+chrony 锚定
+  全 rc=0（~1h43m 零手改）；对 round-8 sha 基线：2791 同 + 615 异 = 567 规则命中类（时间戳/哈希/盐/
+  build-id）+ 43 路径内嵌类（40 个=第 6 轮 bin-strings/bin-strseq 名单，因复现故意换目录回归，属预期）；
+  **System.map/chronyc/chronyd 逐字节一致**。口径：同事复现"能烧的固件"=现流程即可；
+  复现"与参考逐字节"=必须同绝对路径重编（README/REPORT §5 已写明）。REPORT §5 增补复现小节；
+  /tmp/.sudoexec 已再删；VM 209G used / 258G free（repro 树留着当第二轮基线）。
+  **进展（11-22 04:26~06:10）**：clone rc=0（1min）→ 首次 FETCH_FAIL：脚本把 clone 路径写成
+  `$H/repro/win_game`，实际 `git clone URL repro` 落在 `$H/repro/`——改 R=~/k11c/repro 重跑 →
+  **fetch rc=0（11min，真联网 15 基线全齐）/ apply rc=0（2min）/ PREP_DONE / select rc=0 /
+  uboot rc=0（53s）/ rootfs rc=0（1h25m）/ chrony-dirclean+epoch rc=0（config.h 实测
+  NTP_ERA_SPLIT=1795104796 锚定成功）/ rootfs2 rc=0（2min）/ firmware rc=0 / updateimg rc=0——
+  同事全流程首次全绿**。
+  只剩 update.img 指纹 + `sha256sum -c` 对照（判据：sha_FAILED≈567 且 chronyc/chronyd/System.map 在内为 OK）。
+  实测同事口径耗时：clone+fetch+apply ≈ 15 分钟；全链路 ≈ 2 小时。
+  宿主 D 盘空间尚未回收（等 VM 关机 + VMware 压缩）。用户 11-22 确认理解并采纳交付形态：
+  任意 Ubuntu 环境 clone 仓库 + bsp 脚本即可重建固件（逐字节一致需多做 README 8.5 锚定）。
+- GitHub 已推：a005f93 + bab39b2（bsp 全套+任务书）→ https://github.com/duck-sleep/win_game（main=bab39b2）。
+  首次 push 断连重试即成。**L3 用户已验板通过（11-22）**。

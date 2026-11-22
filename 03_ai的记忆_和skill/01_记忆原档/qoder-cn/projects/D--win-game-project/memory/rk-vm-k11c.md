@@ -31,6 +31,20 @@ buildroot 那段也没因内存出问题）。swap 2G 够用，用户没补。
 补充（2026-11-20）：磁盘已用 270G / 剩 196G（bsp-work 多棵全量树）。**python3 = 3.10.12**（crypt 模块可用；
 反序列化 buildroot 的 3.11 pyc 要用树里 host/bin/python3，系统 3.10 marshal 报 unknown type code）。
 
+补充（2026-11-22 磁盘清查，D 盘只剩 35G 时做的统计）：
+
+- **宿主侧目录**：rk 这台 VM = `D:\ubuntu_for_rk`（拆分 vmdk，当时 391G，含 16G `.vmem`=挂起内存交换）；
+  安卓 VM = `D:\ubuntu22.04`（953.9G，含 2×44G vmem）。D 盘其它大头：`02_baidu` 147.6G、
+  `$RECYCLE.BIN` 46.7G（全是 6~9 月 SNM970 旧物，非本任务删除）、`win_game_project` 18.2G（其中 22_burn_data 15G）。
+- **VM 盘只增不减**：guest 里删文件不会让宿主 vmdk 变小；这台不支持 fstrim（FITRIM Operation not permitted）。
+  回收宿主空间只能：VM **正常关机（别用挂起，挂起会再写 vmem）** → VMware 磁盘压缩/整理。
+  11-22 清理后 guest 内 185G used / **281G 空闲**，宿主 D 还没压、仍剩 35G。
+- **清理后的 VM 现状（11-22，L3 验板通过后）**：bsp-work 验收树全删（ref/ref-orig/ref-clean/bsp-accept/
+  test-settled/test-full/bsp-final），只留 `keep-evidence/`（第8轮 target 全量 sha256 清单+三关日志）、
+  `keep-dl/`（332M buildroot 包缓存）、ref-out、samepath* 日志与探针脚本。
+  用户树 `~/k11c/rk-linux6.1-2026091606` 现在 **88G**（含编译产物，别按旧账 23G 估）+ 两个 tarball 未动。
+- 用户口径：**空间清理类决策 = 我先只读统计（每目录大小/来源/删了能回多少/风险），列成表他拍板，我不先删**。
+
 ## 当前状态（2026-10-15 收工）
 
 - 依赖全装好（55 个官方包 + 补的 `gettext cpio file pkg-config libtool dpkg-dev`），`python` 按官方指向 2.7
